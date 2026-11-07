@@ -1,5 +1,13 @@
 # Contributing
 
+## Branching and releases
+
+- `main` is the stable, public branch. Every commit should pass `npm run check` and the host builds.
+- `development` is the integration branch for unstable work.
+- Feature branches start from `development` (`feat/...`, `fix/...`) and open PRs against `development`.
+- Merge `development` into `main` only at a milestone, then tag the merge (`beta-1`, ...).
+- Governance and release docs may land directly on `main`; everything else goes through a PR.
+
 ## Add a cabinet
 
 ```sh

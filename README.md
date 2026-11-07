@@ -129,6 +129,9 @@ See `packages/host-antigravity/README.md`.
 
 ## Pick up here
 
+The first milestone is **beta-1**. See `docs/roadmap.md` for scope, acceptance
+criteria, and what is deliberately out of scope.
+
 1. Wire the shell's `GameHost.submit` to the verifier API:
    - OpenCode: a small RPC in `packages/host-opencode/server.js`.
    - Antigravity: proxy through `server.mjs` and store the token in the
@@ -142,6 +145,7 @@ See `packages/host-antigravity/README.md`.
 ## Design docs
 
 - `docs/architecture.md` — layers, contract, determinism, verification.
+- `docs/roadmap.md` — beta-1 scope, acceptance criteria, and later milestones.
 - `docs/backend.md` — the cheap GCP plan: Firestore, Cloud Run, auth, boards,
   playerId recovery, arcade XP, costs.
 - `docs/hosts.md` — the two host models and their constraints.

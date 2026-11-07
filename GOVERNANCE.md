@@ -18,6 +18,9 @@
 
 ## Releases
 
+- `main` is stable; `development` is the integration branch for unstable work.
+- Feature branches start from `development`; PRs target `development`.
+- `development` merges into `main` at a milestone, and the merge is tagged (`beta-1`, ...).
 - Semver for the framework.
 - Each game carries its own version; `meta.version` gates replay compatibility.
 - The Await Arcade release bundles curated games. Runtime third-party games are out of
