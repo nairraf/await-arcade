@@ -133,10 +133,12 @@ The first milestone is **beta-1**. See `docs/roadmap.md` for scope, acceptance
 criteria, and what is deliberately out of scope.
 
 1. Wire the shell's `GameHost.submit` to the verifier API:
-   - OpenCode: a small RPC in `packages/host-opencode/server.js`.
-   - Antigravity: proxy through `server.mjs` and store the token in the
-     sidecar data directory.
-2. GitHub Device Flow + `playerId` recovery code (see `docs/backend.md`).
+   - OpenCode: a small RPC in `packages/host-opencode/server.js`; the server part
+     owns `auth.opencode.json` in the native state directory.
+   - Antigravity: proxy through `server.mjs`; store `auth.antigravity.json` in the
+     native state directory. The sidecar data directory is for non-secret cache.
+2. GitHub Device Flow + per-host persistent sessions; local guest mode; account
+   deletion (see `docs/backend.md`).
 3. Firestore + Cloud Run: replace the in-memory store in `packages/server`.
 4. Daily challenge and arcade XP/medals.
 5. Add the next cabinet from the skill; Missile Defense async PvP is the first
@@ -146,8 +148,8 @@ criteria, and what is deliberately out of scope.
 
 - `docs/architecture.md` — layers, contract, determinism, verification.
 - `docs/roadmap.md` — beta-1 scope, acceptance criteria, and later milestones.
-- `docs/backend.md` — the cheap GCP plan: Firestore, Cloud Run, auth, boards,
-  playerId recovery, arcade XP, costs.
+- `docs/backend.md` — the cheap GCP plan: Firestore, Cloud Run, GitHub identity,
+  per-host persistent sessions, boards, account deletion, arcade XP, costs.
 - `docs/hosts.md` — the two host models and their constraints.
 - `skills/await-arcade-game/` — the contributor skill.
 

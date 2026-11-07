@@ -2,7 +2,7 @@
 
 ## beta-1 — Hosted Arcade
 
-**Goal:** turn the local scaffold into a real cross-host arcade: durable identity,
+**Goal:** turn the local scaffold into a real cross-host arcade: GitHub identity,
 replay-verified leaderboards, a daily challenge, and both OpenCode and Antigravity
 talking to the backend.
 
@@ -10,8 +10,9 @@ talking to the backend.
 
 - **Host integration:** the shell submits and reads leaderboards through each host's
   server half. Local mode still works with no backend.
-- **Identity:** GitHub Device Flow, a durable `playerId`, a recovery code, and a
-  cross-host link. Tokens stay in the host server halves, never the renderer.
+- **Identity:** local guest mode, GitHub Device Flow for ranked play, per-host
+  persistent sessions (short-lived access token, 180-day rotating refresh token),
+  and account deletion. Tokens stay in the host server halves, never the renderer.
 - **Backend:** Firestore + Cloud Run, run issuance, replay verification, top boards,
   personal bests, rate limits, and a $5 budget alert.
 - **Daily challenge + arcade XP:** one server-issued seed per game per day, a daily
@@ -28,13 +29,16 @@ talking to the backend.
 
 **Acceptance criteria**
 
-- A new player can play anonymously, link GitHub, and recover the same `playerId`
-  on another machine with a recovery code.
+- A player can play locally without an account, sign in with GitHub once per host,
+  and keep the same `playerId` across hosts.
+- A host update or reinstall, or an Antigravity port change, does not require
+  re-authentication.
 - OpenCode and Antigravity submit a verified run and read the same top-50 board.
 - A forged replay or a client-reported score cannot enter a board.
 - The daily challenge uses one seed per game per UTC day and has its own board.
 - Arcade XP aggregates across games without one game dominating.
 - Tokens never enter the renderer or webview.
+- `DELETE /v1/me` removes the player, sessions, and board entries.
 - Firestore rules deny client writes; rate limits and a budget alert are configured.
 
 ## Later

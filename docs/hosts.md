@@ -30,8 +30,9 @@ onMount(() => {
 })
 ```
 
-Next: add an RPC contract (`server.js` + `src/rpc.ts`) and proxy leaderboard
-calls through the plugin server so the renderer never holds a token.
+Next: add an RPC contract (`server.js` + `src/rpc.ts`), keep `auth.opencode.json`
+in the native state directory, and proxy leaderboard calls through the plugin
+server so the renderer never holds a token.
 
 ## Antigravity
 
@@ -47,11 +48,12 @@ Model: a **sidecar** process plus a **web UI extension**.
   `app.css` at the package root so the server can serve them without a static
   directory handler.
 - The host assigns `ANTIGRAVITY_SIDECAR_WEB_PORT`; the UI origin can change
-  between runs. Do not rely on `localStorage` for a session token. Store it in
-  `ANTIGRAVITY_EXECUTABLE_DATA_DIR` from the sidecar server.
+  between runs. Do not rely on `localStorage` for a session token. Store auth in
+  the native per-OS state directory (`auth.antigravity.json`, `0600`); use
+  `ANTIGRAVITY_EXECUTABLE_DATA_DIR` for non-secret sidecar cache and queue state.
 
-Next: proxy the verifier API through `server.mjs`, store the player token in
-the sidecar data directory, and use `window.sidecar.agent.sendMessage` for
+Next: proxy the verifier API through `server.mjs`, keep the auth file in the
+native state directory, and use `window.sidecar.agent.sendMessage` for
 "brief me on my run" style actions.
 
 ## Shared shell
