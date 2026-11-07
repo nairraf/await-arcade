@@ -1,5 +1,7 @@
 # Contributing
 
+By participating, you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Branching and releases
 
 - `main` is the stable, public branch. Every commit should pass `npm run check` and the host builds.
