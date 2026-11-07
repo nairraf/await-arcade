@@ -140,7 +140,8 @@ criteria, and what is deliberately out of scope.
 2. GitHub Device Flow + per-host persistent sessions; local guest mode; account
    deletion (see `docs/backend.md`).
 3. Firestore + Cloud Run: replace the in-memory store in `packages/server`.
-4. Daily challenge and arcade XP/medals.
+4. Featured daily challenge (3 attempts, best of 3), unranked ghost practice,
+   and arcade XP/medals.
 5. Add the next cabinet from the skill; Missile Defense async PvP is the first
    multiplayer candidate.
 

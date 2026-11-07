@@ -32,8 +32,10 @@ own least-privilege service account.
 | `players/{playerId}` | random UUID | durable identity, private numeric `githubId`, display name, XP, status |
 | `providers/github:{numericId}` | provider ID | maps a GitHub account to a `playerId` |
 | `sessions/{tokenHash}` | token hash | access/refresh session, player, host, expiry, last use |
+| `challenges/{challengeId}` | challengeId | featured daily: game, mode, seed, anchor, attempts, window |
+| `challengeAttempts/{challengeId}:{playerId}` | composite | attempts used, best run and score |
 | `games/{gameId}` | gameId | catalog, modes, score type, version |
-| `runs/{runId}` | runId | issued seed, replay, verification result, TTL |
+| `runs/{runId}` | runId | issued seed/anchor, challenge, attempt, replay, verification, TTL |
 | `boards/{boardId}/entries/{playerId}` | boardId | public leaderboard entry |
 | `players/{playerId}/bests/{boardId}` | boardId | personal best |
 | `seasons/{seasonId}` | seasonId | optional season metadata |
@@ -55,6 +57,10 @@ POST /v1/auth/github/poll         { flowId } -> { status, accessToken?, refreshT
 POST /v1/auth/refresh             { refreshToken } -> { accessToken, refreshToken, player }
 POST /v1/auth/signout             revoke the current session
 GET  /v1/games                    catalog
+GET  /v1/challenges/today         featured daily descriptor + attempts left
+POST /v1/challenges/:id/runs      issue a run token (consumes an attempt)
+GET  /v1/challenges/:id/board     daily board
+GET  /v1/runs/:id/ghost           practice descriptor + replay for a verified run
 POST /v1/runs                     { gameId, modeId } -> { runId, seed, expiresAt }
 POST /v1/runs/:id/submit          { replay } -> { score, best, rank }
 GET  /v1/boards/:boardId          top 50 + your rank
@@ -161,9 +167,39 @@ That rewards breadth, not grinding one cabinet.
 
 ## Daily challenge
 
-`seed = HMAC(secret, gameId + ":" + YYYY-MM-DD)`. One attempt, or best of three,
-per player. Board `game:mode:daily:YYYY-MM-DD`. Same seed for everyone, replay
-verified, nearly free.
+One **featured game per day**. A server-side schedule picks the game/mode; a
+deterministic rotation is the fallback.
+
+`seed = HMAC(secret, gameId + ":" + YYYY-MM-DD)`. Minesweeper also gets a fixed
+**anchor** (the first-click cell) so the same seed produces the same board for
+everyone; the first replay input must be that anchor.
+
+- **3 attempts per player.** The attempt is consumed when the run token is issued
+  (`POST /v1/challenges/:id/runs`), not on submit. Abandoned or expired runs
+  still count; a fourth start is rejected. This avoids the infinite
+  cancel/restart loophole.
+- **Best of 3** is the player's daily board entry. A worse later attempt never
+  lowers it.
+- **Separate board:** `game:mode:daily:YYYY-MM-DD`. All-time boards keep using a
+  fresh random seed per run.
+- **Practice is possible once the seed is known.** Three attempts limit ranked
+  submissions, not local practice; for a casual arcade this is acceptable. If it
+  ever becomes a problem, per-player seeds are the alternative, but they remove
+  the shared daily board.
+
+## Ghost practice
+
+A verified high-score run can be replayed as **unranked practice**:
+
+- The board row exposes a **Practice** action that calls
+  `GET /v1/runs/:id/ghost`, which returns the run's seed, mode, anchor, and
+  (optionally) the replay. Public boards already expose no PII; the replay is an
+  input log, not personal data.
+- The client starts a practice run with the same seed/anchor. It is clearly
+  labeled **Practice**, writes no board entry, consumes no daily attempt, and
+  needs no submission.
+- Minesweeper first (same board); Neon Cycles can add a ghost trail later;
+  Missile Command's wave plan becomes the ghost when that cabinet lands.
 
 ## Cost
 
@@ -201,7 +237,7 @@ gcloud run deploy await-arcade-api \
 
 1. Cloud Run + Firestore + a GitHub OAuth app with Device Flow enabled.
 2. `minesweeper:expert:all`, submit + top 50 + personal best.
-3. Daily board + arcade XP.
+3. Featured daily challenge (3 attempts, best of 3) + ghost practice + arcade XP.
 4. Replay verification (already implemented in `packages/framework`).
 5. Game #2 on the same schema.
 6. GitHub Device Flow + per-host persistent sessions + `DELETE /v1/me`.
