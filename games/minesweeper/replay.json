@@ -1,0 +1,461 @@
+{
+  "version": 1,
+  "gameId": "minesweeper",
+  "gameVersion": "1.0.0",
+  "frameworkVersion": "0.1.0",
+  "modeId": "beginner",
+  "seed": 42,
+  "kind": "turn",
+  "durationMs": 20000,
+  "inputs": [
+    {
+      "tick": 0,
+      "input": {
+        "type": "reveal",
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "tick": 1,
+      "input": {
+        "type": "reveal",
+        "x": 4,
+        "y": 0
+      }
+    },
+    {
+      "tick": 2,
+      "input": {
+        "type": "reveal",
+        "x": 5,
+        "y": 0
+      }
+    },
+    {
+      "tick": 3,
+      "input": {
+        "type": "reveal",
+        "x": 6,
+        "y": 0
+      }
+    },
+    {
+      "tick": 4,
+      "input": {
+        "type": "reveal",
+        "x": 7,
+        "y": 0
+      }
+    },
+    {
+      "tick": 5,
+      "input": {
+        "type": "reveal",
+        "x": 2,
+        "y": 1
+      }
+    },
+    {
+      "tick": 6,
+      "input": {
+        "type": "reveal",
+        "x": 3,
+        "y": 1
+      }
+    },
+    {
+      "tick": 7,
+      "input": {
+        "type": "reveal",
+        "x": 5,
+        "y": 1
+      }
+    },
+    {
+      "tick": 8,
+      "input": {
+        "type": "reveal",
+        "x": 6,
+        "y": 1
+      }
+    },
+    {
+      "tick": 9,
+      "input": {
+        "type": "reveal",
+        "x": 7,
+        "y": 1
+      }
+    },
+    {
+      "tick": 10,
+      "input": {
+        "type": "reveal",
+        "x": 8,
+        "y": 1
+      }
+    },
+    {
+      "tick": 11,
+      "input": {
+        "type": "reveal",
+        "x": 3,
+        "y": 2
+      }
+    },
+    {
+      "tick": 12,
+      "input": {
+        "type": "reveal",
+        "x": 5,
+        "y": 2
+      }
+    },
+    {
+      "tick": 13,
+      "input": {
+        "type": "reveal",
+        "x": 6,
+        "y": 2
+      }
+    },
+    {
+      "tick": 14,
+      "input": {
+        "type": "reveal",
+        "x": 7,
+        "y": 2
+      }
+    },
+    {
+      "tick": 15,
+      "input": {
+        "type": "reveal",
+        "x": 8,
+        "y": 2
+      }
+    },
+    {
+      "tick": 16,
+      "input": {
+        "type": "reveal",
+        "x": 2,
+        "y": 3
+      }
+    },
+    {
+      "tick": 17,
+      "input": {
+        "type": "reveal",
+        "x": 3,
+        "y": 3
+      }
+    },
+    {
+      "tick": 18,
+      "input": {
+        "type": "reveal",
+        "x": 4,
+        "y": 3
+      }
+    },
+    {
+      "tick": 19,
+      "input": {
+        "type": "reveal",
+        "x": 5,
+        "y": 3
+      }
+    },
+    {
+      "tick": 20,
+      "input": {
+        "type": "reveal",
+        "x": 6,
+        "y": 3
+      }
+    },
+    {
+      "tick": 21,
+      "input": {
+        "type": "reveal",
+        "x": 7,
+        "y": 3
+      }
+    },
+    {
+      "tick": 22,
+      "input": {
+        "type": "reveal",
+        "x": 8,
+        "y": 3
+      }
+    },
+    {
+      "tick": 23,
+      "input": {
+        "type": "reveal",
+        "x": 2,
+        "y": 4
+      }
+    },
+    {
+      "tick": 24,
+      "input": {
+        "type": "reveal",
+        "x": 3,
+        "y": 4
+      }
+    },
+    {
+      "tick": 25,
+      "input": {
+        "type": "reveal",
+        "x": 4,
+        "y": 4
+      }
+    },
+    {
+      "tick": 26,
+      "input": {
+        "type": "reveal",
+        "x": 5,
+        "y": 4
+      }
+    },
+    {
+      "tick": 27,
+      "input": {
+        "type": "reveal",
+        "x": 6,
+        "y": 4
+      }
+    },
+    {
+      "tick": 28,
+      "input": {
+        "type": "reveal",
+        "x": 7,
+        "y": 4
+      }
+    },
+    {
+      "tick": 29,
+      "input": {
+        "type": "reveal",
+        "x": 8,
+        "y": 4
+      }
+    },
+    {
+      "tick": 30,
+      "input": {
+        "type": "reveal",
+        "x": 1,
+        "y": 5
+      }
+    },
+    {
+      "tick": 31,
+      "input": {
+        "type": "reveal",
+        "x": 2,
+        "y": 5
+      }
+    },
+    {
+      "tick": 32,
+      "input": {
+        "type": "reveal",
+        "x": 3,
+        "y": 5
+      }
+    },
+    {
+      "tick": 33,
+      "input": {
+        "type": "reveal",
+        "x": 4,
+        "y": 5
+      }
+    },
+    {
+      "tick": 34,
+      "input": {
+        "type": "reveal",
+        "x": 5,
+        "y": 5
+      }
+    },
+    {
+      "tick": 35,
+      "input": {
+        "type": "reveal",
+        "x": 6,
+        "y": 5
+      }
+    },
+    {
+      "tick": 36,
+      "input": {
+        "type": "reveal",
+        "x": 7,
+        "y": 5
+      }
+    },
+    {
+      "tick": 37,
+      "input": {
+        "type": "reveal",
+        "x": 0,
+        "y": 6
+      }
+    },
+    {
+      "tick": 38,
+      "input": {
+        "type": "reveal",
+        "x": 1,
+        "y": 6
+      }
+    },
+    {
+      "tick": 39,
+      "input": {
+        "type": "reveal",
+        "x": 2,
+        "y": 6
+      }
+    },
+    {
+      "tick": 40,
+      "input": {
+        "type": "reveal",
+        "x": 3,
+        "y": 6
+      }
+    },
+    {
+      "tick": 41,
+      "input": {
+        "type": "reveal",
+        "x": 4,
+        "y": 6
+      }
+    },
+    {
+      "tick": 42,
+      "input": {
+        "type": "reveal",
+        "x": 5,
+        "y": 6
+      }
+    },
+    {
+      "tick": 43,
+      "input": {
+        "type": "reveal",
+        "x": 6,
+        "y": 6
+      }
+    },
+    {
+      "tick": 44,
+      "input": {
+        "type": "reveal",
+        "x": 7,
+        "y": 6
+      }
+    },
+    {
+      "tick": 45,
+      "input": {
+        "type": "reveal",
+        "x": 8,
+        "y": 6
+      }
+    },
+    {
+      "tick": 46,
+      "input": {
+        "type": "reveal",
+        "x": 1,
+        "y": 7
+      }
+    },
+    {
+      "tick": 47,
+      "input": {
+        "type": "reveal",
+        "x": 3,
+        "y": 7
+      }
+    },
+    {
+      "tick": 48,
+      "input": {
+        "type": "reveal",
+        "x": 4,
+        "y": 7
+      }
+    },
+    {
+      "tick": 49,
+      "input": {
+        "type": "reveal",
+        "x": 5,
+        "y": 7
+      }
+    },
+    {
+      "tick": 50,
+      "input": {
+        "type": "reveal",
+        "x": 6,
+        "y": 7
+      }
+    },
+    {
+      "tick": 51,
+      "input": {
+        "type": "reveal",
+        "x": 7,
+        "y": 7
+      }
+    },
+    {
+      "tick": 52,
+      "input": {
+        "type": "reveal",
+        "x": 8,
+        "y": 7
+      }
+    },
+    {
+      "tick": 53,
+      "input": {
+        "type": "reveal",
+        "x": 0,
+        "y": 8
+      }
+    },
+    {
+      "tick": 54,
+      "input": {
+        "type": "reveal",
+        "x": 1,
+        "y": 8
+      }
+    },
+    {
+      "tick": 55,
+      "input": {
+        "type": "reveal",
+        "x": 2,
+        "y": 8
+      }
+    }
+  ],
+  "stateHash": "e599c3b9"
+}

@@ -1,0 +1,23 @@
+{
+  "name": "@await-arcade/host-opencode",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Await Arcade for OpenCode Desktop",
+  "exports": {
+    ".": "./server.js",
+    "./gui-experimental": "./gui-experimental.cjs"
+  },
+  "scripts": {
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@await-arcade/shell": "0.1.0",
+    "@opencode/plugin": "2.2.5"
+  },
+  "devDependencies": {
+    "solid-js": "^1.9.9",
+    "vite": "^7.3.0",
+    "vite-plugin-solid": "^2.11.0"
+  }
+}

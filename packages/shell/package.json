@@ -1,0 +1,17 @@
+{
+  "name": "@await-arcade/shell",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./registry": "./src/registry.generated.ts",
+    "./styles": "./src/styles.ts"
+  },
+  "dependencies": {
+    "@await-arcade/contract": "0.1.0",
+    "@await-arcade/framework": "0.1.0",
+    "@await-arcade/game-light-cycles": "1.0.0",
+    "@await-arcade/game-minesweeper": "1.0.0"
+  }
+}

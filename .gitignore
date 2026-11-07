@@ -1,0 +1,15 @@
+node_modules/
+dist/
+coverage/
+.DS_Store
+*.log
+
+# generated host bundles
+packages/host-opencode/gui-experimental.cjs
+packages/host-antigravity/index.html
+packages/host-antigravity/app.js
+packages/host-antigravity/app.css
+
+# local env
+.env
+.env.*

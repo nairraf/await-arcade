@@ -1,0 +1,200 @@
+import type { GameCore, Mode, Phase, Score, ScoreContext } from "@await-arcade/contract"
+import { createRng } from "@await-arcade/framework"
+
+export type CycleDirection = 0 | 1 | 2 | 3
+export type Turn = -1 | 0 | 1
+
+export interface CycleBike {
+  x: number
+  y: number
+  dir: CycleDirection
+  alive: boolean
+  trail: Set<number>
+}
+
+export interface CycleState {
+  readonly width: number
+  readonly height: number
+  readonly seed: number
+  readonly maxTicks: number
+  readonly modeId: string
+  bikes: CycleBike[]
+  phase: Phase
+  ticks: number
+}
+
+export interface CycleInput {
+  readonly player: 0 | 1
+  readonly turn: Turn
+}
+
+const DIRECTIONS: ReadonlyArray<readonly [number, number]> = [
+  [0, -1],
+  [1, 0],
+  [0, 1],
+  [-1, 0],
+]
+
+const WIDTH = 60
+const HEIGHT = 36
+const MAX_TICKS = 3600
+
+function turnDirection(direction: CycleDirection, turn: Turn): CycleDirection {
+  return (((direction + turn + 4) % 4) as CycleDirection)
+}
+
+function nextCell(state: CycleState, bike: CycleBike): { x: number; y: number; index: number } {
+  const delta = DIRECTIONS[bike.dir]!
+  const x = bike.x + delta[0]
+  const y = bike.y + delta[1]
+  return { x, y, index: y * state.width + x }
+}
+
+function occupied(state: CycleState, index: number): boolean {
+  return state.bikes.some((bike) => bike.trail.has(index))
+}
+
+function aiTurn(state: CycleState, player: 0 | 1): Turn {
+  const bike = state.bikes[player]
+  if (!bike || !bike.alive) return 0
+
+  const rng = createRng((state.seed ^ Math.imul(state.ticks + 1, 0x9e3779b1)) >>> 0)
+  const options: Turn[] = [-1, 0, 1]
+  const shuffled = rng.shuffle(options)
+
+  for (const turn of shuffled) {
+    const direction = turnDirection(bike.dir, turn)
+    const delta = DIRECTIONS[direction]!
+    const x = bike.x + delta[0]
+    const y = bike.y + delta[1]
+
+    if (x < 0 || y < 0 || x >= state.width || y >= state.height) continue
+    if (occupied(state, y * state.width + x)) continue
+    return turn
+  }
+
+  return 0
+}
+
+export const core: GameCore<CycleState, CycleInput> = {
+  create(seed, mode: Mode) {
+    const player0: CycleBike = {
+      x: 8,
+      y: 18,
+      dir: 1,
+      alive: true,
+      trail: new Set([18 * WIDTH + 8]),
+    }
+
+    const player1: CycleBike = {
+      x: 51,
+      y: 18,
+      dir: 3,
+      alive: true,
+      trail: new Set([18 * WIDTH + 51]),
+    }
+
+    return {
+      width: WIDTH,
+      height: HEIGHT,
+      seed,
+      maxTicks: MAX_TICKS,
+      modeId: mode.id,
+      bikes: [player0, player1],
+      phase: "playing",
+      ticks: 0,
+    }
+  },
+
+  step(state, inputs) {
+    if (state.phase !== "playing") return state
+
+    state.ticks += 1
+    const turns: Turn[] = [0, 0]
+
+    for (const input of inputs) {
+      if (input.player === 0 || input.player === 1) turns[input.player] = input.turn
+    }
+
+    // Player 1 is the AI in solo mode; both riders are human in a duel.
+    if (state.modeId !== "duel") turns[1] = aiTurn(state, 1)
+
+    for (let player = 0; player < state.bikes.length; player += 1) {
+      const bike = state.bikes[player]!
+      if (!bike.alive) continue
+      bike.dir = turnDirection(bike.dir, turns[player] ?? 0)
+    }
+
+    const next = state.bikes.map((bike) => (bike.alive ? nextCell(state, bike) : undefined))
+    const nextCounts = new Map<number, number>()
+    for (const cell of next) {
+      if (!cell) continue
+      nextCounts.set(cell.index, (nextCounts.get(cell.index) ?? 0) + 1)
+    }
+
+    for (let player = 0; player < state.bikes.length; player += 1) {
+      const bike = state.bikes[player]!
+      const cell = next[player]
+      if (!bike.alive || !cell) continue
+
+      const outside = cell.x < 0 || cell.y < 0 || cell.x >= state.width || cell.y >= state.height
+      const hitTrail = !outside && occupied(state, cell.index)
+      const headOn = nextCounts.get(cell.index)! > 1
+
+      if (outside || hitTrail || headOn) bike.alive = false
+    }
+
+    for (let player = 0; player < state.bikes.length; player += 1) {
+      const bike = state.bikes[player]!
+      const cell = next[player]
+      if (!bike.alive || !cell) continue
+      bike.x = cell.x
+      bike.y = cell.y
+      bike.trail.add(cell.index)
+    }
+
+    const human = state.bikes[0]!
+    const other = state.bikes[1]!
+
+    if (!human.alive && !other.alive) state.phase = "lost"
+    else if (!human.alive) state.phase = "lost"
+    else if (!other.alive) state.phase = "won"
+    else if (state.ticks >= state.maxTicks) state.phase = "won"
+
+    return state
+  },
+
+  phase(state) {
+    return state.phase
+  },
+
+  score(state, _context: ScoreContext): Score {
+    return {
+      value: state.ticks,
+      type: "higher",
+      won: state.phase === "won",
+      ranked: state.phase !== "playing",
+      detail: {
+        ticks: state.ticks,
+        trail: state.bikes[0]?.trail.size ?? 0,
+      },
+    }
+  },
+
+  serialize(state) {
+    return {
+      w: state.width,
+      h: state.height,
+      t: state.ticks,
+      p: state.phase,
+      m: state.modeId,
+      b: state.bikes.map((bike) => ({
+        x: bike.x,
+        y: bike.y,
+        d: bike.dir,
+        a: bike.alive,
+        t: Array.from(bike.trail).sort((left, right) => left - right),
+      })),
+    }
+  },
+}

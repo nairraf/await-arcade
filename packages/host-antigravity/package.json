@@ -1,0 +1,13 @@
+{
+  "name": "@await-arcade/host-antigravity",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Await Arcade sidecar for Antigravity",
+  "scripts": {
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@await-arcade/shell": "0.1.0"
+  }
+}

@@ -1,0 +1,12 @@
+# Code owners for the Await Arcade repository.
+* @nairraf
+
+# Framework
+/packages/contract/    @nairraf
+/packages/framework/   @nairraf
+/packages/shell/       @nairraf
+/packages/server/      @nairraf
+
+# Games
+/games/minesweeper/    @nairraf
+/games/light-cycles/   @nairraf

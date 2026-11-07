@@ -1,0 +1,41 @@
+{
+  "name": "await-arcade",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Await Arcade — a tiny cross-host arcade for OpenCode and Antigravity",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nairraf/await-arcade.git"
+  },
+  "homepage": "https://github.com/nairraf/await-arcade#readme",
+  "bugs": {
+    "url": "https://github.com/nairraf/await-arcade/issues"
+  },
+  "workspaces": [
+    "packages/*",
+    "games/*",
+    "tools/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "vite --config apps/web/vite.config.ts",
+    "build": "vite build --config apps/web/vite.config.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "typecheck:host": "tsc -p packages/host-opencode/tsconfig.json --noEmit",
+    "aa": "tsx tools/cli/src/cli.ts",
+    "sync": "tsx tools/cli/src/cli.ts sync",
+    "fixtures": "tsx scripts/make-fixtures.ts",
+    "check": "npm run typecheck && npm run typecheck:host && npm test && npm run aa -- check",
+    "build:hosts": "npm run build --workspace @await-arcade/host-opencode && npm run build --workspace @await-arcade/host-antigravity"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.0",
+    "vitest": "^3.2.0"
+  }
+}

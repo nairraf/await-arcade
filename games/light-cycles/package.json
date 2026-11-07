@@ -1,0 +1,16 @@
+{
+  "name": "@await-arcade/game-light-cycles",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./meta": "./src/meta.ts",
+    "./core": "./src/core.ts",
+    "./view": "./src/view.ts"
+  },
+  "dependencies": {
+    "@await-arcade/contract": "0.1.0",
+    "@await-arcade/framework": "0.1.0"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "@await-arcade/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "aa": "./src/cli.ts"
+  },
+  "scripts": {
+    "start": "tsx src/cli.ts"
+  }
+}
