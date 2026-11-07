@@ -10,6 +10,10 @@ packages/host-antigravity/index.html
 packages/host-antigravity/app.js
 packages/host-antigravity/app.css
 
+# private agent memory (symlinked from ~/ai/memory/projects/await-arcade)
+AGENTS.md
+.agents/
+
 # local env
 .env
 .env.*
