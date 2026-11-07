@@ -12,6 +12,7 @@ packages/host-antigravity/app.css
 
 # private agent memory (symlinked from ~/ai/memory/projects/await-arcade)
 AGENTS.md
+.agents
 .agents/
 
 # local env
