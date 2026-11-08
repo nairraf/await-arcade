@@ -67,8 +67,13 @@ function blockedCells(state: CycleState): Set<number> {
  * lookahead: it prefers open space over a move that survives one tick but
  * seals the rider into a pocket.
  */
-function freeSpace(state: CycleState, start: number, blocked: Set<number>): number {
-  if (blocked.has(start)) return 0
+function freeSpace(
+  state: CycleState,
+  start: number,
+  blocked: Set<number>,
+  allowBlockedStart = false,
+): number {
+  if (!allowBlockedStart && blocked.has(start)) return 0
 
   const seen = new Set<number>([start])
   const stack = [start]
@@ -114,10 +119,23 @@ function aiTurn(state: CycleState, player: 0 | 1): Turn {
     const index = y * state.width + x
     if (blocked.has(index)) continue
 
-    const space = freeSpace(state, index, blocked)
+    const aiSpace = freeSpace(state, index, blocked)
+    const after = new Set(blocked)
+    after.add(index)
+
+    // Shrink the player's escape area: flood from their head, allowing the
+    // head cell itself (it is part of their own trail).
+    const playerStart = target ? target.y * state.width + target.x : -1
+    const playerSpace =
+      target && playerStart >= 0 ? freeSpace(state, playerStart, after, true) : 0
     const distance = target ? Math.abs(x - target.x) + Math.abs(y - target.y) : 0
-    // Survival dominates; distance and jitter only break near-ties.
-    candidates.push({ turn, score: space * 8 - distance + rng.next() * 3 })
+
+    // Survival first, then cut off escape routes; distance only nudges.
+    const safety = aiSpace < 24 ? -400 : 0
+    candidates.push({
+      turn,
+      score: aiSpace * 4 - playerSpace * 3 - distance * 3 + safety + rng.next() * 2,
+    })
   }
 
   if (candidates.length === 0) return 0

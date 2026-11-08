@@ -7,7 +7,7 @@
   "seed": 123,
   "kind": "realtime",
   "tickRate": 12,
-  "durationMs": 1916.6666666666665,
+  "durationMs": 1833.3333333333333,
   "inputs": [],
-  "stateHash": "c08df4c0"
+  "stateHash": "aca64805"
 }

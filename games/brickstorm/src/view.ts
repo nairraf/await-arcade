@@ -56,8 +56,8 @@ export function view(ctx: ViewContext<BrickstormState, BrickstormInput>): GameVi
     else if (key === "arrowright" || key === "d") ctx.dispatch({ right: false })
   }
 
-  globalThis.addEventListener("keydown", onKeyDown)
-  globalThis.addEventListener("keyup", onKeyUp)
+  ctx.container.addEventListener("keydown", onKeyDown)
+  ctx.container.addEventListener("keyup", onKeyUp)
   ctx.container.addEventListener("pointermove", onPointerMove)
   ctx.container.addEventListener("pointerdown", onPointerDown)
   ctx.container.addEventListener("pointercancel", onPointerCancel)
@@ -178,8 +178,8 @@ export function view(ctx: ViewContext<BrickstormState, BrickstormInput>): GameVi
   return {
     render,
     destroy() {
-      globalThis.removeEventListener("keydown", onKeyDown)
-      globalThis.removeEventListener("keyup", onKeyUp)
+      ctx.container.removeEventListener("keydown", onKeyDown)
+      ctx.container.removeEventListener("keyup", onKeyUp)
       ctx.container.removeEventListener("pointermove", onPointerMove)
       ctx.container.removeEventListener("pointerdown", onPointerDown)
       ctx.container.removeEventListener("pointercancel", onPointerCancel)

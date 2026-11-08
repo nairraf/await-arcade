@@ -41,7 +41,7 @@ export function view(ctx: ViewContext<CycleState, CycleInput>): GameView<CycleSt
     turn(0, direction)
   }
 
-  globalThis.addEventListener("keydown", onKey)
+  ctx.container.addEventListener("keydown", onKey)
 
   const render = (state: CycleState): void => {
     const width = ctx.size().width
@@ -97,7 +97,7 @@ export function view(ctx: ViewContext<CycleState, CycleInput>): GameView<CycleSt
       render(state)
     },
     destroy() {
-      globalThis.removeEventListener("keydown", onKey)
+      ctx.container.removeEventListener("keydown", onKey)
     },
   }
 }

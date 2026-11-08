@@ -158,7 +158,7 @@ export function view(ctx: ViewContext<MergeState, MergeInput>): GameView<MergeSt
     event.preventDefault()
     move(direction)
   }
-  globalThis.addEventListener("keydown", onKey)
+  ctx.container.addEventListener("keydown", onKey)
 
   // Swipe for touch and trackpad users.
   let startX = 0
@@ -193,7 +193,7 @@ export function view(ctx: ViewContext<MergeState, MergeInput>): GameView<MergeSt
     },
 
     destroy() {
-      globalThis.removeEventListener("keydown", onKey)
+      ctx.container.removeEventListener("keydown", onKey)
       board.removeEventListener("pointerdown", onPointerDown)
       board.removeEventListener("pointerup", onPointerUp)
       wrap.remove()
