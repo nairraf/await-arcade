@@ -47,6 +47,27 @@ describe("neon cycles core", () => {
     expect(state.boostTicks[0]).toBeGreaterThan(0)
   })
 
+  it("escapes the player's spiral box", () => {
+    const inputs = [
+      { tick: 10, input: { player: 0 as const, turn: 1 as const } },
+      { tick: 16, input: { player: 0 as const, turn: -1 as const } },
+      { tick: 31, input: { player: 0 as const, turn: -1 as const } },
+      { tick: 36, input: { player: 0 as const, turn: 1 as const } },
+      { tick: 57, input: { player: 0 as const, turn: -1 as const } },
+    ]
+
+    const result = playRealtime(core, meta, {
+      seed: 3953743937,
+      mode: solo,
+      ticks: 77,
+      inputs,
+    })
+
+    expect(result.state.phase).toBe("lost")
+    expect(result.state.bikes[1]!.alive).toBe(true)
+    expect(result.verified.ok).toBe(true)
+  })
+
   it("grows the trail as the bikes move", () => {
     const result = playRealtime(core, meta, { seed: 1, mode: solo, ticks: 5, inputs: [] })
 
