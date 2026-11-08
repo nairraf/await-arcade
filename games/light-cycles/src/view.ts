@@ -69,6 +69,7 @@ export function view(ctx: ViewContext<CycleState, CycleInput>): GameView<CycleSt
     state.bikes.forEach((bike, player) => {
       const color = COLORS[player] ?? "#e6edf3"
       const dim = bike.alive ? 1 : 0.25
+      const boosted = (state.boostTicks[player] ?? 0) > 0
 
       canvas.globalAlpha = 0.28 * dim
       canvas.fillStyle = color
@@ -80,11 +81,18 @@ export function view(ctx: ViewContext<CycleState, CycleInput>): GameView<CycleSt
 
       canvas.globalAlpha = dim
       canvas.shadowColor = color
-      canvas.shadowBlur = 14
+      canvas.shadowBlur = boosted ? 26 : 14
       canvas.fillStyle = color
       canvas.fillRect(bike.x * cell, bike.y * cell, cell, cell)
       canvas.shadowBlur = 0
       canvas.globalAlpha = 1
+    })
+
+    state.boostTicks.forEach((ticks, player) => {
+      if (ticks <= 0) return
+      canvas.fillStyle = COLORS[player] ?? "#e6edf3"
+      canvas.font = "9px ui-monospace, Menlo, monospace"
+      canvas.fillText(`BOOST ${player === 0 ? "P1" : "AI"}`, 8, 12 + player * 12)
     })
 
     canvas.strokeStyle = "rgba(148, 163, 184, 0.22)"

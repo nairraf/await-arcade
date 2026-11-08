@@ -29,6 +29,24 @@ describe("neon cycles core", () => {
     expect(result.state.bikes[1]!.alive).toBe(true)
   })
 
+  it("moves two cells while boosted", () => {
+    const state = core.create(1, solo)
+    state.boostTicks[0] = 5
+    core.step(state, [], 1000 / 60)
+
+    // Player 0 starts at x=8 facing right.
+    expect(state.bikes[0]!.x).toBe(10)
+    expect(state.bikes[0]!.trail.size).toBe(3)
+  })
+
+  it("grants a catch-up boost to the trailing rider", () => {
+    const state = core.create(1, solo)
+    for (let index = 100; index < 108; index += 1) state.bikes[1]!.trail.add(index)
+
+    core.step(state, [], 1000 / 60)
+    expect(state.boostTicks[0]).toBeGreaterThan(0)
+  })
+
   it("grows the trail as the bikes move", () => {
     const result = playRealtime(core, meta, { seed: 1, mode: solo, ticks: 5, inputs: [] })
 

@@ -21,6 +21,8 @@ export interface CycleState {
   bikes: CycleBike[]
   phase: Phase
   ticks: number
+  boostTicks: number[]
+  boostCooldown: number[]
 }
 
 export interface CycleInput {
@@ -38,6 +40,9 @@ const DIRECTIONS: ReadonlyArray<readonly [number, number]> = [
 const WIDTH = 60
 const HEIGHT = 36
 const MAX_TICKS = 3600
+const BOOST_GAP = 6
+const BOOST_TICKS = 12
+const BOOST_COOLDOWN = 36
 
 function turnDirection(direction: CycleDirection, turn: Turn): CycleDirection {
   return (((direction + turn + 4) % 4) as CycleDirection)
@@ -213,6 +218,8 @@ export const core: GameCore<CycleState, CycleInput> = {
       bikes: [player0, player1],
       phase: "playing",
       ticks: 0,
+      boostTicks: [0, 0],
+      boostCooldown: [0, 0],
     }
   },
 
@@ -220,6 +227,7 @@ export const core: GameCore<CycleState, CycleInput> = {
     if (state.phase !== "playing") return state
 
     state.ticks += 1
+    const boosted = state.boostTicks.map((ticks) => ticks > 0)
     const turns: Turn[] = [0, 0]
 
     for (const input of inputs) {
@@ -263,6 +271,26 @@ export const core: GameCore<CycleState, CycleInput> = {
       bike.trail.add(cell.index)
     }
 
+    // A boosted rider takes a second step after the normal move. If that cell
+    // is blocked or outside, the boost simply fizzles for this tick.
+    for (let player = 0; player < state.bikes.length; player += 1) {
+      const bike = state.bikes[player]!
+      if (boosted[player] && bike.alive) {
+        const extra = nextCell(state, bike)
+        const outside =
+          extra.x < 0 ||
+          extra.y < 0 ||
+          extra.x >= state.width ||
+          extra.y >= state.height
+        if (!outside && !occupied(state, extra.index)) {
+          bike.x = extra.x
+          bike.y = extra.y
+          bike.trail.add(extra.index)
+        }
+      }
+      state.boostTicks[player] = Math.max(0, (state.boostTicks[player] ?? 0) - 1)
+    }
+
     const human = state.bikes[0]!
     const other = state.bikes[1]!
 
@@ -270,6 +298,29 @@ export const core: GameCore<CycleState, CycleInput> = {
     else if (!human.alive) state.phase = "lost"
     else if (!other.alive) state.phase = "won"
     else if (state.ticks >= state.maxTicks) state.phase = "won"
+
+    if (state.phase === "playing") {
+      for (let player = 0; player < state.boostCooldown.length; player += 1) {
+        state.boostCooldown[player] = Math.max(0, (state.boostCooldown[player] ?? 0) - 1)
+      }
+
+      const [trail0, trail1] = state.bikes.map((bike) => bike.trail.size)
+      if (
+        (trail0 ?? 0) + BOOST_GAP < (trail1 ?? 0) &&
+        (state.boostCooldown[0] ?? 0) === 0 &&
+        (state.boostTicks[0] ?? 0) === 0
+      ) {
+        state.boostTicks[0] = BOOST_TICKS
+        state.boostCooldown[0] = BOOST_COOLDOWN
+      } else if (
+        (trail1 ?? 0) + BOOST_GAP < (trail0 ?? 0) &&
+        (state.boostCooldown[1] ?? 0) === 0 &&
+        (state.boostTicks[1] ?? 0) === 0
+      ) {
+        state.boostTicks[1] = BOOST_TICKS
+        state.boostCooldown[1] = BOOST_COOLDOWN
+      }
+    }
 
     return state
   },
@@ -298,6 +349,8 @@ export const core: GameCore<CycleState, CycleInput> = {
       t: state.ticks,
       p: state.phase,
       m: state.modeId,
+      bo: state.boostTicks,
+      bc: state.boostCooldown,
       b: state.bikes.map((bike) => ({
         x: bike.x,
         y: bike.y,
