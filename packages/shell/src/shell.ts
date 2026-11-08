@@ -247,22 +247,43 @@ export function createArcade(options: ArcadeOptions): Arcade {
       link.target = "_blank"
       link.rel = "noreferrer"
 
+      const copy = authAction("Copy code", false, () => {
+        void globalThis.navigator?.clipboard
+          ?.writeText(flow.userCode)
+          .then(() => host.toast("Code copied"))
+          .catch(() => host.toast("Select the code above to copy it"))
+      })
+
+      const step = (
+        number: string,
+        title: string,
+        detail: string,
+        action: HTMLElement,
+      ): HTMLElement => {
+        const item = el("li", "arcade-auth-step")
+        const body = el("div", "arcade-auth-step-body")
+        body.append(
+          el("div", "arcade-auth-step-title", title),
+          el("div", "arcade-auth-step-detail", detail),
+          action,
+        )
+        item.append(el("span", "arcade-auth-step-num", number), body)
+        return item
+      }
+
+      const steps = el("ol", "arcade-auth-steps")
+      steps.append(
+        step("1", "Copy your code", "Use the button or select the code above.", copy),
+        step("2", "Open GitHub and enter it", "Authorize Await Arcade once.", link),
+      )
+
       card.replaceChildren(
         el("div", "arcade-overlay-kicker", "GITHUB DEVICE FLOW"),
         el("h2", "arcade-overlay-title", "Enter this code"),
         el("div", "arcade-auth-code", flow.userCode),
-        el("div", "arcade-overlay-detail", "Open GitHub and enter the code to authorize Await Arcade."),
-        link,
+        steps,
         status,
-        actionRow(
-          authAction("Copy code", false, () => {
-            void globalThis.navigator?.clipboard
-              ?.writeText(flow.userCode)
-              .then(() => host.toast("Code copied"))
-              .catch(() => undefined)
-          }),
-          authAction("Cancel", false, close),
-        ),
+        actionRow(authAction("Cancel", false, close)),
       )
 
       let interval = Math.max(1, flow.interval)

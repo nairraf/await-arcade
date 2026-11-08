@@ -827,6 +827,7 @@ export const styles = `
   font-weight: 700;
   letter-spacing: 0.18em;
   text-align: center;
+  user-select: all;
 }
 
 .arcade-auth-link {
@@ -834,6 +835,57 @@ export const styles = `
   font-size: 11px;
   text-align: center;
   word-break: break-all;
+}
+
+.arcade-auth-steps {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+
+.arcade-auth-step {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.arcade-auth-step-num {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid color-mix(in srgb, var(--arcade-accent) 38%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--arcade-accent) 16%, transparent);
+  color: var(--arcade-accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.arcade-auth-step-title {
+  color: var(--arcade-fg);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.arcade-auth-step-detail {
+  color: var(--arcade-muted);
+  font-size: 11px;
+}
+
+.arcade-auth-step .arcade-btn,
+.arcade-auth-step .arcade-auth-link {
+  margin-top: 6px;
+}
+
+.arcade-auth-step .arcade-auth-link {
+  display: inline-block;
+  text-align: left;
 }
 
 .arcade-foot {
