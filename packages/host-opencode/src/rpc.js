@@ -59,9 +59,11 @@ export const Api = define({
       output: { type: "object", additionalProperties: true },
     },
     authStatus: {
+      input: { type: "object", properties: {}, additionalProperties: false },
       output: { type: "object", additionalProperties: true },
     },
     authStart: {
+      input: { type: "object", properties: {}, additionalProperties: false },
       output: { type: "object", additionalProperties: true },
     },
     authPoll: {
@@ -76,9 +78,11 @@ export const Api = define({
       output: { type: "object", additionalProperties: true },
     },
     authSignOut: {
+      input: { type: "object", properties: {}, additionalProperties: false },
       output: { type: "object", additionalProperties: true },
     },
     deleteAccount: {
+      input: { type: "object", properties: {}, additionalProperties: false },
       output: { type: "object", additionalProperties: true },
     },
   },

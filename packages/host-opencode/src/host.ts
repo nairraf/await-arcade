@@ -60,11 +60,11 @@ export class OpenCodeHost extends LocalHost {
   }
 
   async authState(): Promise<AuthState> {
-    return (await this.client.rpc(Api).authStatus()) as AuthState
+    return (await this.client.rpc(Api).authStatus({})) as AuthState
   }
 
   async authStart(): Promise<DeviceFlow> {
-    return (await this.client.rpc(Api).authStart()) as DeviceFlow
+    return (await this.client.rpc(Api).authStart({})) as DeviceFlow
   }
 
   async authPoll(flowId: string): Promise<AuthPoll> {
@@ -72,10 +72,10 @@ export class OpenCodeHost extends LocalHost {
   }
 
   async signOut(): Promise<AuthState> {
-    return (await this.client.rpc(Api).authSignOut()) as AuthState
+    return (await this.client.rpc(Api).authSignOut({})) as AuthState
   }
 
   async deleteAccount(): Promise<AuthState> {
-    return (await this.client.rpc(Api).deleteAccount()) as AuthState
+    return (await this.client.rpc(Api).deleteAccount({})) as AuthState
   }
 }

@@ -68,6 +68,24 @@ function safeVerificationUri(value: string): string {
   return "https://github.com/login/device"
 }
 
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === "string" && error.length > 0) return error
+  if (typeof error === "object" && error !== null) {
+    const record = error as Record<string, unknown>
+    for (const key of ["message", "error", "reason", "defect", "cause"]) {
+      const value = record[key]
+      if (typeof value === "string" && value.length > 0) return value
+    }
+    try {
+      return JSON.stringify(error)
+    } catch {
+      return "Unknown error"
+    }
+  }
+  return String(error)
+}
+
 function hudCell(label: string, value: string): { root: HTMLElement; value: HTMLElement } {
   const root = el("div", "arcade-hud-cell")
   const valueNode = el("strong", "arcade-hud-value", value)
@@ -273,7 +291,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
         } catch (error) {
           if (timer) clearInterval(timer)
           timer = undefined
-          status.textContent = error instanceof Error ? error.message : String(error)
+          status.textContent = errorMessage(error)
         } finally {
           polling = false
         }
@@ -288,7 +306,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
         const flow = await host.authStart!()
         renderFlow(flow)
       } catch (error) {
-        renderSignedOut(error instanceof Error ? error.message : String(error))
+        renderSignedOut(errorMessage(error))
       }
     }
 
@@ -310,7 +328,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
                 renderSignedOut("Signed out. Guest scores stay local.")
               })
               .catch((error: unknown) => {
-                const message = error instanceof Error ? error.message : String(error)
+                const message = errorMessage(error)
                 if (authState?.signedIn) {
                   renderSignedIn(authState)
                   host.toast(message)
@@ -332,7 +350,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
                 renderSignedOut("Account deleted.")
               })
               .catch((error: unknown) => {
-                const message = error instanceof Error ? error.message : String(error)
+                const message = errorMessage(error)
                 if (authState?.signedIn) {
                   renderSignedIn(authState)
                   host.toast(message)
@@ -790,7 +808,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
           .catch((error: unknown) => {
             showGameOver(
               result,
-              { ok: false, reason: error instanceof Error ? error.message : String(error) },
+              { ok: false, reason: errorMessage(error) },
               previousBest,
             )
           })
@@ -892,7 +910,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
             "LEADERBOARD",
             "Offline",
             "—",
-            error instanceof Error ? error.message : String(error),
+            errorMessage(error),
             [closeButton],
           ),
         )
