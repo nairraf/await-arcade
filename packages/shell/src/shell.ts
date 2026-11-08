@@ -758,10 +758,12 @@ export function createArcade(options: ArcadeOptions): Arcade {
       games.find((candidate) => candidate.meta.id === (daily?.gameId ?? gameId)) ??
       games.find((candidate) => candidate.meta.id === boardsGame) ??
       games[0]!
+    const rankedModes = entry.meta.modes.filter((candidate) => candidate.ranked !== false)
+    const availableModes = rankedModes.length > 0 ? rankedModes : entry.meta.modes
     const mode =
-      entry.meta.modes.find((candidate) => candidate.id === (daily?.modeId ?? modeId)) ??
-      entry.meta.modes.find((candidate) => candidate.id === boardsMode) ??
-      entry.meta.modes[0]!
+      availableModes.find((candidate) => candidate.id === (daily?.modeId ?? modeId)) ??
+      availableModes.find((candidate) => candidate.id === boardsMode) ??
+      availableModes[0]!
     boardsGame = entry.meta.id
     boardsMode = mode.id
 
@@ -840,7 +842,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
     const modeSelect = el("select", "arcade-select")
     modeSelect.setAttribute("aria-label", "Mode")
-    for (const candidate of entry.meta.modes) {
+    for (const candidate of availableModes) {
       const option = el("option", "", candidate.title)
       option.value = candidate.id
       modeSelect.append(option)
@@ -849,7 +851,9 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
     gameSelect.addEventListener("change", () => {
       const next = games.find((candidate) => candidate.meta.id === gameSelect.value)
-      void showBoards(gameSelect.value, next?.meta.modes[0]?.id)
+      const nextRanked = next?.meta.modes.filter((candidate) => candidate.ranked !== false)
+      const nextModeId = (nextRanked && nextRanked.length > 0 ? nextRanked[0] : next?.meta.modes[0])?.id
+      void showBoards(gameSelect.value, nextModeId)
     })
     modeSelect.addEventListener("change", () => {
       void showBoards(entry.meta.id, modeSelect.value)
@@ -1001,6 +1005,10 @@ export function createArcade(options: ArcadeOptions): Arcade {
     main.replaceChildren()
     main.append(el("div", "arcade-empty", "Starting…"))
 
+    const mode = entry.meta.modes.find((item) => item.id === modeId) ?? entry.meta.modes[0]
+    if (!mode) return
+
+    const isRankedMode = mode.ranked !== false
     let session: {
       seed: number
       runId?: string
@@ -1022,9 +1030,11 @@ export function createArcade(options: ArcadeOptions): Arcade {
           attemptsLeft: started.attemptsLeft,
           ...(anchor ? { anchor } : {}),
         }
+      } else if (!isRankedMode) {
+        session = { seed: randomSeed() }
       } else {
         session = host.start
-          ? await host.start({ gameId: entry.meta.id, modeId })
+          ? await host.start({ gameId: entry.meta.id, modeId: mode.id })
           : { seed: randomSeed() }
       }
     } catch (error) {
@@ -1045,11 +1055,8 @@ export function createArcade(options: ArcadeOptions): Arcade {
     if (generation !== playGeneration) return
     main.replaceChildren()
 
-    const mode = entry.meta.modes.find((item) => item.id === modeId) ?? entry.meta.modes[0]
-    if (!mode) return
-
     const isDaily = Boolean(daily)
-    const best = isDaily ? undefined : host.best(entry.meta.id, mode.id)
+    const best = isDaily || !isRankedMode ? undefined : host.best(entry.meta.id, mode.id)
     const bestLabel = isDaily ? "Daily best" : scoreLabel(entry.meta)
     const section = el("section", "arcade-game")
     section.style.setProperty("--game-accent-dark", entry.meta.theme?.accent ?? "#22d3ee")
@@ -1060,7 +1067,9 @@ export function createArcade(options: ArcadeOptions): Arcade {
     const cabinetBest = el(
       "div",
       "arcade-cabinet-score",
-      `${bestLabel}: ${best ? formatScore(best, entry.meta) : "—"}`,
+      !isRankedMode
+        ? "Unranked"
+        : `${bestLabel}: ${best ? formatScore(best, entry.meta) : "—"}`,
     )
     cabinet.append(
       el("span", "arcade-cabinet-badge", "AA"),
@@ -1120,7 +1129,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
     actions.append(modeSelect, pause, restart)
     let boardButton: HTMLButtonElement | undefined
-    if (host.board || (isDaily && host.dailyBoard)) {
+    if (isRankedMode && (host.board || (isDaily && host.dailyBoard))) {
       boardButton = el("button", "arcade-btn", "Board")
       boardButton.type = "button"
       boardButton.addEventListener("click", () => {
@@ -1146,7 +1155,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     const hud = el("div", "arcade-hud")
     hud.append(score.root, bestCell.root, time.root)
 
-    if (host.loadBest && !isDaily) {
+    if (host.loadBest && !isDaily && isRankedMode) {
       void host
         .loadBest(entry.meta.id, mode.id)
         .then((remote) => {
@@ -1400,7 +1409,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
       onEnd(result) {
         runInProgress = false
         if (entry.meta.kind === "turn") time.value.textContent = result.score.won ? "Won" : "Lost"
-        const previousBest = isDaily ? undefined : host.best(entry.meta.id, mode.id)
+        const previousBest = isDaily || !isRankedMode ? undefined : host.best(entry.meta.id, mode.id)
         void host
           .submit(result)
           .then((submit) => showGameOver(result, submit, previousBest))

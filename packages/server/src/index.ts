@@ -523,15 +523,15 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           return
         }
 
-        const run = await store.getRun(runId)
-        if (!run) {
-          json(res, 404, { error: "run not found" }, false)
+        const ip = clientIp(req, trustProxy)
+        if (!allowSubmitIp(ip)) {
+          json(res, 429, { error: "too many submissions" }, false)
           return
         }
 
-        const ip = clientIp(req, trustProxy)
-        if (!allowSubmitIp(ip) || !allowSubmitPlayer(run.playerId)) {
-          json(res, 429, { error: "too many submissions" }, false)
+        const run = await store.getRun(runId)
+        if (!run) {
+          json(res, 404, { error: "run not found" }, false)
           return
         }
 
@@ -539,6 +539,11 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
         if (requireAuth && !identity) throw new AuthError(401, "sign in required")
         if (identity && identity.player.playerId !== run.playerId) {
           throw new AuthError(403, "this run belongs to another player")
+        }
+
+        if (!allowSubmitPlayer(run.playerId)) {
+          json(res, 429, { error: "too many submissions" }, false)
+          return
         }
 
         if (Date.now() > run.expiresAt) {

@@ -594,4 +594,45 @@ describe("daily challenge", () => {
       await local.close()
     }
   })
+
+  it("enforces submit rate limits by IP before getRun and by player after auth", async () => {
+    let getRunCalls = 0
+    const store = new MemoryStore()
+    const originalGetRun = store.getRun.bind(store)
+    store.getRun = async (id: string) => {
+      getRunCalls += 1
+      return originalGetRun(id)
+    }
+
+    const local = createArcadeServer({
+      store,
+      rateLimits: { submitsPerMin: 2 },
+    })
+    const port = await local.listen(0)
+    const root = `http://127.0.0.1:${port}`
+    try {
+      // 1. Submit IP rate-limit triggers before store.getRun
+      const submitBogus = () =>
+        fetch(`${root}/v1/runs/bogus-run-id/submit`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ replay: {} }),
+        })
+
+      const res1 = await submitBogus()
+      expect(res1.status).toBe(404)
+      expect(getRunCalls).toBe(1)
+
+      const res2 = await submitBogus()
+      expect(res2.status).toBe(404)
+      expect(getRunCalls).toBe(2)
+
+      const res3 = await submitBogus()
+      expect(res3.status).toBe(429)
+      // getRunCalls must NOT increase because allowSubmitIp rejected the request before store.getRun
+      expect(getRunCalls).toBe(2)
+    } finally {
+      await local.close()
+    }
+  })
 })
