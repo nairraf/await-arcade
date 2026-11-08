@@ -31,11 +31,12 @@ onMount(() => {
 ```
 
 Remote bests and the leaderboard are wired: `GameHost.loadBest` refreshes the
-cached best, and `GameHost.board` feeds the cabinet's Board overlay. Auth is
-wired too: the server part owns `auth.opencode.json` in the native state
-directory, exposes `authStatus`/`authStart`/`authPoll`/`authSignOut`, and the
-shell renders the GitHub device-code panel. Use the RPC methods for account
-actions.
+cached best, `GameHost.board` feeds both the cabinet's Board overlay and the
+top-bar Boards hub, and `GameHost.playerBest` supplies the player's rank and
+entry for the hub. Auth is wired too: the server part owns
+`auth.opencode.json` in the native state directory, exposes
+`authStatus`/`authStart`/`authPoll`/`authSignOut`, and the shell renders the
+GitHub device-code panel. Use the RPC methods for account actions.
 
 ## Antigravity
 
@@ -55,9 +56,10 @@ Model: a **sidecar** process plus a **web UI extension**.
   the native per-OS state directory (`auth.antigravity.json`, `0600`); use
   `ANTIGRAVITY_EXECUTABLE_DATA_DIR` for non-secret sidecar cache and queue state.
 
-Remote bests and the leaderboard are wired through `/api/best` and `/api/board`.
-Auth is wired through `/api/auth/status|start|poll|signout|delete`; the sidecar
-owns `auth.antigravity.json` and the shell shows the device code. Next: use
+Remote bests and the leaderboard are wired through `/api/best`,
+`/api/board`, and `/api/player-best`. Auth is wired through
+`/api/auth/status|start|poll|signout|delete`; the sidecar owns
+`auth.antigravity.json` and the shell shows the device code. Next: use
 `window.sidecar.agent.sendMessage` for "brief me on my run" style actions.
 
 ## Verifier API
@@ -74,9 +76,11 @@ Both host server halves use `@await-arcade/api-client`.
   the host server state and retried on the next start/submit. 4xx rejections are
   not queued.
 - **Best and board:** `GameHost.loadBest` asks the host half for the player's
-  best and merges it with the local cache (the better score wins). `GameHost.board`
-  returns the top 50 for the cabinet's Board overlay. Both are optional; a local
-  host omits them and the shell stays local-only.
+  best and merges it with the local cache (the better score wins).
+  `GameHost.board` returns the top 50 for the cabinet's Board overlay and the
+  Boards hub, and `GameHost.playerBest` returns the player's own entry and rank
+  for the hub. All are optional; a local host omits them and the shell stays
+  local-only.
 - **Boundary:** the renderer never calls the API and never holds a credential.
   The host server half owns the API client, the player identity, and (later) the
   auth token.

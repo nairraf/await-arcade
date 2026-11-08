@@ -61,12 +61,17 @@ export function createArcadeClient(options) {
     return request(`/v1/boards/${encodeURIComponent(gameId)}/${encodeURIComponent(modeId)}`)
   }
 
-  async function bestFor(gameId, modeId) {
+  async function playerBest(gameId, modeId) {
     const who = getToken() ? "me" : encodeURIComponent(playerId)
     const value = await request(
       `/v1/boards/${encodeURIComponent(gameId)}/${encodeURIComponent(modeId)}/player/${who}`,
     )
-    return value.entry?.score
+    return { score: value.entry?.score, rank: value.rank, playerId: value.playerId }
+  }
+
+  async function bestFor(gameId, modeId) {
+    const { score } = await playerBest(gameId, modeId)
+    return score
   }
 
   async function authStart(host) {
@@ -111,6 +116,7 @@ export function createArcadeClient(options) {
     submit,
     board,
     bestFor,
+    playerBest,
     authStart,
     authPoll,
     authRefresh,

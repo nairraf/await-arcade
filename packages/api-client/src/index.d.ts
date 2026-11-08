@@ -6,6 +6,7 @@ export interface ArcadeClientOptions {
   readonly baseUrl: string
   readonly playerId: string
   readonly fetchImpl?: typeof fetch
+  readonly getToken?: () => string | undefined
 }
 
 export interface StartRun {
@@ -24,6 +25,10 @@ export interface ArcadeClient {
   submit(runId: string, replay: Replay): Promise<SubmitResult>
   board(gameId: string, modeId: string): Promise<Board>
   bestFor(gameId: string, modeId: string): Promise<Score | undefined>
+  playerBest(
+    gameId: string,
+    modeId: string,
+  ): Promise<{ readonly score?: Score; readonly rank?: number; readonly playerId?: string }>
   status(): Promise<{ readonly mode: "online"; readonly playerId: string }>
 }
 

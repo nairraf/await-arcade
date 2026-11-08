@@ -59,6 +59,17 @@ export class OpenCodeHost extends LocalHost {
     return normaliseBoard(result.entries)
   }
 
+  async playerBest(
+    gameId: string,
+    modeId: string,
+  ): Promise<{ score?: Score; rank?: number; playerId?: string }> {
+    return (await this.client.rpc(Api).playerBest({ gameId, modeId })) as {
+      score?: Score
+      rank?: number
+      playerId?: string
+    }
+  }
+
   async authState(): Promise<AuthState> {
     return (await this.client.rpc(Api).authStatus({})) as AuthState
   }

@@ -161,7 +161,23 @@ export function createArcade(options: ArcadeOptions): Arcade {
     const muted = host.audio.toggle()
     sound.textContent = muted ? "Muted" : "Sound"
   })
-  topMeta.append(authButton, theme, sound)
+
+  const boardsButton = el("button", "arcade-btn arcade-btn-ghost", "Boards")
+  boardsButton.type = "button"
+  boardsButton.hidden = host.board === undefined
+  boardsButton.title = "All-time leaderboards"
+  boardsButton.addEventListener("click", () => {
+    if (
+      runInProgress &&
+      typeof globalThis.confirm === "function" &&
+      !globalThis.confirm("Leave this run? The replay will not be submitted.")
+    ) {
+      return
+    }
+    void showBoards()
+  })
+
+  topMeta.append(authButton, boardsButton, theme, sound)
   top.append(brand, topMeta)
 
   const main = el("main", "arcade-main")
@@ -185,6 +201,9 @@ export function createArcade(options: ArcadeOptions): Arcade {
     authButton.title = state.signedIn
       ? `Signed in as ${state.displayName ?? state.githubLogin ?? "player"}`
       : "Sign in with GitHub"
+    if (main.querySelector(".arcade-boards")) {
+      void showBoards(boardsGame, boardsMode)
+    }
   }
 
   const openAuth = (): void => {
@@ -410,8 +429,10 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
   let active: ActiveGame | undefined
   let playGeneration = 0
+  let runInProgress = false
 
   const destroyActive = (): void => {
+    runInProgress = false
     if (!active) return
     active.cleanup()
     active.runner.stop()
@@ -514,6 +535,183 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
     launcher.append(grid)
     main.append(launcher)
+  }
+
+  let boardsGame = games[0]!.meta.id
+  let boardsMode = games[0]!.meta.modes[0]!.id
+  let boardsEpoch = 0
+
+  const showBoards = async (gameId?: string, modeId?: string): Promise<void> => {
+    const loadBoard = host.board?.bind(host)
+    if (!loadBoard) return
+
+    playGeneration += 1
+    destroyActive()
+    main.replaceChildren()
+
+    const entry =
+      games.find((candidate) => candidate.meta.id === gameId) ??
+      games.find((candidate) => candidate.meta.id === boardsGame) ??
+      games[0]!
+    const mode =
+      entry.meta.modes.find((candidate) => candidate.id === modeId) ??
+      entry.meta.modes.find((candidate) => candidate.id === boardsMode) ??
+      entry.meta.modes[0]!
+    boardsGame = entry.meta.id
+    boardsMode = mode.id
+
+    const epoch = ++boardsEpoch
+    const section = el("section", "arcade-boards")
+    section.style.setProperty("--game-accent-dark", entry.meta.theme?.accent ?? "#22d3ee")
+    section.style.setProperty("--game-accent-2-dark", entry.meta.theme?.accent2 ?? "#f472b6")
+    section.dataset.mode = entry.meta.theme?.mode ?? "neon"
+
+    const back = el("button", "arcade-btn arcade-btn-ghost", "← Lobby")
+    back.type = "button"
+    back.addEventListener("click", showLauncher)
+
+    const heading = el("div", "arcade-boards-heading")
+    heading.append(
+      el("div", "arcade-kicker", "ALL TIME · TOP 50"),
+      el("h1", "arcade-hero-title", "Leaderboards"),
+      el("p", "arcade-hero-sub", "Verified runs from every player. Pick a cabinet and mode."),
+    )
+    const head = el("header", "arcade-boards-head")
+    head.append(back, heading)
+
+    const controls = el("div", "arcade-boards-controls")
+    const gameSelect = el("select", "arcade-select")
+    gameSelect.setAttribute("aria-label", "Game")
+    for (const candidate of games) {
+      const option = el("option", "", candidate.meta.title)
+      option.value = candidate.meta.id
+      gameSelect.append(option)
+    }
+    gameSelect.value = entry.meta.id
+
+    const modeSelect = el("select", "arcade-select")
+    modeSelect.setAttribute("aria-label", "Mode")
+    for (const candidate of entry.meta.modes) {
+      const option = el("option", "", candidate.title)
+      option.value = candidate.id
+      modeSelect.append(option)
+    }
+    modeSelect.value = mode.id
+
+    gameSelect.addEventListener("change", () => {
+      const next = games.find((candidate) => candidate.meta.id === gameSelect.value)
+      void showBoards(gameSelect.value, next?.meta.modes[0]?.id)
+    })
+    modeSelect.addEventListener("change", () => {
+      void showBoards(entry.meta.id, modeSelect.value)
+    })
+
+    const play = el("button", "arcade-btn arcade-btn-primary", "Play")
+    play.type = "button"
+    play.addEventListener("click", () => playGame(entry, mode.id))
+
+    const refresh = el("button", "arcade-btn", "Refresh")
+    refresh.type = "button"
+    refresh.addEventListener("click", () => {
+      void showBoards(entry.meta.id, mode.id)
+    })
+
+    controls.append(gameSelect, modeSelect, play, refresh)
+
+    const you = el("div", "arcade-boards-you")
+    const youLabel = el("div", "arcade-boards-you-label", "YOUR RANK")
+    const youRank = el("div", "arcade-boards-you-rank", "—")
+    const youScore = el("div", "arcade-boards-you-score", "")
+    you.append(youLabel, youRank, youScore)
+
+    const list = el("div", "arcade-board-list arcade-boards-list")
+    list.append(el("div", "arcade-empty", "Loading…"))
+
+    section.append(head, controls, you, list)
+    main.append(section)
+
+    try {
+      const [entries, mineResult, auth] = await Promise.all([
+        loadBoard(entry.meta.id, mode.id),
+        host.playerBest
+          ? host.playerBest(entry.meta.id, mode.id).then(
+              (value) => ({ ok: true as const, value }),
+              () => ({ ok: false as const }),
+            )
+          : Promise.resolve({ ok: true as const, value: undefined }),
+        host.authState ? host.authState().catch(() => undefined) : Promise.resolve(undefined),
+      ])
+      if (epoch !== boardsEpoch || section.parentNode !== main) return
+      if (!Array.isArray(entries)) throw new Error("The host returned an invalid leaderboard.")
+
+      const mine = mineResult.ok ? mineResult.value : undefined
+      const playerId = mine?.playerId ?? auth?.playerId
+      if (auth?.signedIn) {
+        youLabel.textContent = `YOUR RANK · @${auth.githubLogin ?? auth.displayName ?? "player"}`
+      }
+      if (!mineResult.ok) {
+        youRank.textContent = "—"
+        youScore.textContent = "Rank unavailable. Refresh to retry."
+      } else if (mine?.rank !== undefined) {
+        youRank.textContent = `#${mine.rank}`
+        youScore.textContent = mine.score
+          ? `${scoreLabel(entry.meta)}: ${formatScore(mine.score, entry.meta)}`
+          : ""
+      } else if (auth && !auth.signedIn) {
+        youRank.textContent = "—"
+        youScore.textContent = "Sign in with GitHub to rank on this board."
+      } else {
+        youRank.textContent = "—"
+        youScore.textContent = "No ranked run yet. Play to set one."
+      }
+      if (auth && !auth.signedIn) {
+        const signIn = el("button", "arcade-btn arcade-btn-ghost arcade-boards-signin", "Sign in")
+        signIn.type = "button"
+        signIn.addEventListener("click", openAuth)
+        you.append(signIn)
+      }
+
+      list.replaceChildren()
+      if (entries.length === 0) {
+        const empty = el("div", "arcade-empty", "No ranked runs yet. Be the first.")
+        const first = el("button", "arcade-btn arcade-btn-primary", "Play now")
+        first.type = "button"
+        first.addEventListener("click", () => playGame(entry, mode.id))
+        empty.append(first)
+        list.append(empty)
+        return
+      }
+
+      entries.forEach((item, index) => {
+        const isYou = Boolean(playerId && item.playerId === playerId)
+        const row = el(
+          "div",
+          `arcade-board-row arcade-boards-row${isYou ? " arcade-board-row-you" : ""}`,
+        )
+        const player = el(
+          "span",
+          "arcade-board-player",
+          isYou ? "You" : item.playerId.slice(0, 8),
+        )
+        player.title = isYou ? "You" : item.playerId
+        row.append(
+          el("span", "arcade-board-rank", `#${index + 1}`),
+          player,
+          el("span", "arcade-board-score", formatScore(item.score, entry.meta)),
+        )
+        list.append(row)
+      })
+    } catch (error) {
+      if (epoch !== boardsEpoch || section.parentNode !== main) return
+      const empty = el("div", "arcade-empty", errorMessage(error))
+      const retry = el("button", "arcade-btn", "Retry")
+      retry.type = "button"
+      retry.addEventListener("click", () => {
+        void showBoards(entry.meta.id, mode.id)
+      })
+      empty.append(retry)
+      list.replaceChildren(empty)
+    }
   }
 
   const playGame = async (entry: GameEntry, modeId: string): Promise<void> => {
@@ -827,6 +1025,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
         else time.value.textContent = entry.core.phase(state) === "playing" ? "Playing" : "Finished"
       },
       onEnd(result) {
+        runInProgress = false
         if (entry.meta.kind === "turn") time.value.textContent = result.score.won ? "Won" : "Lost"
         const previousBest = host.best(entry.meta.id, mode.id)
         void host
@@ -949,6 +1148,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     }
 
     active = { runner, cleanup }
+    runInProgress = true
     surface.focus()
   }
 

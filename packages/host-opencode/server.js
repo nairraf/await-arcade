@@ -215,6 +215,10 @@ export default {
         await ensureAuth()
         return client.board(input.gameId, input.modeId)
       },
+      playerBest: async (input) => {
+        await requireAuth()
+        return client.playerBest(input.gameId, input.modeId)
+      },
       status,
       authStatus: status,
       authStart: async () => client.authStart(HOST),

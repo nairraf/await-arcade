@@ -90,7 +90,8 @@ export const styles = `
 
 /* Bright game accents in the dark cabinet; a darker mix on paper. */
 .arcade-card,
-.arcade-game {
+.arcade-game,
+.arcade-boards {
   --game-accent: var(--game-accent-dark, #22d3ee);
   --game-accent-2: var(--game-accent-2-dark, #f472b6);
   --game-label: var(--game-accent-dark, #22d3ee);
@@ -98,7 +99,8 @@ export const styles = `
 }
 
 .arcade[data-theme="light"] .arcade-card,
-.arcade[data-theme="light"] .arcade-game {
+.arcade[data-theme="light"] .arcade-game,
+.arcade[data-theme="light"] .arcade-boards {
   --game-accent: color-mix(in srgb, var(--game-accent-dark, #22d3ee) 38%, var(--arcade-fg, #1b1f24));
   --game-accent-2: color-mix(in srgb, var(--game-accent-2-dark, #f472b6) 38%, var(--arcade-fg, #1b1f24));
   --game-label: color-mix(in srgb, var(--game-accent-dark, #22d3ee) 62%, var(--arcade-fg, #1b1f24));
@@ -107,7 +109,8 @@ export const styles = `
 
 @media (prefers-color-scheme: light) {
   .arcade[data-theme="auto"] .arcade-card,
-  .arcade[data-theme="auto"] .arcade-game {
+  .arcade[data-theme="auto"] .arcade-game,
+  .arcade[data-theme="auto"] .arcade-boards {
     --game-accent: color-mix(in srgb, var(--game-accent-dark, #22d3ee) 38%, var(--arcade-fg, #1b1f24));
     --game-accent-2: color-mix(in srgb, var(--game-accent-2-dark, #f472b6) 38%, var(--arcade-fg, #1b1f24));
     --game-label: color-mix(in srgb, var(--game-accent-dark, #22d3ee) 62%, var(--arcade-fg, #1b1f24));
@@ -810,6 +813,114 @@ export const styles = `
   color: var(--game-accent);
 }
 
+.arcade-boards {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 18px;
+}
+
+.arcade-boards-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.arcade-boards-heading {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.arcade-boards-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--arcade-line);
+}
+
+.arcade-boards-controls .arcade-select {
+  min-width: 150px;
+}
+
+.arcade-boards-you {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--arcade-line);
+  border-left: 3px solid var(--game-accent);
+  border-radius: 10px;
+  background:
+    linear-gradient(120deg, color-mix(in srgb, var(--game-accent) 9%, transparent), transparent 60%),
+    var(--arcade-panel);
+}
+
+.arcade-boards-you-label {
+  flex-basis: 100%;
+  color: var(--arcade-coin);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.arcade-boards-you-rank {
+  color: var(--game-accent);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.arcade-boards-you-score {
+  color: var(--arcade-muted);
+  font-size: 11px;
+}
+
+.arcade-boards-signin {
+  margin-left: auto;
+  align-self: center;
+}
+
+.arcade-boards-list {
+  max-height: none;
+  padding: 6px;
+  border: 1px solid var(--arcade-line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--arcade-panel) 72%, transparent);
+}
+
+.arcade-boards-row {
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  padding: 8px 10px;
+}
+
+.arcade-board-row-you {
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--game-accent) 12%, transparent);
+  border-bottom-color: transparent;
+}
+
+.arcade-board-row-you .arcade-board-player {
+  color: var(--game-accent);
+  font-weight: 700;
+}
+
+.arcade-boards-list .arcade-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+}
+
 .arcade-auth-backdrop {
   position: fixed;
   inset: 0;
@@ -943,6 +1054,14 @@ export const styles = `
 @media (max-width: 640px) {
   .arcade-main {
     padding: 12px;
+  }
+
+  .arcade-boards-head {
+    flex-direction: column;
+  }
+
+  .arcade-boards-signin {
+    margin-left: 0;
   }
 
   .arcade-hud {

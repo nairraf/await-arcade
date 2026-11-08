@@ -35,5 +35,10 @@ describe("api client", () => {
 
     const best = await client.bestFor("light-cycles", "solo")
     expect(best?.value).toBe(result.score.value)
+
+    const mine = await client.playerBest("light-cycles", "solo")
+    expect(mine.playerId).toBe("api-test")
+    expect(mine.rank).toBe(1)
+    expect(mine.score?.value).toBe(result.score.value)
   })
 })

@@ -278,6 +278,11 @@ export interface GameHost {
   loadBest?(gameId: string, modeId: string): Promise<Score | undefined>
   /** Top entries from the hosted board. Local hosts omit this. */
   board?(gameId: string, modeId: string): Promise<readonly BoardEntry[]>
+  /** The current player's board entry and rank, when signed in or identified. */
+  playerBest?(
+    gameId: string,
+    modeId: string,
+  ): Promise<{ readonly score?: Score; readonly rank?: number; readonly playerId?: string }>
   /** Sign-in and account capabilities. Local hosts omit these. */
   authState?(): Promise<AuthState>
   authStart?(): Promise<DeviceFlow>

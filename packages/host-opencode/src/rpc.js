@@ -55,6 +55,18 @@ export const Api = define({
       },
       output: { type: "object", additionalProperties: true },
     },
+    playerBest: {
+      input: {
+        type: "object",
+        properties: {
+          gameId: { type: "string" },
+          modeId: { type: "string" },
+        },
+        required: ["gameId", "modeId"],
+        additionalProperties: false,
+      },
+      output: { type: "object", additionalProperties: true },
+    },
     status: {
       output: { type: "object", additionalProperties: true },
     },

@@ -64,6 +64,16 @@ export class SidecarHost extends LocalHost {
     return normaliseBoard(result.entries)
   }
 
+  async playerBest(
+    gameId: string,
+    modeId: string,
+  ): Promise<{ score?: Score; rank?: number; playerId?: string }> {
+    return this.call<{ score?: Score; rank?: number; playerId?: string }>(
+      "/api/player-best",
+      { gameId, modeId },
+    )
+  }
+
   async authState(): Promise<AuthState> {
     return this.call<AuthState>("/api/auth/status", {})
   }
