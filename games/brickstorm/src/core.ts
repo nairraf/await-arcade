@@ -24,6 +24,8 @@ export interface BrickstormState {
   saves: number
   blasts: number
   ticks: number
+  serveUntilTick: number
+  ballLive: boolean
   saveUntilTick: number
   relocated: number
   phase: Phase
@@ -41,8 +43,8 @@ const BALL = 4
 const PADDLE_Y = HEIGHT - 18
 const PADDLE_WIDTH = 58
 const PADDLE_SPEED = 300
-const BALL_SPEED = 210
 const MAX_TICKS = 36_000
+const READY_TICKS = 3 * 60
 const SAVE_TICKS = 5 * 60
 const MAX_RELOCATIONS = 3
 
@@ -91,13 +93,14 @@ function pickCells(seed: number, rows: readonly number[], count: number): number
   return createRng(seed).shuffle(candidates).slice(0, count)
 }
 
-function resetBall(state: BrickstormState): void {
-  state.ballX = state.width / 2
-  state.ballY = state.height * 0.62
+function launchBall(state: BrickstormState): void {
+  state.ballX = state.paddleX
+  state.ballY = state.paddleY - BALL
   const rng = createRng((state.seed ^ Math.imul(state.hits + 1, 0x9e3779b1)) >>> 0)
   const [vx, vy] = LAUNCH[rng.int(0, LAUNCH.length - 1)]!
   state.vx = vx
   state.vy = vy
+  state.ballLive = true
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -257,9 +260,9 @@ export const core: GameCore<BrickstormState, BrickstormInput> = {
       paddleWidth: PADDLE_WIDTH,
       paddleY: PADDLE_Y,
       ballX: WIDTH / 2,
-      ballY: HEIGHT * 0.62,
+      ballY: PADDLE_Y - BALL,
       vx: 0,
-      vy: -BALL_SPEED,
+      vy: 0,
       left: false,
       right: false,
       targetX: undefined,
@@ -270,11 +273,12 @@ export const core: GameCore<BrickstormState, BrickstormInput> = {
       saves: 0,
       blasts: 0,
       ticks: 0,
+      serveUntilTick: READY_TICKS,
+      ballLive: false,
       saveUntilTick: 0,
       relocated: 0,
       phase: "playing",
     }
-    resetBall(state)
     return state
   },
 
@@ -306,6 +310,17 @@ export const core: GameCore<BrickstormState, BrickstormInput> = {
     }
 
     movePaddle(state, dt)
+
+    if (!state.ballLive) {
+      if (state.ticks >= state.serveUntilTick) {
+        launchBall(state)
+      } else {
+        state.ballX = state.paddleX
+        state.ballY = state.paddleY - BALL
+        return state
+      }
+    }
+
     moveBall(state, dt)
     return state
   },
@@ -343,6 +358,8 @@ export const core: GameCore<BrickstormState, BrickstormInput> = {
       l: state.left,
       r: state.right,
       t: state.targetX ?? null,
+      live: state.ballLive,
+      ready: state.serveUntilTick,
       b: state.bricks,
       k: state.kinds,
       s: state.score,

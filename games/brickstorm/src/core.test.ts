@@ -22,6 +22,8 @@ function rowOf(index: number): number {
 
 function hitBrick(state: BrickstormState, index: number): void {
   const rect = brickRect(index)
+  state.ballLive = true
+  state.serveUntilTick = 0
   state.ballX = rect.x + rect.w / 2
   state.ballY = rect.y + rect.h / 2
   state.vx = 0
@@ -38,6 +40,19 @@ describe("Brickstorm core", () => {
     expect(first.kinds.filter((kind) => kind === "save")).toHaveLength(1)
     expect(first.kinds.filter((kind) => kind === "explosive")).toHaveLength(2)
     expect(first.bricks).toHaveLength(BRICK_COLS * BRICK_ROWS)
+  })
+
+  it("holds the ball for a three-second serve countdown", () => {
+    const state = setup()
+    expect(state.ballLive).toBe(false)
+    expect(state.serveUntilTick).toBe(180)
+
+    core.step(state, [], DT)
+    expect(state.ballLive).toBe(false)
+    expect(state.ballX).toBe(state.paddleX)
+
+    for (let tick = 1; tick < 180; tick += 1) core.step(state, [], DT)
+    expect(state.ballLive).toBe(true)
   })
 
   it("moves the paddle toward a pointer target", () => {

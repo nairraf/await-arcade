@@ -7,14 +7,20 @@
   "seed": 77,
   "kind": "realtime",
   "tickRate": 60,
-  "durationMs": 1000.0000000000001,
+  "durationMs": 4533.333333333334,
   "inputs": [
     {
       "tick": 30,
       "input": {
         "target": 80
       }
+    },
+    {
+      "tick": 90,
+      "input": {
+        "target": 240
+      }
     }
   ],
-  "stateHash": "bc13c2b5"
+  "stateHash": "700c6b2f"
 }

@@ -137,6 +137,15 @@ export function view(ctx: ViewContext<BrickstormState, BrickstormInput>): GameVi
     canvas.fillText(`SCORE ${state.score}`, 12, 16)
     canvas.fillText(`BRICKS ${state.hits}/48`, width - 78, 16)
 
+    if (!state.ballLive) {
+      const remaining = Math.max(1, Math.ceil((state.serveUntilTick - state.ticks) / 60))
+      canvas.fillStyle = "#fb923c"
+      canvas.font = "bold 18px ui-monospace, Menlo, monospace"
+      canvas.textAlign = "center"
+      canvas.fillText(`READY: ${remaining}`, width / 2, height * 0.44)
+      canvas.textAlign = "left"
+    }
+
     const remaining = state.saveUntilTick - state.ticks
     if (remaining > 0) {
       canvas.strokeStyle = "rgba(103, 232, 249, 0.55)"
