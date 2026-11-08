@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ -f .env.deploy ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source .env.deploy
+  set +a
+fi
+
 PROJECT_ID="${PROJECT_ID:?set PROJECT_ID to await-arcade or await-arcade-dev}"
 REGION="${REGION:-northamerica-northeast1}"
 SERVICE="${SERVICE:-await-arcade-api}"
