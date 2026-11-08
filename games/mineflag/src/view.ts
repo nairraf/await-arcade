@@ -71,9 +71,11 @@ const css = `
 }
 
 .ms-hidden {
-  border-color: color-mix(in srgb, var(--arcade-fg, #e6edf3) 24%, transparent);
-  background: linear-gradient(160deg, var(--arcade-panel-2, #1d2937), var(--arcade-panel, #111923));
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--arcade-fg, #e6edf3) 8%, transparent);
+  border-color: color-mix(in srgb, var(--arcade-fg, #e6edf3) 30%, transparent);
+  background: linear-gradient(160deg, #223243, #121c27);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 .ms-hidden:hover {
@@ -85,8 +87,9 @@ const css = `
 }
 
 .ms-open {
-  border-color: color-mix(in srgb, var(--arcade-fg, #e6edf3) 18%, transparent);
-  background: color-mix(in srgb, var(--arcade-panel-2, #101923) 55%, var(--arcade-bg, #06090d));
+  border-color: transparent;
+  background: #070b11;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.55);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
   cursor: default;
 }
@@ -135,6 +138,7 @@ const css = `
 .arcade[data-theme="light"] .ms-open {
   border-color: rgba(60, 50, 35, 0.14);
   background: #fffdf7;
+  box-shadow: none;
   text-shadow: none;
 }
 
@@ -166,6 +170,7 @@ const css = `
   .arcade[data-theme="auto"] .ms-open {
     border-color: rgba(60, 50, 35, 0.14);
     background: #fffdf7;
+    box-shadow: none;
     text-shadow: none;
   }
 
