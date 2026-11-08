@@ -2,6 +2,7 @@ import type { GameView, ViewContext } from "@await-arcade/contract"
 import {
   BRICK_COLS,
   brickRect,
+  speedFactor,
   type BrickstormInput,
   type BrickstormState,
 } from "./core"
@@ -89,9 +90,13 @@ export function view(ctx: ViewContext<BrickstormState, BrickstormInput>): GameVi
       const band = Math.floor(row / 2)
       const rect = brickRect(index)
       const kind = state.kinds[index]
+      const armor = state.armor[index] ?? 0
 
       let color = BAND_COLORS[band]?.[row % 2] ?? "#a3e635"
-      if (kind === "save") color = "#67e8f9"
+      if (armor === 3) color = "#fbbf24"
+      else if (armor === 2) color = "#cbd5e1"
+      else if (armor === 1) color = "#d97706"
+      else if (kind === "save") color = "#67e8f9"
       else if (kind === "explosive") color = "#fb923c"
 
       canvas.fillStyle = color
@@ -99,7 +104,12 @@ export function view(ctx: ViewContext<BrickstormState, BrickstormInput>): GameVi
       canvas.fillRect(rect.x, rect.y, rect.w, rect.h)
       canvas.globalAlpha = 1
 
-      if (kind === "save") {
+      if (armor > 0) {
+        canvas.fillStyle = "rgba(15, 23, 42, 0.7)"
+        for (let pip = 0; pip < armor; pip += 1) {
+          canvas.fillRect(rect.x + 3 + pip * 4, rect.y + rect.h - 4, 2, 2)
+        }
+      } else if (kind === "save") {
         canvas.strokeStyle = "#ecfeff"
         canvas.lineWidth = 1.5
         canvas.beginPath()
@@ -157,6 +167,11 @@ export function view(ctx: ViewContext<BrickstormState, BrickstormInput>): GameVi
 
       canvas.fillStyle = "#67e8f9"
       canvas.fillText(`SAVE ${(remaining / 60).toFixed(1)}s`, width - 64, height - 8)
+    }
+
+    if (state.speedLevel > 0) {
+      canvas.fillStyle = "#fb923c"
+      canvas.fillText(`SPEED x${speedFactor(state).toFixed(2)}`, 12, height - 8)
     }
   }
 

@@ -5,6 +5,7 @@ import {
   BRICK_ROWS,
   brickRect,
   core,
+  speedFactor,
   type BrickstormState,
 } from "./core"
 import { meta } from "./meta"
@@ -38,6 +39,7 @@ describe("Brickstorm core", () => {
 
     expect(core.serialize(first)).toEqual(core.serialize(second))
     expect(first.kinds.filter((kind) => kind === "save")).toHaveLength(1)
+    expect(first.armor.filter((value) => value === 3)).toHaveLength(3)
     expect(first.kinds.filter((kind) => kind === "explosive")).toHaveLength(2)
     expect(first.bricks).toHaveLength(BRICK_COLS * BRICK_ROWS)
   })
@@ -65,7 +67,7 @@ describe("Brickstorm core", () => {
   it("breaks a normal brick and awards its row points", () => {
     const state = setup()
     const index = state.kinds.findIndex(
-      (kind, at) => kind === "normal" && rowOf(at) === 0,
+      (kind, at) => kind === "normal" && rowOf(at) === 0 && state.armor[at] === 0,
     )
     expect(index).toBeGreaterThanOrEqual(0)
 
@@ -73,6 +75,27 @@ describe("Brickstorm core", () => {
     expect(state.bricks[index]).toBe(false)
     expect(state.score).toBe(60)
     expect(state.hits).toBe(1)
+  })
+
+  it("takes three hits to clear a gold brick", () => {
+    const state = setup()
+    const index = state.armor.findIndex((value) => value === 3)
+    expect(index).toBeGreaterThanOrEqual(0)
+
+    hitBrick(state, index)
+    expect(state.armor[index]).toBe(2)
+    expect(state.bricks[index]).toBe(true)
+    expect(state.score).toBe(5)
+
+    hitBrick(state, index)
+    expect(state.armor[index]).toBe(1)
+    expect(state.bricks[index]).toBe(true)
+    expect(state.score).toBe(10)
+
+    hitBrick(state, index)
+    expect(state.armor[index]).toBe(0)
+    expect(state.bricks[index]).toBe(false)
+    expect(state.score).toBe(10 + (BRICK_ROWS - rowOf(index)) * 10)
   })
 
   it("explodes the surrounding bricks", () => {
@@ -107,6 +130,8 @@ describe("Brickstorm core", () => {
     hitBrick(state, index)
     expect(state.saves).toBe(1)
     expect(state.saveUntilTick).toBeGreaterThan(state.ticks)
+    expect(state.speedLevel).toBeGreaterThan(0)
+    expect(speedFactor(state)).toBeGreaterThan(1)
 
     state.ballY = state.height + 10
     state.vy = 200
@@ -126,6 +151,7 @@ describe("Brickstorm core", () => {
     const state = setup()
     state.bricks = state.bricks.map((_, index) => index === 0)
     state.kinds = state.kinds.map(() => "normal")
+    state.armor = state.armor.map(() => 0)
     hitBrick(state, 0)
 
     expect(state.phase).toBe("won")

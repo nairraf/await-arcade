@@ -19,6 +19,7 @@ export interface BrickstormState {
   targetX: number | undefined
   bricks: boolean[]
   kinds: BrickKind[]
+  armor: number[]
   score: number
   hits: number
   saves: number
@@ -26,6 +27,7 @@ export interface BrickstormState {
   ticks: number
   serveUntilTick: number
   ballLive: boolean
+  speedLevel: number
   saveUntilTick: number
   relocated: number
   phase: Phase
@@ -47,6 +49,8 @@ const MAX_TICKS = 36_000
 const READY_TICKS = 3 * 60
 const SAVE_TICKS = 5 * 60
 const MAX_RELOCATIONS = 3
+const MAX_SPEED_LEVEL = 3
+const SPEED_STEP = 0.12
 
 export const BRICK_COLS = 8
 export const BRICK_ROWS = 6
@@ -93,19 +97,49 @@ function pickCells(seed: number, rows: readonly number[], count: number): number
   return createRng(seed).shuffle(candidates).slice(0, count)
 }
 
+function pickGold(seed: number, rows: readonly number[], kinds: readonly BrickKind[]): number | undefined {
+  const candidates: number[] = []
+  for (const row of rows) {
+    for (let column = 0; column < BRICK_COLS; column += 1) {
+      const index = row * BRICK_COLS + column
+      if (kinds[index] === "normal") candidates.push(index)
+    }
+  }
+  if (candidates.length === 0) return undefined
+  return createRng(seed).pick(candidates)
+}
+
 function launchBall(state: BrickstormState): void {
   state.ballX = state.paddleX
   state.ballY = state.paddleY - BALL
   const rng = createRng((state.seed ^ Math.imul(state.hits + 1, 0x9e3779b1)) >>> 0)
   const [vx, vy] = LAUNCH[rng.int(0, LAUNCH.length - 1)]!
-  state.vx = vx
-  state.vy = vy
+  const factor = speedFactor(state)
+  state.vx = vx * factor
+  state.vy = vy * factor
   state.ballLive = true
 }
 
 function clamp(value: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return min
   return value < min ? min : value > max ? max : value
+}
+
+export function speedFactor(state: BrickstormState): number {
+  return 1 + SPEED_STEP * state.speedLevel
+}
+
+function updateSpeed(state: BrickstormState, scale: boolean): void {
+  const next = Math.min(MAX_SPEED_LEVEL, Math.floor(state.hits / 12) + state.saves)
+  if (next === state.speedLevel) return
+
+  state.speedLevel = next
+  if (!scale || !state.ballLive) return
+
+  const speed = Math.hypot(state.vx, state.vy) || 1
+  const target = 210 * speedFactor(state)
+  state.vx = (state.vx / speed) * target
+  state.vy = (state.vy / speed) * target
 }
 
 function hitsBrick(state: BrickstormState, index: number): boolean {
@@ -140,6 +174,7 @@ function destroyBrick(state: BrickstormState, index: number, trigger: boolean): 
   const row = Math.floor(index / BRICK_COLS)
   const kind = state.kinds[index] ?? "normal"
 
+  if ((state.armor[index] ?? 0) > 0) state.armor[index] = 0
   state.bricks[index] = false
   state.kinds[index] = "normal"
   state.score += pointsForRow(row)
@@ -152,22 +187,23 @@ function destroyBrick(state: BrickstormState, index: number, trigger: boolean): 
     // Relocate the save brick to an empty middle-band cell, unless it was the
     // last brick or the relocation cap has been reached.
     const others = state.bricks.some((alive) => alive)
-    if (!others || state.relocated >= MAX_RELOCATIONS) return
+    if (others && state.relocated < MAX_RELOCATIONS) {
+      const empty: number[] = []
+      for (const candidateRow of [2, 3]) {
+        for (let column = 0; column < BRICK_COLS; column += 1) {
+          const candidate = candidateRow * BRICK_COLS + column
+          if (!state.bricks[candidate]) empty.push(candidate)
+        }
+      }
 
-    const empty: number[] = []
-    for (const candidateRow of [2, 3]) {
-      for (let column = 0; column < BRICK_COLS; column += 1) {
-        const candidate = candidateRow * BRICK_COLS + column
-        if (!state.bricks[candidate]) empty.push(candidate)
+      if (empty.length > 0) {
+        const rng = createRng((state.seed ^ Math.imul(state.relocated + 1, 0x9e3779b1)) >>> 0)
+        const next = rng.pick(empty)
+        state.bricks[next] = true
+        state.kinds[next] = "save"
+        state.relocated += 1
       }
     }
-    if (empty.length === 0) return
-
-    const rng = createRng((state.seed ^ Math.imul(state.relocated + 1, 0x9e3779b1)) >>> 0)
-    const next = rng.pick(empty)
-    state.bricks[next] = true
-    state.kinds[next] = "save"
-    state.relocated += 1
   }
 
   if (kind === "explosive" && trigger) {
@@ -184,6 +220,8 @@ function destroyBrick(state: BrickstormState, index: number, trigger: boolean): 
       }
     }
   }
+
+  updateSpeed(state, true)
 }
 
 function moveBall(state: BrickstormState, dt: number): void {
@@ -217,8 +255,9 @@ function moveBall(state: BrickstormState, dt: number): void {
     const offset = clamp((state.ballX - state.paddleX) / (state.paddleWidth / 2), -1, 1)
     let vx = offset * 168
     if (Math.abs(vx) < 12) vx = offset < 0 || (offset === 0 && state.vx < 0) ? -12 : 12
-    state.vx = vx
-    state.vy = -126
+    const factor = speedFactor(state)
+    state.vx = vx * factor
+    state.vy = -126 * factor
   }
 
   // A save keeps the ball alive for a few seconds; it bounces off the floor.
@@ -234,7 +273,16 @@ function moveBall(state: BrickstormState, dt: number): void {
 
   for (let index = 0; index < state.bricks.length; index += 1) {
     if (!hitsBrick(state, index)) continue
-    destroyBrick(state, index, true)
+    const armor = state.armor[index] ?? 0
+
+    if (armor > 1) {
+      state.armor[index] = armor - 1
+      state.score += 5
+    } else {
+      if (armor === 1) state.armor[index] = 0
+      destroyBrick(state, index, true)
+    }
+
     state.vy = -state.vy
     break
   }
@@ -252,6 +300,14 @@ export const core: GameCore<BrickstormState, BrickstormInput> = {
     if (topExplosive !== undefined) kinds[topExplosive] = "explosive"
     if (bottomExplosive !== undefined) kinds[bottomExplosive] = "explosive"
 
+    const armor: number[] = Array(BRICK_COLS * BRICK_ROWS).fill(0)
+    const goldTop = pickGold(seed ^ 0x27d4eb2f, [0, 1], kinds)
+    const goldMiddle = pickGold(seed ^ 0x165667b1, [2, 3], kinds)
+    const goldBottom = pickGold(seed ^ 0x9e3779b1, [4, 5], kinds)
+    for (const gold of [goldTop, goldMiddle, goldBottom]) {
+      if (gold !== undefined) armor[gold] = 3
+    }
+
     const state: BrickstormState = {
       width: WIDTH,
       height: HEIGHT,
@@ -268,6 +324,7 @@ export const core: GameCore<BrickstormState, BrickstormInput> = {
       targetX: undefined,
       bricks: Array(BRICK_COLS * BRICK_ROWS).fill(true),
       kinds,
+      armor,
       score: 0,
       hits: 0,
       saves: 0,
@@ -275,6 +332,7 @@ export const core: GameCore<BrickstormState, BrickstormInput> = {
       ticks: 0,
       serveUntilTick: READY_TICKS,
       ballLive: false,
+      speedLevel: 0,
       saveUntilTick: 0,
       relocated: 0,
       phase: "playing",
@@ -340,6 +398,7 @@ export const core: GameCore<BrickstormState, BrickstormInput> = {
         maxBricks: BRICK_COLS * BRICK_ROWS,
         saves: state.saves,
         blasts: state.blasts,
+        speed: speedFactor(state),
         elapsedMs: context.elapsedMs,
       },
     }
@@ -362,10 +421,12 @@ export const core: GameCore<BrickstormState, BrickstormInput> = {
       ready: state.serveUntilTick,
       b: state.bricks,
       k: state.kinds,
+      a: state.armor,
       s: state.score,
       n: state.hits,
       sv: state.saves,
       bl: state.blasts,
+      sp: state.speedLevel,
       c: state.ticks,
       u: state.saveUntilTick,
       q: state.relocated,
