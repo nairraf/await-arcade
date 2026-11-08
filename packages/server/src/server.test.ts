@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { playRealtime, playTurn } from "@await-arcade/framework"
 import { createArcadeServer, type ArcadeServer } from "./index"
+import { MemoryStore } from "./store"
 import { verifiers } from "./registry.generated"
 
 let server: ArcadeServer
@@ -420,6 +421,175 @@ describe("daily challenge", () => {
       now += 24 * 60 * 60 * 1000
       const submit = await submitReplay(root, started.runId, result.replay)
       expect(submit.status).toBe(410)
+    } finally {
+      await local.close()
+    }
+  })
+
+  it("rejects run creation for unranked modes (duel)", async () => {
+    const response = await fetch(`${base}/v1/runs`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ gameId: "light-cycles", modeId: "duel", playerId: "tester-duel" }),
+    })
+    expect(response.status).toBe(400)
+    const body = (await response.json()) as { error: string }
+    expect(body.error).toContain("mode is not eligible for ranked runs")
+  })
+
+  it("rejects oversized input arrays and malformed input shapes with 422", async () => {
+    const run = await startRun("light-cycles", "solo", "malformed-tester")
+    const entry = verifiers["light-cycles"]!
+    const validResult = playRealtime(entry.core, entry.meta, {
+      seed: run.seed,
+      mode: entry.meta.modes[0]!,
+      ticks: 4000,
+      inputs: [],
+    })
+
+    // Oversized inputs array (> 10,000 inputs) within body limit
+    const oversizedReplay = {
+      ...validResult.replay,
+      inputs: Array.from({ length: 10_001 }, () => ({
+        tick: 0,
+        input: 0,
+      })),
+    }
+    const oversizedRes = await submitReplay(base, run.runId, oversizedReplay)
+    expect(oversizedRes.status).toBe(422)
+
+    // Tick batch with more than 8 inputs in realtime game
+    const excessiveTickReplay = {
+      ...validResult.replay,
+      inputs: Array.from({ length: 9 }, () => ({
+        tick: 0,
+        input: { player: 0, turn: 0 },
+      })),
+    }
+    const excessiveTickRes = await submitReplay(base, run.runId, excessiveTickReplay)
+    expect(excessiveTickRes.status).toBe(422)
+
+    // Malformed input payloads (e.g. input is null or non-integer coordinates in mineflag)
+    // assert 422, never 500
+    const mineRun = await startRun("mineflag", "beginner", "malformed-mine-tester")
+    const malformedMineRes = await submitReplay(base, mineRun.runId, {
+      version: 1,
+      gameId: "mineflag",
+      gameVersion: "1.1.0",
+      frameworkVersion: "0.1.0",
+      kind: "turn",
+      modeId: "beginner",
+      seed: mineRun.seed,
+      durationMs: 1000,
+      inputs: [{ tick: 0, input: null }],
+    })
+    expect(malformedMineRes.status).toBe(422)
+    expect(malformedMineRes.status).not.toBe(500)
+
+    const nonIntegerMineRes = await submitReplay(base, mineRun.runId, {
+      version: 1,
+      gameId: "mineflag",
+      gameVersion: "1.1.0",
+      frameworkVersion: "0.1.0",
+      kind: "turn",
+      modeId: "beginner",
+      seed: mineRun.seed,
+      durationMs: 1000,
+      inputs: [{ tick: 0, input: { type: "reveal", x: 1.5, y: 1.5 } }],
+    })
+    expect(nonIntegerMineRes.status).toBe(422)
+    expect(nonIntegerMineRes.status).not.toBe(500)
+
+    // In light-cycles, malformed turn 0.5 previously crashed nextCell with 500
+    const cyclesMalformedRes = await submitReplay(base, run.runId, {
+      ...validResult.replay,
+      inputs: [{ tick: 0, input: { player: 0, turn: 0.5 } }],
+    })
+    // Either fails verification (state hash mismatch -> 422) or verifies (422/200), but never crashes with 500
+    expect(cyclesMalformedRes.status).not.toBe(500)
+  })
+
+  it("omits wildcard CORS on mutating routes but keeps it on public GET", async () => {
+    const getGames = await fetch(`${base}/v1/games`)
+    expect(getGames.headers.get("access-control-allow-origin")).toBe("*")
+
+    const postRun = await fetch(`${base}/v1/runs`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ gameId: "light-cycles", modeId: "solo", playerId: "cors-tester" }),
+    })
+    expect(postRun.headers.get("access-control-allow-origin")).toBeNull()
+  })
+
+  it("denormalizes displayName onto BoardEntry", async () => {
+    const run = await startRun("light-cycles", "solo", "display-tester")
+    const entry = verifiers["light-cycles"]!
+    const result = playRealtime(entry.core, entry.meta, {
+      seed: run.seed,
+      mode: entry.meta.modes[0]!,
+      ticks: 4000,
+      inputs: [],
+    })
+
+    const submit = await submitReplay(base, run.runId, result.replay)
+    expect(submit.status).toBe(200)
+
+    const board = (await fetch(`${base}/v1/boards/light-cycles/solo`).then((r) =>
+      r.json(),
+    )) as { entries: Array<{ playerId: string; displayName?: string }> }
+
+    const userEntry = board.entries.find((e) => e.playerId === "display-tester")
+    expect(userEntry).toBeDefined()
+    expect(userEntry?.displayName).toBe("display-tester")
+  })
+
+  it("rejects unauthenticated requests trying to use an existing registered user's playerId", async () => {
+    const store = new MemoryStore()
+    const at = Date.now()
+    await store.ensurePlayer("github:999", {
+      playerId: "registered-uuid",
+      providerId: "github:999",
+      displayName: "Registered Octocat",
+      createdAt: at,
+      updatedAt: at,
+    })
+    const local = createArcadeServer({ store, requireAuth: false })
+    const port = await local.listen(0)
+    const root = `http://127.0.0.1:${port}`
+    try {
+      const res = await fetch(`${root}/v1/runs`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ gameId: "light-cycles", modeId: "solo", playerId: "registered-uuid" }),
+      })
+      expect(res.status).toBe(400)
+      const body = (await res.json()) as { error: string }
+      expect(body.error).toBe("invalid playerId")
+    } finally {
+      await local.close()
+    }
+  })
+
+  it("enforces rate limits on run creation", async () => {
+    const local = createArcadeServer({
+      rateLimits: { runsPerMin: 2 },
+    })
+    const port = await local.listen(0)
+    const root = `http://127.0.0.1:${port}`
+    try {
+      const makeRun = (id: string) =>
+        fetch(`${root}/v1/runs`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ gameId: "light-cycles", modeId: "solo", playerId: id }),
+        })
+
+      const r1 = await makeRun("p1")
+      expect(r1.status).toBe(201)
+      const r2 = await makeRun("p2")
+      expect(r2.status).toBe(201)
+      const r3 = await makeRun("p3")
+      expect(r3.status).toBe(429)
     } finally {
       await local.close()
     }

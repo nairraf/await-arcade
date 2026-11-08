@@ -41,6 +41,7 @@ export function normaliseBoard(value: unknown): BoardEntry[] {
     entries.push({
       playerId: record.playerId,
       achievedAt: typeof record.achievedAt === "number" ? record.achievedAt : 0,
+      ...(typeof record.displayName === "string" ? { displayName: record.displayName } : {}),
       score: {
         value: raw.value,
         type: raw.type,

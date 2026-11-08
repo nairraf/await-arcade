@@ -24,6 +24,8 @@ export interface Mode {
   readonly description?: string
   /** 1 = easiest. Used by the shell and the arcade XP formula. */
   readonly difficulty?: number
+  /** Whether runs in this mode are eligible for ranked leaderboards. Defaults to true. */
+  readonly ranked?: boolean
 }
 
 export interface ControlHint {
@@ -107,6 +109,8 @@ export interface GameMeta {
   readonly glyph?: string
   /** Hard cap for ranked runs. The server rejects longer replays. */
   readonly maxDurationMs: number
+  /** Maximum number of input events allowed in a replay; defaults to 10,000. */
+  readonly maxInputs?: number
   readonly tags?: readonly string[]
 }
 
@@ -237,6 +241,7 @@ export interface BoardEntry {
   readonly playerId: string
   readonly score: Score
   readonly achievedAt: number
+  readonly displayName?: string
 }
 
 /** The required first input for an anchored daily (Mineflag). */

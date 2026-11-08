@@ -88,7 +88,7 @@ export function challengeFor(
   if (!DATE.test(date)) return undefined
   const entry = verifiers[gameId]
   const mode = entry?.meta.modes.find((candidate) => candidate.id === modeId)
-  if (!entry || !mode) return undefined
+  if (!entry || !mode || mode.ranked === false) return undefined
 
   const end = endsAt(date)
   if (!Number.isFinite(end)) return undefined
@@ -128,7 +128,7 @@ function overridePair(
   const gameId = featured.slice(0, separator)
   const modeId = featured.slice(separator + 1)
   const mode = verifiers[gameId]?.meta.modes.find((candidate) => candidate.id === modeId)
-  return mode ? { gameId, modeId } : undefined
+  return mode && mode.ranked !== false ? { gameId, modeId } : undefined
 }
 
 /**
@@ -151,9 +151,9 @@ export function dailyChallenge(
   for (const entry of Object.values(verifiers).sort((left, right) =>
     left.meta.id.localeCompare(right.meta.id),
   )) {
-    for (const mode of [...entry.meta.modes].sort((left, right) =>
-      left.id.localeCompare(right.id),
-    )) {
+    for (const mode of [...entry.meta.modes]
+      .filter((candidate) => candidate.ranked !== false)
+      .sort((left, right) => left.id.localeCompare(right.id))) {
       pairs.push({ gameId: entry.meta.id, modeId: mode.id })
     }
   }

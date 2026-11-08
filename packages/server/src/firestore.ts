@@ -256,7 +256,6 @@ export class FirestoreStore implements ArcadeStore {
 
     const token = snapshot.data() as AccessTokenRecord
     if (token.expiresAt < Date.now()) {
-      await ref.delete()
       return undefined
     }
     return token
@@ -299,12 +298,11 @@ export class FirestoreStore implements ArcadeStore {
     writer.delete(this.playerDoc(playerId))
     writer.delete(this.db.collection("providers").doc(providerId))
 
-    const [sessions, tokens, runs, attempts, boards] = await Promise.all([
+    const [sessions, tokens, runs, attempts] = await Promise.all([
       this.db.collection("sessions").where("playerId", "==", playerId).get(),
       this.db.collection("accessTokens").where("playerId", "==", playerId).get(),
       this.db.collection("runs").where("playerId", "==", playerId).get(),
       this.db.collection("challengeAttempts").where("playerId", "==", playerId).get(),
-      this.db.collection("boards").get(),
     ])
 
     for (const session of sessions.docs) writer.delete(session.ref)
@@ -312,14 +310,15 @@ export class FirestoreStore implements ArcadeStore {
     for (const run of runs.docs) writer.delete(run.ref)
     for (const attempt of attempts.docs) writer.delete(attempt.ref)
 
-    const seen = new Set<string>()
-    for (const boardId of boardIds) {
-      seen.add(boardId)
-      writer.delete(this.entryDoc(boardId, playerId))
+    const allBoardIds = new Set<string>(boardIds)
+    for (const attempt of attempts.docs) {
+      const challengeId = attempt.get("challengeId")
+      if (typeof challengeId === "string" && challengeId) {
+        allBoardIds.add(challengeId)
+      }
     }
-    for (const board of boards.docs) {
-      if (seen.has(board.id)) continue
-      writer.delete(board.ref.collection("entries").doc(playerId))
+    for (const boardId of allBoardIds) {
+      writer.delete(this.entryDoc(boardId, playerId))
     }
 
     await writer.close()

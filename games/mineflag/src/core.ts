@@ -184,9 +184,11 @@ export const core: GameCore<MineState, MineInput> = {
 
   step(state, inputs) {
     for (const input of inputs) {
+      if (typeof input !== "object" || input === null) continue
+      if (!Number.isInteger(input.x) || !Number.isInteger(input.y)) continue
       if (input.type === "reveal") reveal(state, input.x, input.y)
       else if (input.type === "flag") flag(state, input.x, input.y)
-      else chord(state, input.x, input.y)
+      else if (input.type === "chord") chord(state, input.x, input.y)
       if (state.phase !== "playing") break
     }
     return state

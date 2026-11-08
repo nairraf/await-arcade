@@ -40,12 +40,23 @@ export function verifyReplay<S, I>(
   if (replay.durationMs > meta.maxDurationMs) return fail("replay exceeds the maximum duration")
 
   if (!Array.isArray(replay.inputs)) return fail("replay inputs are not an array")
+  const maxInputs = meta.maxInputs ?? 10_000
+  if (replay.inputs.length > maxInputs) return fail("replay exceeds the maximum input count")
 
   let previousTick = -1
+  let currentTickCount = 0
   for (const event of replay.inputs) {
     if (typeof event !== "object" || event === null) return fail("invalid input event")
     if (!Number.isInteger(event.tick) || event.tick < 0) return fail("invalid input tick")
     if (event.tick < previousTick) return fail("inputs are out of order")
+    if (meta.kind === "realtime") {
+      if (event.tick === previousTick) {
+        currentTickCount += 1
+      } else {
+        currentTickCount = 1
+      }
+      if (currentTickCount > 8) return fail("tick exceeds maximum input count")
+    }
     previousTick = event.tick
   }
 

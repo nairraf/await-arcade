@@ -6,7 +6,7 @@ export const meta: GameMeta = {
   description:
     "Three brick bands, a glowing save brick, and explosive supers that take their neighbours with them. Keep the ball alive and clear the wall.",
   author: "Await Arcade",
-  version: "1.0.0",
+  version: "1.0.1",
   engines: { arcade: "^0.1.0" },
   kind: "realtime",
   tickRate: 60,

@@ -133,13 +133,14 @@ function updateSpeed(state: BrickstormState, scale: boolean): void {
   const next = Math.min(MAX_SPEED_LEVEL, Math.floor(state.hits / 12) + state.saves)
   if (next === state.speedLevel) return
 
+  const prevFactor = speedFactor(state)
   state.speedLevel = next
   if (!scale || !state.ballLive) return
 
-  const speed = Math.hypot(state.vx, state.vy) || 1
-  const target = 210 * speedFactor(state)
-  state.vx = (state.vx / speed) * target
-  state.vy = (state.vy / speed) * target
+  const nextFactor = speedFactor(state)
+  const ratio = nextFactor / prevFactor
+  state.vx *= ratio
+  state.vy *= ratio
 }
 
 function hitsBrick(state: BrickstormState, index: number): boolean {

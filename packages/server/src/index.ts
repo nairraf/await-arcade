@@ -22,6 +22,14 @@ import {
   type RunRecord,
 } from "./store"
 
+export interface RateLimitsConfig {
+  readonly runsPerMin?: number
+  readonly submitsPerMin?: number
+  readonly refreshesPer10Min?: number
+  readonly pollsPerMin?: number
+  readonly startsPer10Min?: number
+}
+
 export interface ArcadeServerOptions {
   readonly store?: ArcadeStore
   readonly host?: string
@@ -30,6 +38,8 @@ export interface ArcadeServerOptions {
   readonly daily?: DailyConfig
   /** When true, run issuance and submission require a signed-in player. */
   readonly requireAuth?: boolean
+  readonly trustProxy?: boolean
+  readonly rateLimits?: RateLimitsConfig
 }
 
 export interface ArcadeServer {
@@ -38,7 +48,7 @@ export interface ArcadeServer {
   close(): Promise<void>
 }
 
-const MAX_BODY = 1_000_000
+const MAX_BODY = 256_000
 const RUN_TTL_MS = 24 * 60 * 60 * 1000
 
 function winner(a: Score, b: Score): boolean {
@@ -63,12 +73,13 @@ function json(res: ServerResponse, status: number, body: unknown, cors = true): 
   res.end(payload)
 }
 
-function noContent(res: ServerResponse): void {
-  res.writeHead(204, {
-    "access-control-allow-origin": "*",
+function noContent(res: ServerResponse, cors = false): void {
+  const headers: Record<string, string> = {
     "access-control-allow-headers": "content-type, x-arcade-player, authorization",
     "access-control-allow-methods": "GET, POST, DELETE, OPTIONS",
-  })
+  }
+  if (cors) headers["access-control-allow-origin"] = "*"
+  res.writeHead(204, headers)
   res.end()
 }
 
@@ -79,7 +90,10 @@ async function readBody(req: IncomingMessage): Promise<unknown> {
   for await (const chunk of req) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
     size += buffer.length
-    if (size > MAX_BODY) throw new Error("request body is too large")
+    if (size > MAX_BODY) {
+      req.destroy()
+      throw new Error("request body is too large")
+    }
     chunks.push(buffer)
   }
 
@@ -121,14 +135,47 @@ function matchesAnchor(
   return input.type === anchor.type && input.x === anchor.x && input.y === anchor.y
 }
 
-function clientIp(req: IncomingMessage): string {
-  const forwarded = req.headers["x-forwarded-for"]
-  if (typeof forwarded === "string" && forwarded.length > 0) {
-    const parts = forwarded.split(",").map((part) => part.trim()).filter(Boolean)
-    const last = parts[parts.length - 1]
-    if (last) return last
+function clientIp(req: IncomingMessage, trustProxy = false): string {
+  if (trustProxy) {
+    const forwarded = req.headers["x-forwarded-for"]
+    if (typeof forwarded === "string" && forwarded.length > 0) {
+      const parts = forwarded.split(",").map((part) => part.trim()).filter(Boolean)
+      const last = parts[parts.length - 1]
+      if (last) return last
+    }
   }
   return req.socket.remoteAddress ?? "unknown"
+}
+
+function createRateLimiter(windowMs: number, max: number, maxKeys = 1_000): (key: string) => boolean {
+  const hits = new Map<string, number[]>()
+
+  return (key: string): boolean => {
+    const at = Date.now()
+    const recent = (hits.get(key) ?? []).filter((time) => at - time < windowMs)
+    if (recent.length >= max) {
+      hits.set(key, recent)
+      return false
+    }
+    recent.push(at)
+    hits.set(key, recent)
+
+    if (hits.size > maxKeys) {
+      for (const [k, timestamps] of hits.entries()) {
+        const active = timestamps.filter((t) => at - t < windowMs)
+        if (active.length === 0) {
+          hits.delete(k)
+        } else {
+          hits.set(k, active)
+        }
+      }
+      if (hits.size > maxKeys) {
+        const oldest = hits.keys().next().value
+        if (oldest) hits.delete(oldest)
+      }
+    }
+    return true
+  }
 }
 
 export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeServer {
@@ -139,6 +186,16 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
   const requireAuth =
     options.requireAuth ??
     (process.env.AWAIT_ARCADE_REQUIRE_AUTH === "0" ? false : Boolean(github))
+  const trustProxy = options.trustProxy ?? Boolean(process.env.K_SERVICE)
+  const rl = options.rateLimits ?? {}
+
+  const allowAuthStart = createRateLimiter(10 * 60_000, rl.startsPer10Min ?? 10)
+  const allowAuthPoll = createRateLimiter(60_000, rl.pollsPerMin ?? 30)
+  const allowAuthRefresh = createRateLimiter(10 * 60_000, rl.refreshesPer10Min ?? 20)
+  const allowRunsIp = createRateLimiter(60_000, rl.runsPerMin ?? 30)
+  const allowRunsPlayer = createRateLimiter(60_000, rl.runsPerMin ?? 30)
+  const allowSubmitIp = createRateLimiter(60_000, rl.submitsPerMin ?? 20)
+  const allowSubmitPlayer = createRateLimiter(60_000, rl.submitsPerMin ?? 20)
 
   const authenticate = async (
     req: IncomingMessage,
@@ -165,7 +222,11 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
 
     if (!identity) {
       const existing = await store.getPlayer(player)
-      if (!existing) {
+      if (existing) {
+        if (!existing.providerId.startsWith("guest:")) {
+          return undefined
+        }
+      } else {
         const at = Date.now()
         await store.ensurePlayer(`guest:${player}`, {
           playerId: player,
@@ -180,29 +241,12 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
     return player
   }
 
-  const authStarts = new Map<string, number[]>()
-  const allowAuthStart = (ip: string): boolean => {
-    const at = Date.now()
-    const recent = (authStarts.get(ip) ?? []).filter((time) => at - time < 10 * 60_000)
-    if (recent.length >= 10) {
-      authStarts.set(ip, recent)
-      return false
-    }
-    recent.push(at)
-    authStarts.set(ip, recent)
-    if (authStarts.size > 1_000) {
-      const oldest = authStarts.keys().next().value
-      if (oldest) authStarts.delete(oldest)
-    }
-    return true
-  }
-
   const server = createHttpServer(async (req, res) => {
     if (req.method === "OPTIONS") {
       res.writeHead(204, {
         "access-control-allow-origin": "*",
-        "access-control-allow-headers": "content-type, x-arcade-player, authorization",
-        "access-control-allow-methods": "GET, POST, DELETE, OPTIONS",
+        "access-control-allow-headers": "content-type",
+        "access-control-allow-methods": "GET, OPTIONS",
       })
       res.end()
       return
@@ -234,7 +278,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
 
       if (req.method === "POST" && url.pathname === "/v1/auth/github/start") {
         if (!auth) throw new AuthError(503, "GitHub auth is not configured")
-        const ip = clientIp(req)
+        const ip = clientIp(req, trustProxy)
         if (!allowAuthStart(ip)) throw new AuthError(429, "too many sign-in attempts")
         const body = record(await readBody(req))
         const requested = text(body.host)
@@ -245,6 +289,8 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
 
       if (req.method === "POST" && url.pathname === "/v1/auth/github/poll") {
         if (!auth) throw new AuthError(503, "GitHub auth is not configured")
+        const ip = clientIp(req, trustProxy)
+        if (!allowAuthPoll(ip)) throw new AuthError(429, "too many poll attempts")
         const body = record(await readBody(req))
         const flowId = text(body.flowId)
         if (!flowId) throw new AuthError(400, "flowId is required")
@@ -254,6 +300,8 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
 
       if (req.method === "POST" && url.pathname === "/v1/auth/refresh") {
         if (!auth) throw new AuthError(503, "GitHub auth is not configured")
+        const ip = clientIp(req, trustProxy)
+        if (!allowAuthRefresh(ip)) throw new AuthError(429, "too many refresh attempts")
         const body = record(await readBody(req))
         const refreshToken = text(body.refreshToken)
         if (!refreshToken) throw new AuthError(400, "refreshToken is required")
@@ -265,7 +313,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
         const identity = await authenticate(req)
         if (!identity) throw new AuthError(401, "sign in required")
         await auth!.signOut(identity.token)
-        noContent(res)
+        noContent(res, false)
         return
       }
 
@@ -283,7 +331,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           entry.meta.modes.map((mode) => boardKey(entry.meta.id, mode.id)),
         )
         await auth!.deleteAccount(identity.player, boardIds)
-        noContent(res)
+        noContent(res, false)
         return
       }
 
@@ -313,21 +361,32 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
       }
 
       if (req.method === "POST" && url.pathname === "/v1/runs") {
+        const ip = clientIp(req, trustProxy)
+        if (!allowRunsIp(ip)) {
+          json(res, 429, { error: "too many run requests" }, false)
+          return
+        }
+
         const body = record(await readBody(req))
         const gameId = text(body.gameId)
         const modeId = text(body.modeId)
         if (!gameId || !modeId) {
-          json(res, 400, { error: "gameId and modeId are required" })
+          json(res, 400, { error: "gameId and modeId are required" }, false)
           return
         }
 
         const entry = verifiers[gameId]
         if (!entry) {
-          json(res, 404, { error: `unknown game: ${gameId}` })
+          json(res, 404, { error: `unknown game: ${gameId}` }, false)
           return
         }
-        if (!entry.meta.modes.some((mode) => mode.id === modeId)) {
-          json(res, 404, { error: `unknown mode: ${modeId}` })
+        const mode = entry.meta.modes.find((candidate) => candidate.id === modeId)
+        if (!mode) {
+          json(res, 404, { error: `unknown mode: ${modeId}` }, false)
+          return
+        }
+        if (mode.ranked === false) {
+          json(res, 400, { error: `mode is not eligible for ranked runs: ${modeId}` }, false)
           return
         }
 
@@ -338,7 +397,12 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           text(body.playerId) ?? text(req.headers["x-arcade-player"]) ?? "local"
         const player = await resolvePlayer(identity, requested)
         if (!player) {
-          json(res, 400, { error: "invalid playerId" })
+          json(res, 400, { error: "invalid playerId" }, false)
+          return
+        }
+
+        if (!allowRunsPlayer(player)) {
+          json(res, 429, { error: "too many run requests" }, false)
           return
         }
 
@@ -361,7 +425,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           seed: run.seed,
           playerId: run.playerId,
           expiresAt: run.expiresAt,
-        })
+        }, false)
         return
       }
 
@@ -372,15 +436,21 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
         parts[1] === "challenges" &&
         parts[3] === "runs"
       ) {
+        const ip = clientIp(req, trustProxy)
+        if (!allowRunsIp(ip)) {
+          json(res, 429, { error: "too many run requests" }, false)
+          return
+        }
+
         const id = decodeSegment(parts[2])
         if (!id) {
-          json(res, 400, { error: "invalid challenge id" })
+          json(res, 400, { error: "invalid challenge id" }, false)
           return
         }
 
         const active = dailyChallenge(verifiers, daily, dailyDate(dailyNow()))
         if (!active || active.challengeId !== id) {
-          json(res, 409, { error: "daily challenge is not active" })
+          json(res, 409, { error: "daily challenge is not active" }, false)
           return
         }
 
@@ -392,7 +462,12 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           text(body.playerId) ?? text(req.headers["x-arcade-player"]) ?? "local"
         const player = await resolvePlayer(identity, requested)
         if (!player) {
-          json(res, 400, { error: "invalid playerId" })
+          json(res, 400, { error: "invalid playerId" }, false)
+          return
+        }
+
+        if (!allowRunsPlayer(player)) {
+          json(res, 429, { error: "too many run requests" }, false)
           return
         }
 
@@ -407,7 +482,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
             error: "no daily attempts left",
             attemptsUsed: DAILY_ATTEMPTS,
             attemptsLeft: 0,
-          })
+          }, false)
           return
         }
 
@@ -437,20 +512,26 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           attempt,
           attemptsLeft: DAILY_ATTEMPTS - attempt,
           ...(active.anchor ? { anchor: active.anchor } : {}),
-        })
+        }, false)
         return
       }
 
       if (req.method === "POST" && parts[0] === "v1" && parts[1] === "runs" && parts[3] === "submit") {
         const runId = parts[2]
         if (!runId) {
-          json(res, 400, { error: "runId is required" })
+          json(res, 400, { error: "runId is required" }, false)
           return
         }
 
         const run = await store.getRun(runId)
         if (!run) {
-          json(res, 404, { error: "run not found" })
+          json(res, 404, { error: "run not found" }, false)
+          return
+        }
+
+        const ip = clientIp(req, trustProxy)
+        if (!allowSubmitIp(ip) || !allowSubmitPlayer(run.playerId)) {
+          json(res, 429, { error: "too many submissions" }, false)
           return
         }
 
@@ -461,20 +542,20 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
         }
 
         if (Date.now() > run.expiresAt) {
-          json(res, 410, { error: "run expired" })
+          json(res, 410, { error: "run expired" }, false)
           return
         }
 
         const entry = verifiers[run.gameId]
         if (!entry) {
-          json(res, 404, { error: `unknown game: ${run.gameId}` })
+          json(res, 404, { error: `unknown game: ${run.gameId}` }, false)
           return
         }
 
         const body = record(await readBody(req))
         const replay = body.replay
         if (typeof replay !== "object" || replay === null) {
-          json(res, 400, { error: "replay is required" })
+          json(res, 400, { error: "replay is required" }, false)
           return
         }
 
@@ -484,24 +565,24 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           candidate.modeId !== run.modeId ||
           candidate.seed !== run.seed
         ) {
-          json(res, 422, { ok: false, reason: "replay does not match the issued run" })
+          json(res, 422, { ok: false, reason: "replay does not match the issued run" }, false)
           return
         }
         if (!Array.isArray(candidate.inputs)) {
-          json(res, 422, { ok: false, reason: "replay inputs are invalid" })
+          json(res, 422, { ok: false, reason: "replay inputs are invalid" }, false)
           return
         }
 
         if (run.challengeId) {
           if (!run.challengeId.endsWith(`:${dailyDate(dailyNow())}`)) {
-            json(res, 410, { error: "daily challenge has ended" })
+            json(res, 410, { error: "daily challenge has ended" }, false)
             return
           }
           if (run.anchor && !matchesAnchor(candidate.inputs[0], run.anchor)) {
             json(res, 422, {
               ok: false,
               reason: "daily replay must start at the anchor",
-            })
+            }, false)
             return
           }
         }
@@ -512,7 +593,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
             ok: false,
             reason: verified.reason ?? "replay did not verify",
             score: verified.score,
-          })
+          }, false)
           return
         }
 
@@ -522,16 +603,24 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
         const outcome = await store.transaction(async (tx) => {
           const current = await tx.getRun(runId)
           if (!current) return { missing: true as const }
-          if (!(await tx.getPlayer(run.playerId))) return { missingPlayer: true as const }
+          const player = await tx.getPlayer(run.playerId)
+          if (!player) return { missingPlayer: true as const }
 
           const previous = await tx.getEntry(key, run.playerId)
-          const best = !previous || winner(score, previous.score) ? score : previous.score
+          const beatPrevious = !previous || winner(score, previous.score)
+          const best = beatPrevious ? score : previous.score
 
-          if (!previous || best === score) {
+          if (beatPrevious) {
             await tx.putEntry(key, {
               playerId: run.playerId,
+              displayName: player.displayName,
               score: best,
               achievedAt: Date.now(),
+            })
+          } else if (previous && previous.displayName !== player.displayName) {
+            await tx.putEntry(key, {
+              ...previous,
+              displayName: player.displayName,
             })
           }
 
@@ -540,12 +629,12 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
         })
 
         if ("missingPlayer" in outcome) {
-          json(res, 401, { error: "player no longer exists" })
+          json(res, 401, { error: "player no longer exists" }, false)
           return
         }
 
         if (outcome.missing) {
-          json(res, 404, { error: "run not found" })
+          json(res, 404, { error: "run not found" }, false)
           return
         }
 
@@ -557,7 +646,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           ...(outcome.best ? { best: outcome.best } : {}),
           ...(rank !== undefined ? { rank } : {}),
           ...(run.challengeId ? { challengeId: run.challengeId } : {}),
-        })
+        }, false)
         return
       }
 
@@ -606,8 +695,13 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           json(res, 404, { error: `unknown game: ${gameId}` })
           return
         }
-        if (!entry.meta.modes.some((mode) => mode.id === modeId)) {
-          json(res, 404, { error: `unknown mode: ${modeId}` })
+        const mode = entry.meta.modes.find((candidate) => candidate.id === modeId)
+        if (!mode) {
+          json(res, 404, { error: `unknown mode: ${modeId}` }, false)
+          return
+        }
+        if (mode.ranked === false) {
+          json(res, 400, { error: `mode is not eligible for ranked runs: ${modeId}` }, false)
           return
         }
 
@@ -660,8 +754,13 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           json(res, 404, { error: `unknown game: ${gameId}` })
           return
         }
-        if (!entry.meta.modes.some((mode) => mode.id === modeId)) {
-          json(res, 404, { error: `unknown mode: ${modeId}` })
+        const mode = entry.meta.modes.find((candidate) => candidate.id === modeId)
+        if (!mode) {
+          json(res, 404, { error: `unknown mode: ${modeId}` }, false)
+          return
+        }
+        if (mode.ranked === false) {
+          json(res, 400, { error: `mode is not eligible for ranked runs: ${modeId}` }, false)
           return
         }
 
@@ -673,10 +772,14 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
       json(res, 404, { error: "not found" })
     } catch (error) {
       if (error instanceof AuthError) {
-        json(res, error.status, { error: error.message })
+        json(res, error.status, { error: error.message }, false)
         return
       }
-      json(res, 500, { error: error instanceof Error ? error.message : String(error) })
+      if (error instanceof Error && error.message === "request body is too large") {
+        json(res, 413, { error: error.message }, false)
+        return
+      }
+      json(res, 500, { error: error instanceof Error ? error.message : String(error) }, false)
     }
   })
 

@@ -1,15 +1,15 @@
 import { randomUUID } from "node:crypto"
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
-import { createArcadeClient } from "@await-arcade/api-client"
+import { createHostSession } from "@await-arcade/api-client"
 
 // Defaults so the sidecar can be run by hand for a quick check.
 if (!process.env.ANTIGRAVITY_SIDECAR_WEB_PORT) {
   process.env.ANTIGRAVITY_SIDECAR_WEB_PORT = "54962"
   process.env.ANTIGRAVITY_LS_ADDRESS = "127.0.0.1:0"
-  process.env.ANTIGRAVITY_CSRF_TOKEN = "dev-csrf"
+  process.env.ANTIGRAVITY_CSRF_TOKEN = randomUUID()
 }
 
 let sdk
@@ -58,268 +58,40 @@ if (!player?.playerId) {
 }
 const playerId = player.playerId
 
-const readQueue = () => {
-  const value = readJson(queueFile, [])
-  return Array.isArray(value) ? value : []
-}
-
-const writeQueue = (items) => {
-  writeFileSync(queueFile, JSON.stringify(items, null, 2), { mode: 0o600 })
-}
-
-function stateDir() {
-  if (process.env.AWAIT_ARCADE_STATE_DIR) return process.env.AWAIT_ARCADE_STATE_DIR
-  if (process.platform === "darwin") {
-    return join(homedir(), "Library", "Application Support", "await-arcade")
-  }
-  if (process.platform === "win32") {
-    return join(process.env.LOCALAPPDATA ?? homedir(), "await-arcade")
-  }
-  return join(process.env.XDG_STATE_HOME ?? join(homedir(), ".local", "state"), "await-arcade")
-}
-
-const authFile = join(stateDir(), "auth.antigravity.json")
-
-function apiUrl() {
-  if (process.env.AWAIT_ARCADE_API_URL) return process.env.AWAIT_ARCADE_API_URL
-  const config = readJson(join(stateDir(), "config.json"), undefined)
-  if (typeof config?.apiUrl === "string" && config.apiUrl.length > 0) return config.apiUrl
-  return "http://127.0.0.1:8787"
-}
-
-function readAuth() {
-  const value = readJson(authFile, undefined)
-  return typeof value?.refreshToken === "string" && typeof value?.playerId === "string"
-    ? value
-    : undefined
-}
-
-function writeAuth(value) {
-  mkdirSync(stateDir(), { recursive: true, mode: 0o700 })
-  const temp = `${authFile}.${process.pid}.tmp`
-  writeFileSync(temp, JSON.stringify(value, null, 2), { mode: 0o600 })
-  try {
-    renameSync(temp, authFile)
-  } catch {
-    rmSync(authFile, { force: true })
-    renameSync(temp, authFile)
-  }
-}
-
-function clearAuth() {
-  rmSync(authFile, { force: true })
-}
-
-function clearAuthIf(refreshToken) {
-  const current = readAuth()
-  if (current && current.refreshToken !== refreshToken) return false
-  clearAuth()
-  return true
-}
-
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-
-let auth = readAuth()
-let accessToken
-let accessExpiresAt = 0
-
-const client = createArcadeClient({
-  baseUrl: apiUrl(),
+const session = createHostSession({
+  host: "antigravity",
   playerId,
-  getToken: () => accessToken,
+  readQueue: () => {
+    const value = readJson(queueFile, [])
+    return Array.isArray(value) ? value : []
+  },
+  writeQueue: (items) => {
+    writeFileSync(queueFile, JSON.stringify(items, null, 2), { mode: 0o600 })
+  },
 })
 
-const status = async () => ({
-  signedIn: Boolean(auth),
-  ...(auth
-    ? {
-        playerId: auth.playerId,
-        displayName: auth.displayName,
-        ...(auth.githubLogin ? { githubLogin: auth.githubLogin } : {}),
-      }
-    : {}),
-  queued: readQueue().length,
-})
-
-async function refresh() {
-  if (!auth?.refreshToken) return false
-  try {
-    const result = await client.authRefresh(auth.refreshToken)
-    auth = {
-      host: "antigravity",
-      playerId: result.player.playerId,
-      displayName: result.player.displayName,
-      ...(result.player.githubLogin ? { githubLogin: result.player.githubLogin } : {}),
-      refreshToken: result.refreshToken,
-      createdAt: auth.createdAt ?? Date.now(),
-      lastUsedAt: Date.now(),
-    }
-    writeAuth(auth)
-    accessToken = result.accessToken
-    accessExpiresAt = result.expiresAt
-    return true
-  } catch (error) {
-    if (error?.status === 401) {
-      const rejected = auth.refreshToken
-      for (const delay of [250, 500, 1_000, 2_000]) {
-        await sleep(delay)
-        const latest = readAuth()
-        if (latest && latest.refreshToken !== rejected) {
-          auth = latest
-          return refresh()
-        }
-      }
-
-      if (!clearAuthIf(rejected)) {
-        auth = readAuth()
-        return refresh()
-      }
-      auth = undefined
-      accessToken = undefined
-    }
-    return false
-  }
-}
-
-let refreshing
-async function ensureAuth() {
-  if (accessToken && accessExpiresAt > Date.now() + 60_000) return true
-  if (!auth?.refreshToken) return false
-  if (!refreshing) {
-    refreshing = refresh().finally(() => {
-      refreshing = undefined
-    })
-  }
-  return refreshing
-}
-
-async function requireAuth() {
-  if (!auth) return
-  if (!(await ensureAuth())) throw new Error("sign-in expired; sign in again")
-}
-
-void ensureAuth()
-
-async function flush() {
-  const items = readQueue()
-  if (items.length === 0) return
-
-  const remaining = []
-  for (const item of items) {
-    try {
-      await client.submit(item.runId, item.replay)
-    } catch (error) {
-      if (!(error?.status >= 400 && error?.status < 500)) remaining.push(item)
-    }
-  }
-  writeQueue(remaining)
-}
-
+app.api("/api/start", (data) => session.start(data.gameId, data.modeId), "POST")
+app.api("/api/submit", (data) => session.submit(data.runId, data.replay), "POST")
+app.api("/api/best", (data) => session.best(data.gameId, data.modeId), "POST")
+app.api("/api/board", (data) => session.board(data.gameId, data.modeId), "POST")
+app.api("/api/player-best", (data) => session.playerBest(data.gameId, data.modeId), "POST")
+app.api("/api/daily", () => session.daily(), "POST")
+app.api("/api/daily-start", (data) => session.dailyStart(data.challengeId), "POST")
+app.api("/api/daily-board", (data) => session.dailyBoard(data.challengeId), "POST")
 app.api(
-  "/api/start",
-  async (data) => {
-    await requireAuth()
-    await flush()
-    return client.start(data.gameId, data.modeId)
-  },
-  "POST",
-)
-
-app.api(
-  "/api/submit",
-  async (data) => {
-    await requireAuth()
-    try {
-      const result = await client.submit(data.runId, data.replay)
-      await flush()
-      return result
-    } catch (error) {
-      if (!(error?.status >= 400 && error?.status < 500)) {
-        const items = readQueue()
-        items.push({ runId: data.runId, replay: data.replay, at: Date.now() })
-        writeQueue(items.slice(-20))
-      }
-      throw error
-    }
-  },
-  "POST",
-)
-
-app.api("/api/best", async (data) => {
-  await ensureAuth()
-  return { best: await client.bestFor(data.gameId, data.modeId) }
-}, "POST")
-app.api("/api/board", async (data) => {
-  await ensureAuth()
-  return client.board(data.gameId, data.modeId)
-}, "POST")
-app.api("/api/player-best", async (data) => {
-  await requireAuth()
-  return client.playerBest(data.gameId, data.modeId)
-}, "POST")
-app.api("/api/daily", async () => {
-  await ensureAuth()
-  return client.dailyToday()
-}, "POST")
-app.api("/api/daily-start", async (data) => {
-  await requireAuth()
-  return client.dailyStart(data.challengeId)
-}, "POST")
-app.api("/api/daily-board", async (data) => {
-  await ensureAuth()
-  return client.dailyBoard(data.challengeId)
-}, "POST")
-app.api("/api/status", async () => ({ mode: "online", playerId, queued: readQueue().length }), "GET")
-
-app.api("/api/auth/status", async () => status(), "POST")
-app.api("/api/auth/start", async () => client.authStart("antigravity"), "POST")
-app.api(
-  "/api/auth/poll",
-  async (data) => {
-    const result = await client.authPoll(data.flowId)
-    if (result.status === "complete") {
-      auth = {
-        host: "antigravity",
-        playerId: result.player.playerId,
-        displayName: result.player.displayName,
-        ...(result.player.githubLogin ? { githubLogin: result.player.githubLogin } : {}),
-        refreshToken: result.refreshToken,
-        createdAt: Date.now(),
-        lastUsedAt: Date.now(),
-      }
-      writeAuth(auth)
-      accessToken = result.accessToken
-      accessExpiresAt = result.expiresAt
-      return { status: "complete", ...(await status()) }
-    }
-    return { status: "pending", interval: result.interval }
-  },
-  "POST",
-)
-app.api(
-  "/api/auth/signout",
+  "/api/status",
   async () => {
-    await ensureAuth()
-    await client.authSignOut()
-    auth = undefined
-    accessToken = undefined
-    clearAuth()
-    return status()
+    const st = await session.status()
+    return { mode: "online", playerId, queued: st.queued }
   },
-  "POST",
+  "GET",
 )
-app.api(
-  "/api/auth/delete",
-  async () => {
-    await ensureAuth()
-    await client.deleteMe()
-    auth = undefined
-    accessToken = undefined
-    clearAuth()
-    return status()
-  },
-  "POST",
-)
+
+app.api("/api/auth/status", () => session.status(), "POST")
+app.api("/api/auth/start", () => session.authStart(), "POST")
+app.api("/api/auth/poll", (data) => session.authPoll(data.flowId), "POST")
+app.api("/api/auth/signout", () => session.authSignOut(), "POST")
+app.api("/api/auth/delete", () => session.deleteAccount(), "POST")
 
 await app.run()
 console.log("[await-arcade] sidecar running")

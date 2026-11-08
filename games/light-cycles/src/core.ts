@@ -292,7 +292,14 @@ export const core: GameCore<CycleState, CycleInput> = {
     const turns: Turn[] = [0, 0]
 
     for (const input of inputs) {
-      if (input.player === 0 || input.player === 1) turns[input.player] = input.turn
+      if (
+        typeof input === "object" &&
+        input !== null &&
+        (input.player === 0 || input.player === 1) &&
+        (input.turn === -1 || input.turn === 0 || input.turn === 1)
+      ) {
+        turns[input.player] = input.turn
+      }
     }
 
     // Player 1 is the AI in solo mode; both riders are human in a duel.
@@ -395,7 +402,7 @@ export const core: GameCore<CycleState, CycleInput> = {
       value: state.ticks,
       type: "higher",
       won: state.phase === "won",
-      ranked: state.phase !== "playing",
+      ranked: state.phase !== "playing" && state.modeId !== "duel",
       detail: {
         ticks: state.ticks,
         trail: state.bikes[0]?.trail.size ?? 0,

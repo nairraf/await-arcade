@@ -53,6 +53,7 @@ export class AuthService {
   private readonly refreshTtlMs: number
   private readonly refreshGraceMs: number
   private readonly now: () => number
+  private readonly activePolls = new Set<string>()
 
   constructor(store: ArcadeStore, github: GitHubClient, config: AuthConfig = {}) {
     this.store = store
@@ -140,59 +141,68 @@ export class AuthService {
   async poll(
     flowId: string,
   ): Promise<{ status: "pending"; interval: number } | ({ status: "complete" } & AuthTokens)> {
-    const flow = await this.store.getFlow(flowId)
-    if (!flow) throw new AuthError(404, "unknown sign-in flow")
-
-    const at = this.now()
-    if (at > flow.expiresAt) {
-      await this.store.deleteFlow(flowId)
-      throw new AuthError(410, "sign-in flow expired")
+    if (this.activePolls.has(flowId)) {
+      return { status: "pending", interval: 5 }
     }
+    this.activePolls.add(flowId)
 
-    // Enforce GitHub's polling interval even if a client ignores it.
-    if (flow.lastPolledAt !== undefined && at - flow.lastPolledAt < flow.interval * 1000) {
-      return { status: "pending", interval: flow.interval }
-    }
-    flow.lastPolledAt = at
-    await this.store.putFlow(flow)
+    try {
+      const flow = await this.store.getFlow(flowId)
+      if (!flow) throw new AuthError(404, "unknown sign-in flow")
 
-    const result = await this.github.pollDeviceFlow(flow.deviceCode)
-
-    if (result.status === "pending") {
-      const nextInterval = result.interval ?? (result.slowDown ? flow.interval + 5 : flow.interval)
-      if (nextInterval !== flow.interval) {
-        flow.interval = nextInterval
-        await this.store.putFlow(flow)
+      const at = this.now()
+      if (at > flow.expiresAt) {
+        await this.store.deleteFlow(flowId)
+        throw new AuthError(410, "sign-in flow expired")
       }
-      return { status: "pending", interval: flow.interval }
-    }
 
-    if (result.status === "expired") {
+      // Enforce GitHub's polling interval even if a client ignores it.
+      if (flow.lastPolledAt !== undefined && at - flow.lastPolledAt < flow.interval * 1000) {
+        return { status: "pending", interval: flow.interval }
+      }
+      flow.lastPolledAt = at
+      await this.store.putFlow(flow)
+
+      const result = await this.github.pollDeviceFlow(flow.deviceCode)
+
+      if (result.status === "pending") {
+        const nextInterval = result.interval ?? (result.slowDown ? flow.interval + 5 : flow.interval)
+        if (nextInterval !== flow.interval) {
+          flow.interval = nextInterval
+          await this.store.putFlow(flow)
+        }
+        return { status: "pending", interval: flow.interval }
+      }
+
+      if (result.status === "expired") {
+        await this.store.deleteFlow(flowId)
+        throw new AuthError(410, "sign-in flow expired")
+      }
+
+      if (result.status === "denied") {
+        await this.store.deleteFlow(flowId)
+        throw new AuthError(403, "GitHub sign-in was cancelled")
+      }
+
+      const githubUser = await this.github.user(result.accessToken)
+      const now = this.now()
+      const candidate: PlayerRecord = {
+        playerId: randomUUID(),
+        providerId: `github:${githubUser.id}`,
+        displayName: githubUser.name?.trim() || githubUser.login,
+        createdAt: now,
+        updatedAt: now,
+        githubLogin: githubUser.login,
+        ...(githubUser.avatarUrl !== undefined ? { avatarUrl: githubUser.avatarUrl } : {}),
+      }
+
+      const player = await this.store.ensurePlayer(candidate.providerId, candidate)
       await this.store.deleteFlow(flowId)
-      throw new AuthError(410, "sign-in flow expired")
+
+      return { status: "complete", ...(await this.issue(player, flow.host)) }
+    } finally {
+      this.activePolls.delete(flowId)
     }
-
-    if (result.status === "denied") {
-      await this.store.deleteFlow(flowId)
-      throw new AuthError(403, "GitHub sign-in was cancelled")
-    }
-
-    const githubUser = await this.github.user(result.accessToken)
-    const now = this.now()
-    const candidate: PlayerRecord = {
-      playerId: randomUUID(),
-      providerId: `github:${githubUser.id}`,
-      displayName: githubUser.name?.trim() || githubUser.login,
-      createdAt: now,
-      updatedAt: now,
-      githubLogin: githubUser.login,
-      ...(githubUser.avatarUrl !== undefined ? { avatarUrl: githubUser.avatarUrl } : {}),
-    }
-
-    const player = await this.store.ensurePlayer(candidate.providerId, candidate)
-    await this.store.deleteFlow(flowId)
-
-    return { status: "complete", ...(await this.issue(player, flow.host)) }
   }
 
   async refresh(refreshToken: string): Promise<AuthTokens> {

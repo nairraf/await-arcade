@@ -1,6 +1,7 @@
 import type {
   AuthPoll,
   AuthState,
+  BoardEntry,
   DailyChallenge,
   DeviceFlow,
   GameEntry,
@@ -101,6 +102,29 @@ function hudCell(label: string, value: string): { root: HTMLElement; value: HTML
   const valueNode = el("strong", "arcade-hud-value", value)
   root.append(el("span", "arcade-hud-label", label), valueNode)
   return { root, value: valueNode }
+}
+
+function renderBoardRow(
+  item: BoardEntry,
+  index: number,
+  meta: GameMeta,
+  currentId?: string,
+  extraClass = "",
+): HTMLElement {
+  const isYou = Boolean(currentId && item.playerId === currentId)
+  const row = el(
+    "div",
+    `arcade-board-row${extraClass ? ` ${extraClass}` : ""}${isYou ? " arcade-board-row-you" : ""}`,
+  )
+  const name = isYou ? "You" : (item.displayName || item.playerId.slice(0, 8))
+  const player = el("span", "arcade-board-player", name)
+  player.title = isYou ? "You" : (item.displayName ? `${item.displayName} (${item.playerId})` : item.playerId)
+  row.append(
+    el("span", "arcade-board-rank", `#${index + 1}`),
+    player,
+    el("span", "arcade-board-score", formatScore(item.score, meta)),
+  )
+  return row
 }
 
 export function createArcade(options: ArcadeOptions): Arcade {
@@ -222,6 +246,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
   root.append(top, main, foot)
 
   let authState: AuthState | undefined
+  let closeAuth: (() => void) | undefined
 
   const applyAuth = (state: AuthState): void => {
     authState = state
@@ -252,8 +277,10 @@ export function createArcade(options: ArcadeOptions): Arcade {
     const close = (): void => {
       if (timer) clearInterval(timer)
       timer = undefined
+      closeAuth = undefined
       backdrop.remove()
     }
+    closeAuth = close
 
     backdrop.addEventListener("click", (event) => {
       if (event.target === backdrop) close()
@@ -948,23 +975,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
       }
 
       entries.forEach((item, index) => {
-        const isYou = Boolean(playerId && item.playerId === playerId)
-        const row = el(
-          "div",
-          `arcade-board-row arcade-boards-row${isYou ? " arcade-board-row-you" : ""}`,
-        )
-        const player = el(
-          "span",
-          "arcade-board-player",
-          isYou ? "You" : item.playerId.slice(0, 8),
-        )
-        player.title = isYou ? "You" : item.playerId
-        row.append(
-          el("span", "arcade-board-rank", `#${index + 1}`),
-          player,
-          el("span", "arcade-board-score", formatScore(item.score, entry.meta)),
-        )
-        list.append(row)
+        list.append(renderBoardRow(item, index, entry.meta, playerId, "arcade-boards-row"))
       })
     } catch (error) {
       if (epoch !== boardsEpoch || section.parentNode !== main) return
@@ -1109,7 +1120,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
     actions.append(modeSelect, pause, restart)
     let boardButton: HTMLButtonElement | undefined
-    if (host.board) {
+    if (host.board || (isDaily && host.dailyBoard)) {
       boardButton = el("button", "arcade-btn", "Board")
       boardButton.type = "button"
       boardButton.addEventListener("click", () => {
@@ -1405,8 +1416,11 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
     const showBoard = async (): Promise<void> => {
       if (pause.disabled || boardPending) return
-      const board = host.board?.bind(host)
-      if (!board) return
+      const activeDaily = daily
+      const fetchBoard = activeDaily && host.dailyBoard
+        ? () => host.dailyBoard!(activeDaily.challengeId)
+        : host.board ? () => host.board!(entry.meta.id, mode.id) : undefined
+      if (!fetchBoard) return
       boardPending = true
 
       const wasRunning = !runner.paused()
@@ -1449,9 +1463,13 @@ export function createArcade(options: ArcadeOptions): Arcade {
       const token = overlayEpoch
 
       try {
-        const entries = await board(entry.meta.id, mode.id)
+        const [entries, auth] = await Promise.all([
+          fetchBoard(),
+          host.authState ? host.authState().catch(() => undefined) : Promise.resolve(undefined),
+        ])
         if (generation !== playGeneration || token !== overlayEpoch) return
 
+        const currentId = auth?.playerId ?? authState?.playerId
         const card = el("div", "arcade-overlay-card arcade-board")
         card.setAttribute("role", "dialog")
         card.setAttribute("aria-modal", "true")
@@ -1460,22 +1478,17 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
         const heading = el("h2", "arcade-overlay-title", entry.meta.title)
         heading.id = titleId
-        card.append(el("div", "arcade-overlay-kicker", "LEADERBOARD · ALL TIME"), heading)
+        const kicker = activeDaily
+          ? `LEADERBOARD · DAILY · ${activeDaily.date}`
+          : "LEADERBOARD · ALL TIME"
+        card.append(el("div", "arcade-overlay-kicker", kicker), heading)
 
         if (entries.length === 0) {
           card.append(el("div", "arcade-overlay-detail", "No ranked runs yet. Be the first."))
         } else {
           const list = el("div", "arcade-board-list")
           entries.forEach((item, index) => {
-            const row = el("div", "arcade-board-row")
-            const player = el("span", "arcade-board-player", item.playerId)
-            player.title = item.playerId
-            row.append(
-              el("span", "arcade-board-rank", `#${index + 1}`),
-              player,
-              el("span", "arcade-board-score", formatScore(item.score, entry.meta)),
-            )
-            list.append(row)
+            list.append(renderBoardRow(item, index, entry.meta, currentId))
           })
           card.append(list)
         }
@@ -1519,6 +1532,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
   return {
     destroy() {
       playGeneration += 1
+      closeAuth?.()
       clearDailyUi()
       destroyActive()
       root.classList.remove("arcade")

@@ -13,11 +13,11 @@ const date = "2026-11-08"
 describe("daily challenge schedule", () => {
   it("derives a stable seed from the game and UTC date", () => {
     const solo = challengeFor(verifiers, config, "light-cycles", "solo", date)!
-    const duel = challengeFor(verifiers, config, "light-cycles", "duel", date)!
+    const duel = challengeFor(verifiers, config, "light-cycles", "duel", date)
     const mine = challengeFor(verifiers, config, "mineflag", "beginner", date)!
     const next = challengeFor(verifiers, config, "light-cycles", "solo", "2026-11-09")!
 
-    expect(solo.seed).toBe(duel.seed)
+    expect(duel).toBeUndefined()
     expect(solo.seed).not.toBe(mine.seed)
     expect(solo.seed).not.toBe(next.seed)
   })

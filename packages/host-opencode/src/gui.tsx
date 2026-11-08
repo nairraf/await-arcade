@@ -78,7 +78,7 @@ export default Plugin.define({
         id: "open",
         title: "Await Arcade",
         description: "Open Await Arcade",
-        keywords: "arcade game minesweeper neon cycles",
+        keywords: "arcade game brickstorm light cycles mergegrid mineflag",
         group: "Await Arcade",
         section: "navigation",
         enabled: !!current(),

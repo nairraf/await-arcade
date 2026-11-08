@@ -19,4 +19,6 @@ RUN npm install --omit=dev --no-audit --no-fund
 
 COPY --from=build /app/packages/server/dist/cloud.js ./cloud.js
 
+USER node
+
 CMD ["node", "cloud.js"]

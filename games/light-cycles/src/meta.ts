@@ -11,7 +11,7 @@ export const meta: GameMeta = {
   tickRate: 12,
   modes: [
     { id: "solo", title: "Solo vs AI", description: "One rider, one very rude computer", difficulty: 1 },
-    { id: "duel", title: "Local Duel", description: "Two riders, one keyboard", difficulty: 2 },
+    { id: "duel", title: "Local Duel", description: "Two riders, one keyboard", difficulty: 2, ranked: false },
   ],
   score: { type: "higher", min: 0, max: 100_000 },
   leaderboard: "replay",

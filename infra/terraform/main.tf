@@ -16,6 +16,33 @@ resource "google_firestore_database" "default" {
   }
 }
 
+resource "google_firebaserules_ruleset" "firestore" {
+  project = var.project_id
+
+  source {
+    files {
+      name    = "firestore.rules"
+      content = file("${path.module}/../../firestore.rules")
+    }
+  }
+
+  depends_on = [
+    google_firestore_database.default,
+  ]
+}
+
+resource "google_firebaserules_release" "firestore" {
+  project      = var.project_id
+  name         = "cloud.firestore"
+  ruleset_name = google_firebaserules_ruleset.firestore.name
+
+  lifecycle {
+    replace_triggered_by = [
+      google_firebaserules_ruleset.firestore
+    ]
+  }
+}
+
 resource "google_service_account" "arcade_api" {
   project      = var.project_id
   account_id   = "arcade-api"
