@@ -26,6 +26,7 @@ export const meta: GameMeta = {
     { keys: "Mouse / touch", action: "Aim paddle" },
   ],
   display: { surface: "canvas", width: 320, height: 240 },
+  glyph: " [##]\n--##--\n [##]",
   theme: { accent: "#fb923c", accent2: "#f43f5e", mode: "neon" },
   maxDurationMs: 600_000,
   tags: ["action", "classic", "arcade"],

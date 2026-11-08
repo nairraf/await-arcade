@@ -349,6 +349,15 @@ export const styles = `
   text-shadow: 0 0 26px color-mix(in srgb, var(--game-label) 55%, transparent);
 }
 
+.arcade-card-glyph.arcade-card-art {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: 0.02em;
+  white-space: pre;
+}
+
 .arcade-card-body {
   display: flex;
   flex-direction: column;

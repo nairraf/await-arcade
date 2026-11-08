@@ -101,6 +101,8 @@ export interface GameMeta {
   readonly display: Display
   /** Optional cabinet accent; the shell provides the frame and typography. */
   readonly theme?: GameTheme
+  /** Optional multi-line ASCII mark for the launcher card. */
+  readonly glyph?: string
   /** Hard cap for ranked runs. The server rejects longer replays. */
   readonly maxDurationMs: number
   readonly tags?: readonly string[]

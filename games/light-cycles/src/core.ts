@@ -67,13 +67,8 @@ function blockedCells(state: CycleState): Set<number> {
  * lookahead: it prefers open space over a move that survives one tick but
  * seals the rider into a pocket.
  */
-function freeSpace(
-  state: CycleState,
-  start: number,
-  blocked: Set<number>,
-  allowBlockedStart = false,
-): number {
-  if (!allowBlockedStart && blocked.has(start)) return 0
+function freeSpace(state: CycleState, start: number, blocked: Set<number>): number {
+  if (blocked.has(start)) return 0
 
   const seen = new Set<number>([start])
   const stack = [start]
@@ -100,6 +95,28 @@ function freeSpace(
   return count
 }
 
+function playerEscape(
+  state: CycleState,
+  player: CycleBike,
+  blocked: Set<number>,
+): number {
+  let best = 0
+
+  for (const turn of [-1, 0, 1] as const) {
+    const direction = turnDirection(player.dir, turn)
+    const delta = DIRECTIONS[direction]!
+    const x = player.x + delta[0]
+    const y = player.y + delta[1]
+    if (x < 0 || y < 0 || x >= state.width || y >= state.height) continue
+
+    const index = y * state.width + x
+    if (blocked.has(index)) continue
+    best = Math.max(best, freeSpace(state, index, blocked))
+  }
+
+  return best
+}
+
 function aiTurn(state: CycleState, player: 0 | 1): Turn {
   const bike = state.bikes[player]
   if (!bike || !bike.alive) return 0
@@ -123,14 +140,12 @@ function aiTurn(state: CycleState, player: 0 | 1): Turn {
     const after = new Set(blocked)
     after.add(index)
 
-    // Shrink the player's escape area: flood from their head, allowing the
-    // head cell itself (it is part of their own trail).
-    const playerStart = target ? target.y * state.width + target.x : -1
-    const playerSpace =
-      target && playerStart >= 0 ? freeSpace(state, playerStart, after, true) : 0
+    // One-move prediction: assume the player takes their best legal reply,
+    // then score the AI move by how little escape that reply leaves.
+    const playerSpace = target ? playerEscape(state, target, after) : 0
     const distance = target ? Math.abs(x - target.x) + Math.abs(y - target.y) : 0
 
-    // Survival first, then cut off escape routes; distance only nudges.
+    // Survival first, then cut off the player's best response.
     const safety = aiSpace < 24 ? -400 : 0
     candidates.push({
       turn,

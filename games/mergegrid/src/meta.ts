@@ -19,6 +19,7 @@ export const meta: GameMeta = {
     { keys: "On-screen pad", action: "Touch play" },
   ],
   display: { surface: "dom", width: 4, height: 4 },
+  glyph: "+--+--+\n|2 |4 |\n+--+--+\n|8 |16|\n+--+--+",
   theme: { accent: "#f0b429", accent2: "#8b5cf6", mode: "paper" },
   maxDurationMs: 3_600_000,
   tags: ["puzzle", "classic", "numbers"],

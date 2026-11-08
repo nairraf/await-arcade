@@ -448,7 +448,13 @@ export function createArcade(options: ArcadeOptions): Arcade {
       card.dataset.mode = entry.meta.theme?.mode ?? "neon"
 
       const marquee = el("div", "arcade-card-marquee")
-      marquee.append(el("span", "arcade-card-glyph", entry.meta.title.slice(0, 1).toUpperCase()))
+      const mark = el(
+        "pre",
+        `arcade-card-glyph${entry.meta.glyph ? " arcade-card-art" : ""}`,
+        entry.meta.glyph ?? entry.meta.title.slice(0, 1).toUpperCase(),
+      )
+      mark.setAttribute("aria-hidden", "true")
+      marquee.append(mark)
 
       const body = el("div", "arcade-card-body")
       const kicker = `${entry.meta.kind === "turn" ? "TURN-BASED" : "ACTION"}${entry.meta.status === "experimental" ? " · LABS" : ""}`

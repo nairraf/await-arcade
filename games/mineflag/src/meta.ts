@@ -23,6 +23,7 @@ export const meta: GameMeta = {
     { keys: "Arrows + Space", action: "Keyboard play" },
   ],
   display: { surface: "dom", width: 30, height: 16 },
+  glyph: " \\|/\n--*--\n /|\\",
   theme: { accent: "#60a5fa", accent2: "#fbbf24", mode: "terminal" },
   maxDurationMs: 3_600_000,
   tags: ["logic", "classic"],
