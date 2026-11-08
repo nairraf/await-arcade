@@ -16,7 +16,14 @@ plugin id.
 
 ## Install locally
 
-Symlink the package into the global plugin directory:
+From the repo root, prefer the installer:
+
+```sh
+npm run build:hosts
+./scripts/install-hosts.sh
+```
+
+Or symlink the package into the global plugin directory by hand:
 
 ```sh
 ln -s "$PWD/packages/host-opencode" ~/.config/opencode/plugins/await-arcade

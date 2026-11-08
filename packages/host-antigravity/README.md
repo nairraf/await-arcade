@@ -14,26 +14,39 @@ sidecar serves those three paths.
 
 ## Install
 
-Symlink or copy the package into the sidecar directory. The directory name is
-the sidecar id:
+From the repo root, use the installer:
 
 ```sh
-ln -s "$PWD/packages/host-antigravity" ~/.gemini/config/sidecars/await-arcade
+npm run build:hosts
+AWAIT_ARCADE_API_URL=https://await-arcade-api-164244433164.northamerica-northeast1.run.app \
+  ./scripts/install-hosts.sh
 ```
 
-Enable it in `~/.gemini/config/config.json`:
+It creates the sidecar directory, a local `sidecar.json`, the Antigravity
+project, and the `sidecars` config entry.
+
+Manual alternative: create `~/.gemini/config/sidecars/await-arcade` as a **real
+directory** (not a symlink to the package), symlink or copy the four built files
+into it, and write a local `sidecar.json` whose `args` point at the absolute
+`server.mjs` path. Then add the entry to `~/.gemini/config/config.json`:
 
 ```json
 {
   "sidecars": {
     "await-arcade": {
-      "enabled": true
+      "enabled": true,
+      "projectId": "<uuid>",
+      "schemaVersion": 1
     }
   }
 }
 ```
 
-Open the **Await Arcade** view in the Antigravity aux pane.
+The matching `~/.gemini/config/projects/<uuid>.json` is required for the
+sidecar to appear under its project. `scripts/install-hosts.sh` is the reference
+for the exact shape.
+
+Open the **Await Arcade** project and the **Await Arcade** aux-pane view.
 
 ## Notes
 
@@ -41,5 +54,5 @@ Open the **Await Arcade** view in the Antigravity aux pane.
   install path. Adjust the fallback for another machine.
 - The sidecar only serves registered paths. Vite is configured to emit
   `app.js` and `app.css` at the package root so `server.mjs` can serve them.
-- Scores are local for now. The next step is to proxy through the same
-  verifier API as OpenCode, using the sidecar data directory for the token.
+- Scores go through the shared verifier API; the sidecar owns the player id,
+  sessions, and the submit queue.

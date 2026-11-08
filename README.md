@@ -92,30 +92,40 @@ score itself.
 
 ## Hosts
 
-### OpenCode Desktop
+Building is not installing. Link the packages into the host config directories
+once, then restart the apps:
 
 ```sh
-npm run build --workspace @await-arcade/host-opencode
-ln -s "$PWD/packages/host-opencode" ~/.config/opencode/plugins/await-arcade
+npm run build:hosts
+AWAIT_ARCADE_API_URL=https://await-arcade-api-164244433164.northamerica-northeast1.run.app \
+  ./scripts/install-hosts.sh
 ```
 
-The plugin id is `await-arcade` (from `server.js`). It adds a pinned **Await Arcade** side
-panel, a command, and a titlebar pill. See `packages/host-opencode/README.md`.
+`AWAIT_ARCADE_API_URL` is optional; without it the hosts use
+`http://127.0.0.1:8787`, or the `apiUrl` in
+`~/Library/Application Support/await-arcade/config.json`.
+
+### OpenCode Desktop
+
+The installer symlinks `packages/host-opencode` to
+`~/.config/opencode/plugins/await-arcade`. The plugin id is `await-arcade`
+(from `server.js`); it adds a pinned **Await Arcade** side panel, a command, and
+a titlebar pill. Rebuild after changing the shell, framework, or games. If your
+plugin directory is not the default, set `OPENCODE_PLUGINS_DIR` or add the
+absolute directory to `plugins` in `~/.config/opencode/opencode.jsonc`.
 
 ### Antigravity
 
-```sh
-npm run build --workspace @await-arcade/host-antigravity
-ln -s "$PWD/packages/host-antigravity" ~/.gemini/config/sidecars/await-arcade
-```
-
-Enable it in `~/.gemini/config/config.json`:
+The installer creates `~/.gemini/config/sidecars/await-arcade`, writes a local
+`sidecar.json` with an absolute entry point, and adds:
 
 ```json
-{ "sidecars": { "await-arcade": { "enabled": true } } }
+{ "sidecars": { "await-arcade": { "enabled": true, "projectId": "…", "schemaVersion": 1 } } }
 ```
 
-See `packages/host-antigravity/README.md`.
+to `~/.gemini/config/config.json`, with a matching project file. Open the
+**await-arcade** project and the **Await Arcade** aux-pane view. See
+`packages/host-antigravity/README.md` if you prefer to install by hand.
 
 ## Verified in this scaffold
 
