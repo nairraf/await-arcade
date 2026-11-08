@@ -47,6 +47,12 @@ describe("neon cycles core", () => {
     expect(state.boostTicks[0]).toBeGreaterThan(0)
   })
 
+  it("backs away during the opening instead of chasing", () => {
+    const state = core.create(1, solo)
+    core.step(state, [], 1000 / 60)
+    expect(state.bikes[1]!.y).not.toBe(18)
+  })
+
   it("escapes the player's spiral box", () => {
     const inputs = [
       { tick: 10, input: { player: 0 as const, turn: 1 as const } },

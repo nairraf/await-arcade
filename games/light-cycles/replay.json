@@ -1,13 +1,13 @@
 {
   "version": 1,
   "gameId": "light-cycles",
-  "gameVersion": "1.1.0",
+  "gameVersion": "1.2.0",
   "frameworkVersion": "0.1.0",
   "modeId": "solo",
   "seed": 123,
   "kind": "realtime",
   "tickRate": 12,
-  "durationMs": 1833.3333333333333,
+  "durationMs": 3583.333333333333,
   "inputs": [],
-  "stateHash": "4cc14e9f"
+  "stateHash": "6650862a"
 }

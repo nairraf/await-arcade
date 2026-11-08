@@ -43,6 +43,7 @@ const MAX_TICKS = 3600
 const BOOST_GAP = 6
 const BOOST_TICKS = 12
 const BOOST_COOLDOWN = 36
+const OPENING_TICKS = 30
 
 function turnDirection(direction: CycleDirection, turn: Turn): CycleDirection {
   return (((direction + turn + 4) % 4) as CycleDirection)
@@ -219,23 +220,28 @@ function aiTurn(state: CycleState, player: 0 | 1): Turn {
       ? Math.abs(x - intercept.x) + Math.abs(y - intercept.y)
       : 0
     const chase = distance > 8 ? 1.6 : 1
+    const opening = state.ticks <= OPENING_TICKS
 
     // Survival first; treat a pocket that does not touch the border as a trap,
-    // keep a short route to the open edge, then pursue and cut off. Turning
-    // costs momentum. If the AI is deep inside, stop chasing and get out.
+    // keep a short route to the open edge, then pursue and cut off. During the
+    // opening the AI refuses to chase and backs away instead, so the player
+    // has to commit first.
     const danger = worstExit > 8 ? 0.2 : 1
     const safety = worstSpace < 24 || !worstEdge ? -400 : 0
     const trap = Number.isFinite(worstExit) ? worstExit * 150 : 3_000
-    const turnPenalty = turn === 0 ? 0 : 60
+    const turnPenalty = opening ? 0 : turn === 0 ? 0 : 60
+    const openingBonus = opening ? distance * 24 : 0
+    const attack = opening ? 0 : 1
     candidates.push({
       turn,
       score:
         worstSpace * 4 -
-        playerSpace * 2 -
-        interceptDistance * 8 * chase * danger -
-        distance * 2 * danger -
+        playerSpace * 2 * attack -
+        interceptDistance * 8 * chase * danger * attack -
+        distance * 2 * danger * attack -
         trap -
         turnPenalty +
+        openingBonus +
         safety +
         rng.next() * 2,
     })
