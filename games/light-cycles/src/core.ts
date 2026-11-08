@@ -126,6 +126,21 @@ function aiTurn(state: CycleState, player: 0 | 1): Turn {
   const rng = createRng((state.seed ^ Math.imul(state.ticks + 1, 0x9e3779b1)) >>> 0)
   const candidates: Array<{ turn: Turn; score: number }> = []
 
+  // Aim at the player's next cell, not their current one, so the AI keeps
+  // pace instead of trailing behind. If that cell is blocked or outside,
+  // fall back to the player's head.
+  const targetDelta = target ? DIRECTIONS[target.dir]! : [0, 0]
+  const targetX = target ? target.x + targetDelta[0] : 0
+  const targetY = target ? target.y + targetDelta[1] : 0
+  const intercept =
+    target &&
+    targetX >= 0 &&
+    targetY >= 0 &&
+    targetX < state.width &&
+    targetY < state.height
+      ? { x: targetX, y: targetY }
+      : target
+
   for (const turn of [-1, 0, 1] as const) {
     const direction = turnDirection(bike.dir, turn)
     const delta = DIRECTIONS[direction]!
@@ -144,12 +159,25 @@ function aiTurn(state: CycleState, player: 0 | 1): Turn {
     // then score the AI move by how little escape that reply leaves.
     const playerSpace = target ? playerEscape(state, target, after) : 0
     const distance = target ? Math.abs(x - target.x) + Math.abs(y - target.y) : 0
+    const interceptDistance = intercept
+      ? Math.abs(x - intercept.x) + Math.abs(y - intercept.y)
+      : 0
+    const chase = distance > 8 ? 1.6 : 1
 
-    // Survival first, then cut off the player's best response.
+    // Survival first; pursue the intercept, then cut off the reply; turning
+    // costs momentum so the AI does not micro-turn while the player runs.
     const safety = aiSpace < 24 ? -400 : 0
+    const turnPenalty = turn === 0 ? 0 : 60
     candidates.push({
       turn,
-      score: aiSpace * 4 - playerSpace * 3 - distance * 3 + safety + rng.next() * 2,
+      score:
+        aiSpace * 4 -
+        playerSpace * 2 -
+        interceptDistance * 8 * chase -
+        distance * 2 -
+        turnPenalty +
+        safety +
+        rng.next() * 2,
     })
   }
 
