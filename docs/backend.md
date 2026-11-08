@@ -5,7 +5,7 @@ plan for the real, cheap GCP backend.
 
 ## Recommendation
 
-A **separate Firebase/GCP project** (never a production project that holds other user data):
+A **separate GCP project** (never a production project that holds other user data):
 
 - **Firestore Native** for players, providers, sessions, runs, boards, and bests.
 - **Cloud Run** (TypeScript + Hono/Fastify) for the API, replay verification, and
@@ -18,6 +18,14 @@ A **separate Firebase/GCP project** (never a production project that holds other
 No Firebase Auth. The host server halves already proxy every API call, GitHub is
 the only provider for beta-1, and a custom `playerId` avoids anonymous-UID
 lifecycle problems. Keep the auth surface small.
+
+**Firestore does not require a Firebase project.** It is a normal GCP service,
+created with `gcloud firestore databases create`. This backend talks to it with
+the Admin SDK from Cloud Run, so the project intentionally stays a plain GCP
+project and does not appear in the Firebase console. Adding Firebase
+(`firebase projects:addfirebase`) is only needed for Firebase client SDKs, the
+Firebase emulator, or deploying `firestore.rules` with the Firebase CLI. None of
+those are required while every read and write goes through the API.
 
 At hobby scale this is **$0/month**. At a few thousand daily players it is
 roughly **$5–20/month**. Set a $5 budget alert.

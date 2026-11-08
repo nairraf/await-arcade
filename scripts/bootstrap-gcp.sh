@@ -14,8 +14,6 @@ gcloud services enable \
   iam.googleapis.com \
   cloudresourcemanager.googleapis.com \
   billingbudgets.googleapis.com \
-  firebase.googleapis.com \
-  firebaserules.googleapis.com \
   --project "$PROJECT_ID" --quiet
 
 echo "Enabled Arcade APIs on $PROJECT_ID"

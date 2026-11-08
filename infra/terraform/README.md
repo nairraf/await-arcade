@@ -120,4 +120,5 @@ PROJECT_ID=await-arcade-dev ./scripts/deploy-cloud-run.sh
 Firestore rules live in `firestore.rules`. Deploying them requires the project to
 be registered with Firebase (`firebase projects:addfirebase`) and the Firebase
 CLI or Rules API. The API uses the Admin SDK and bypasses rules, so this is only
-needed before a client SDK talks to Firestore directly.
+needed before a client SDK talks to Firestore directly; the project otherwise
+stays a plain GCP project and will not appear in the Firebase console.
