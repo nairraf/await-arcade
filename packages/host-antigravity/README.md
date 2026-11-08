@@ -9,8 +9,10 @@ games as the OpenCode panel, wrapped in an aux-pane page.
 npm run build --workspace @await-arcade/host-antigravity
 ```
 
-This writes `index.html`, `app.js`, and `app.css` next to `server.mjs`. The
-sidecar serves those three paths.
+This writes `index.html` with the app bundle inlined, plus `app.js` for direct
+use. Antigravity's `plugin://` page handler returns 500 for the external bundle,
+so the inline module is required; `inline.mjs` runs after Vite. The sidecar
+serves those three paths.
 
 ## Install
 
@@ -57,5 +59,8 @@ Open the **Await Arcade** project and the **Await Arcade** aux-pane view.
 - `web/index.html` must load `/preload.js`; the sidecar SDK serves it and defines
   `window.sidecar`. Without it the aux pane has no sidecar bridge and API calls
   are unauthenticated.
+- `inline.mjs` inlines `app.js` into `index.html` after Vite. Antigravity's
+  `plugin://` handler returns 500 for the external bundle; a single inline
+  module works (the same pattern Selos Pulse uses).
 - Scores go through the shared verifier API; the sidecar owns the player id,
   sessions, and the submit queue.
