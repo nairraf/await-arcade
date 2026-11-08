@@ -11,6 +11,9 @@ packages/host-antigravity/app.js
 packages/host-antigravity/app.css
 packages/host-antigravity/.data/
 
+# workspace link created by scripts/install-hosts.sh
+packages/host-opencode/node_modules
+
 # private agent memory (symlinked from ~/ai/memory/projects/await-arcade)
 AGENTS.md
 .agents

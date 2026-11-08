@@ -44,6 +44,9 @@ if [[ -e "$TARGET" && ! -L "$TARGET" ]]; then
   exit 1
 fi
 ln -sfn "$ROOT/packages/host-opencode" "$TARGET"
+# OpenCode preserves the plugin symlink when resolving imports, so give the
+# package its own node_modules link into the workspace root.
+ln -sfn "$ROOT/node_modules" "$ROOT/packages/host-opencode/node_modules"
 echo "OpenCode plugin: $TARGET"
 
 mkdir -p "$SIDE"
