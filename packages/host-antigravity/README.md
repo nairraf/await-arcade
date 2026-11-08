@@ -54,5 +54,8 @@ Open the **Await Arcade** project and the **Await Arcade** aux-pane view.
   install path. Adjust the fallback for another machine.
 - The sidecar only serves registered paths. Vite is configured to emit
   `app.js` and `app.css` at the package root so `server.mjs` can serve them.
+- `web/index.html` must load `/preload.js`; the sidecar SDK serves it and defines
+  `window.sidecar`. Without it the aux pane has no sidecar bridge and API calls
+  are unauthenticated.
 - Scores go through the shared verifier API; the sidecar owns the player id,
   sessions, and the submit queue.
