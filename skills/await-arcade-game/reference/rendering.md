@@ -1,5 +1,9 @@
 # Rendering, input, and pause
 
+The shell provides the cabinet frame, HUD, overlays, typography, and light/dark
+tokens. Use the shared visual system in `visual-language.md`; do not recreate
+the chrome inside a game.
+
 ## DOM games
 
 Use DOM for grid/board games: Minesweeper, 2048, card games. Buttons are

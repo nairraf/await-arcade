@@ -27,9 +27,9 @@ const css = `
   align-items: center;
   gap: 5px;
   padding: 2px 7px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid var(--arcade-line, rgba(148, 163, 184, 0.18));
   border-radius: 999px;
-  background: rgba(148, 163, 184, 0.06);
+  background: color-mix(in srgb, var(--arcade-fg, #e6edf3) 6%, transparent);
 }
 
 .ms-board {
@@ -60,13 +60,13 @@ const css = `
 }
 
 .ms-hidden {
-  border-color: rgba(148, 163, 184, 0.18);
-  background: linear-gradient(160deg, #1d2937, #111923);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  border-color: var(--arcade-line, rgba(148, 163, 184, 0.18));
+  background: linear-gradient(160deg, var(--arcade-panel-2, #1d2937), var(--arcade-panel, #111923));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--arcade-fg, #e6edf3) 8%, transparent);
 }
 
 .ms-hidden:hover {
-  background: linear-gradient(160deg, #263648, #16202c);
+  background: linear-gradient(160deg, var(--arcade-elevated, #263648), var(--arcade-panel-2, #16202c));
 }
 
 .ms-cell:active {
@@ -74,22 +74,22 @@ const css = `
 }
 
 .ms-open {
-  border-color: rgba(148, 163, 184, 0.08);
-  background: #0a0f16;
+  border-color: var(--arcade-line, rgba(148, 163, 184, 0.18));
+  background: var(--arcade-bg, #0a0f16);
   cursor: default;
 }
 
 .ms-mine {
-  color: var(--arcade-red, #fb7185);
-  background: rgba(251, 113, 133, 0.12);
+  color: var(--arcade-danger, #fb7185);
+  background: color-mix(in srgb, var(--arcade-danger, #fb7185) 12%, transparent);
 }
 
 .ms-flag {
-  color: var(--arcade-amber, #fbbf24);
+  color: var(--arcade-coin, #fbbf24);
 }
 
 .ms-flag-wrong {
-  color: var(--arcade-red, #fb7185);
+  color: var(--arcade-danger, #fb7185);
 }
 
 .ms-n1 { color: #60a5fa; }
@@ -101,13 +101,73 @@ const css = `
 .ms-n7 { color: #f472b6; }
 .ms-n8 { color: #cbd5e1; }
 
+.arcade[data-theme="light"] .ms-n1 { color: #1d4ed8; }
+.arcade[data-theme="light"] .ms-n2 { color: #15803d; }
+.arcade[data-theme="light"] .ms-n3 { color: #b91c1c; }
+.arcade[data-theme="light"] .ms-n4 { color: #6d28d9; }
+.arcade[data-theme="light"] .ms-n5 { color: #b45309; }
+.arcade[data-theme="light"] .ms-n6 { color: #0e7490; }
+.arcade[data-theme="light"] .ms-n7 { color: #be185d; }
+.arcade[data-theme="light"] .ms-n8 { color: #475569; }
+
+.arcade[data-theme="light"] .ms-hidden {
+  border-color: rgba(60, 50, 35, 0.24);
+  background: linear-gradient(160deg, #d2c8b5, #b9ad98);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.arcade[data-theme="light"] .ms-hidden:hover {
+  background: linear-gradient(160deg, #ded4c2, #c8bca6);
+}
+
+.arcade[data-theme="light"] .ms-open {
+  border-color: rgba(60, 50, 35, 0.14);
+  background: #fffdf7;
+}
+
+.arcade[data-theme="light"] .ms-stat {
+  border-color: rgba(60, 50, 35, 0.2);
+  background: rgba(255, 255, 255, 0.32);
+}
+
+@media (prefers-color-scheme: light) {
+  .arcade[data-theme="auto"] .ms-n1 { color: #1d4ed8; }
+  .arcade[data-theme="auto"] .ms-n2 { color: #15803d; }
+  .arcade[data-theme="auto"] .ms-n3 { color: #b91c1c; }
+  .arcade[data-theme="auto"] .ms-n4 { color: #6d28d9; }
+  .arcade[data-theme="auto"] .ms-n5 { color: #b45309; }
+  .arcade[data-theme="auto"] .ms-n6 { color: #0e7490; }
+  .arcade[data-theme="auto"] .ms-n7 { color: #be185d; }
+  .arcade[data-theme="auto"] .ms-n8 { color: #475569; }
+
+  .arcade[data-theme="auto"] .ms-hidden {
+    border-color: rgba(60, 50, 35, 0.24);
+    background: linear-gradient(160deg, #d2c8b5, #b9ad98);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  }
+
+  .arcade[data-theme="auto"] .ms-hidden:hover {
+    background: linear-gradient(160deg, #ded4c2, #c8bca6);
+  }
+
+  .arcade[data-theme="auto"] .ms-open {
+    border-color: rgba(60, 50, 35, 0.14);
+    background: #fffdf7;
+  }
+
+  .arcade[data-theme="auto"] .ms-stat {
+    border-color: rgba(60, 50, 35, 0.2);
+    background: rgba(255, 255, 255, 0.32);
+  }
+}
+
 .ms-cell:disabled {
   opacity: 1;
   cursor: default;
 }
 
 .ms-cell:focus-visible {
-  outline: 2px solid var(--arcade-cyan, #22d3ee);
+  outline: 2px solid var(--arcade-accent, #22d3ee);
   outline-offset: 1px;
   z-index: 1;
 }

@@ -21,6 +21,7 @@ export const meta: GameMeta = {
     { keys: "Escape", action: "Pause" },
   ],
   display: { surface: "canvas", width: 480, height: 288, pixelated: true },
+  theme: { accent: "#22d3ee", accent2: "#f472b6", mode: "neon" },
   maxDurationMs: 300_000,
   tags: ["action", "grid", "neon"],
 }

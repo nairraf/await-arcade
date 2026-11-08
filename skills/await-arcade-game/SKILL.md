@@ -59,6 +59,8 @@ The server imports `core.ts`, never `view.ts`.
 - `meta.version` is bumped whenever rules or scoring change.
 - Assets are original or CC0/CC-BY. No ripped sprites or music.
 - The game is keyboard-playable, pauses, mutes, and respects reduced motion.
+- The cabinet reads in both light and dark mode, uses the shared shell frame,
+  and sets its accent instead of inventing chrome.
 - The bundle is small and the game holds 60fps on a modest laptop.
 - The name and art are original; mechanics are fine, trademarks are not.
 
@@ -69,6 +71,7 @@ The server imports `core.ts`, never `view.ts`.
 - `reference/replay.md` — replay format and the verifier.
 - `reference/scoring.md` — `score`, `ranked`, modes, and leaderboards.
 - `reference/rendering.md` — DOM vs canvas, input, focus, pause.
+- `reference/visual-language.md` — the cabinet/cartridge system, per-game accents, light/dark, accessibility.
 - `reference/assets.md` — art, audio, licensing, and naming.
 - `reference/multiplayer.md` — daily seeds, ghosts, async PvP, realtime.
 - `reference/contributing.md` — review, ownership, and release.

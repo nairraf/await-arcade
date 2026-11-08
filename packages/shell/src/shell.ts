@@ -31,6 +31,16 @@ interface ActiveGame {
   cleanup: () => void
 }
 
+type ThemeMode = "auto" | "light" | "dark"
+
+function themeLabel(mode: ThemeMode): string {
+  return mode === "auto" ? "Auto" : mode === "light" ? "Light" : "Dark"
+}
+
+function nextTheme(mode: ThemeMode): ThemeMode {
+  return mode === "auto" ? "light" : mode === "light" ? "dark" : "auto"
+}
+
 function randomSeed(): number {
   const buffer = new Uint32Array(1)
   if (globalThis.crypto?.getRandomValues) {
@@ -71,6 +81,16 @@ export function createArcade(options: ArcadeOptions): Arcade {
     ;(host as { setToastRoot(node: HTMLElement): void }).setToastRoot(root)
   }
 
+  const themeKey = "ui.theme"
+  const storedTheme = host.storage.get<string>(themeKey)
+  let themeMode: ThemeMode = storedTheme === "light" || storedTheme === "dark" ? storedTheme : "auto"
+  const applyTheme = (mode: ThemeMode): void => {
+    themeMode = mode
+    root.dataset.theme = mode
+    host.storage.set(themeKey, mode)
+  }
+  applyTheme(themeMode)
+
   root.classList.add("arcade")
   root.replaceChildren()
 
@@ -84,13 +104,22 @@ export function createArcade(options: ArcadeOptions): Arcade {
   const topMeta = el("div", "arcade-top-meta")
   topMeta.append(el("span", "arcade-badge", host.name === "local" ? "LOCAL" : host.name.toUpperCase()))
 
+  const theme = el("button", "arcade-btn arcade-btn-ghost", themeLabel(themeMode))
+  theme.type = "button"
+  theme.title = "Theme: auto, light, or dark"
+  theme.addEventListener("click", () => {
+    const next = nextTheme(themeMode)
+    applyTheme(next)
+    theme.textContent = themeLabel(next)
+  })
+
   const sound = el("button", "arcade-btn arcade-btn-ghost", host.audio.muted() ? "Muted" : "Sound")
   sound.type = "button"
   sound.addEventListener("click", () => {
     const muted = host.audio.toggle()
     sound.textContent = muted ? "Muted" : "Sound"
   })
-  topMeta.append(sound)
+  topMeta.append(theme, sound)
   top.append(brand, topMeta)
 
   const main = el("main", "arcade-main")
@@ -135,6 +164,9 @@ export function createArcade(options: ArcadeOptions): Arcade {
       card.tabIndex = 0
       card.setAttribute("role", "button")
       card.setAttribute("aria-label", `Play ${entry.meta.title}`)
+      card.style.setProperty("--game-accent", entry.meta.theme?.accent ?? "#22d3ee")
+      card.style.setProperty("--game-accent-2", entry.meta.theme?.accent2 ?? "#f472b6")
+      card.dataset.mode = entry.meta.theme?.mode ?? "neon"
 
       const marquee = el("div", "arcade-card-marquee")
       marquee.append(el("span", "arcade-card-glyph", entry.meta.title.slice(0, 1).toUpperCase()))
@@ -190,6 +222,21 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
     const best = host.best(entry.meta.id, mode.id)
     const section = el("section", "arcade-game")
+    section.style.setProperty("--game-accent", entry.meta.theme?.accent ?? "#22d3ee")
+    section.style.setProperty("--game-accent-2", entry.meta.theme?.accent2 ?? "#f472b6")
+    section.dataset.mode = entry.meta.theme?.mode ?? "neon"
+
+    const cabinet = el("div", "arcade-cabinet-marquee")
+    const cabinetBest = el(
+      "div",
+      "arcade-cabinet-score",
+      `${scoreLabel(entry.meta)}: ${best ? formatScore(best, entry.meta) : "—"}`,
+    )
+    cabinet.append(
+      el("span", "arcade-cabinet-badge", "AA"),
+      el("div", "arcade-cabinet-title", entry.meta.title),
+      cabinetBest,
+    )
 
     const head = el("header", "arcade-game-head")
     const back = el("button", "arcade-btn arcade-btn-ghost", "← Await Arcade")
@@ -197,10 +244,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     back.addEventListener("click", showLauncher)
 
     const titleWrap = el("div", "arcade-game-title")
-    titleWrap.append(
-      el("h2", "", entry.meta.title),
-      el("p", "", entry.meta.description),
-    )
+    titleWrap.append(el("p", "", entry.meta.description))
 
     const actions = el("div", "arcade-game-actions")
     const modeSelect = el("select", "arcade-select")
@@ -245,7 +289,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     const overlay = el("div", "arcade-overlay")
     overlay.hidden = true
 
-    section.append(head, hud, surface, controls, overlay)
+    section.append(cabinet, head, hud, surface, controls, overlay)
     main.append(section)
 
     const showOverlay = (build: () => HTMLElement): void => {
@@ -365,7 +409,10 @@ export function createArcade(options: ArcadeOptions): Arcade {
       else detailParts.push(submit.reason ?? "Submission failed.")
 
       if (submit.rank !== undefined) detailParts.push(`Rank #${submit.rank}`)
-      if (submit.best) bestCell.value.textContent = formatScore(submit.best, entry.meta)
+      if (submit.best) {
+        bestCell.value.textContent = formatScore(submit.best, entry.meta)
+        cabinetBest.textContent = `${scoreLabel(entry.meta)}: ${formatScore(submit.best, entry.meta)}`
+      }
 
       const download = button("Download replay", false, () => {
         const blob = new Blob([JSON.stringify(result.replay, null, 2)], { type: "application/json" })

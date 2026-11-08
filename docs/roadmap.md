@@ -20,6 +20,8 @@ talking to the backend.
   daily board, and a cross-game XP/medal board that rewards breadth.
 - **Ghost practice:** play a verified high-score run on the same seed/anchor as
   unranked practice; no board entry and no daily attempt consumed.
+- **Visual system:** cartridge/cabinet shell, per-game accents, Auto/Light/Dark
+  modes, and light/dark smoke tests on both hosts.
 - **Release gate:** both hosts smoke-tested, CI green, security review done, docs
   updated, and `beta-1` tagged on `main`.
 
@@ -43,6 +45,8 @@ talking to the backend.
   starts consumed on start, and scores the best of three on a separate board.
 - A player can open a high-score run as unranked practice on the same board; it
   writes no board entry and consumes no daily attempt.
+- The arcade reads correctly in light and dark modes for a DOM cabinet
+  (Minesweeper) and a canvas cabinet (Neon Cycles).
 - Arcade XP aggregates across games without one game dominating.
 - Tokens never enter the renderer or webview.
 - `DELETE /v1/me` removes the player, sessions, and board entries.

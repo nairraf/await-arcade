@@ -14,6 +14,7 @@ export const meta: GameMeta = {
   status: "experimental",
   controls: [{ keys: "Click", action: "Hit the glowing target" }],
   display: { surface: "dom", width: 3, height: 3 },
+  theme: { accent: "#22d3ee", accent2: "#f472b6", mode: "neon" },
   maxDurationMs: 600_000,
   tags: ["template"],
 }

@@ -68,6 +68,16 @@ export interface Display {
   readonly pixelated?: boolean
 }
 
+/**
+ * A cabinet's visual accent. The shell owns the frame and typography; the game
+ * owns its accent, so every cabinet feels like part of the same system.
+ */
+export interface GameTheme {
+  readonly accent: string
+  readonly accent2: string
+  readonly mode: "neon" | "terminal" | "paper"
+}
+
 export interface GameMeta {
   readonly id: string
   readonly title: string
@@ -89,6 +99,8 @@ export interface GameMeta {
   readonly status: GamePublicationStatus
   readonly controls: readonly ControlHint[]
   readonly display: Display
+  /** Optional cabinet accent; the shell provides the frame and typography. */
+  readonly theme?: GameTheme
   /** Hard cap for ranked runs. The server rejects longer replays. */
   readonly maxDurationMs: number
   readonly tags?: readonly string[]

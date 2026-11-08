@@ -30,10 +30,14 @@ interface GameMeta {
   status: "stable" | "experimental"
   controls: { keys: string; action: string }[]
   display: { surface: "dom" | "canvas"; width: number; height: number; pixelated?: boolean }
+  theme?: { accent: string; accent2: string; mode: "neon" | "terminal" | "paper" }
   maxDurationMs: number
   tags?: string[]
 }
 ```
+
+The shell owns the cabinet frame and typography. `theme` is only the cabinet
+accent; do not recreate the chrome in a game view.
 
 ## Turn games
 
