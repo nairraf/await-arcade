@@ -59,6 +59,14 @@ function text(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined
 }
 
+// Player ids become Firestore document ids, so keep them to a safe alphabet.
+const PLAYER_ID = /^[A-Za-z0-9_-]{1,64}$/
+
+function playerId(value: unknown): string | undefined {
+  const candidate = text(value)
+  return candidate && PLAYER_ID.test(candidate) ? candidate : undefined
+}
+
 function record(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {}
 }
@@ -121,13 +129,21 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           return
         }
 
+        const requested =
+          text(body.playerId) ?? text(req.headers["x-arcade-player"]) ?? "local"
+        const player = playerId(requested)
+        if (!player) {
+          json(res, 400, { error: "invalid playerId" })
+          return
+        }
+
         const createdAt = Date.now()
         const run: RunRecord = {
           runId: randomBytes(12).toString("hex"),
           gameId,
           modeId,
           seed: randomBytes(4).readUInt32LE(0),
-          playerId: text(body.playerId) ?? text(req.headers["x-arcade-player"]) ?? "local",
+          playerId: player,
           createdAt,
           expiresAt: createdAt + RUN_TTL_MS,
         }
@@ -221,24 +237,84 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           return
         }
 
-        const sorted = await store.top(key, 50, entry.meta.score.type)
-        const rank = sorted.findIndex((item) => item.playerId === run.playerId) + 1
+        const rank = await store.rank(key, run.playerId, entry.meta.score.type)
 
         json(res, 200, {
           ok: true,
           score,
           best: outcome.best,
-          ...(rank > 0 ? { rank } : {}),
+          ...(rank !== undefined ? { rank } : {}),
         })
         return
       }
 
-      if (req.method === "GET" && parts[0] === "v1" && parts[1] === "boards" && parts[2] && parts[3]) {
+      if (
+        req.method === "GET" &&
+        parts.length === 6 &&
+        parts[0] === "v1" &&
+        parts[1] === "boards" &&
+        parts[2] &&
+        parts[3] &&
+        parts[4] === "player" &&
+        parts[5]
+      ) {
         const gameId = parts[2]
         const modeId = parts[3]
         const entry = verifiers[gameId]
         if (!entry) {
           json(res, 404, { error: `unknown game: ${gameId}` })
+          return
+        }
+        if (!entry.meta.modes.some((mode) => mode.id === modeId)) {
+          json(res, 404, { error: `unknown mode: ${modeId}` })
+          return
+        }
+
+        let decoded: string
+        try {
+          decoded = decodeURIComponent(parts[5])
+        } catch {
+          json(res, 400, { error: "invalid playerId" })
+          return
+        }
+        const pid = playerId(decoded)
+        if (!pid) {
+          json(res, 400, { error: "invalid playerId" })
+          return
+        }
+
+        // Identity is client-asserted until GitHub auth lands.
+        const key = boardKey(gameId, modeId)
+        const best = await store.getEntry(key, pid)
+        const rank = best ? await store.rank(key, pid, entry.meta.score.type, best) : undefined
+
+        json(res, 200, {
+          gameId,
+          modeId,
+          playerId: pid,
+          ...(best ? { entry: best } : {}),
+          ...(rank !== undefined ? { rank } : {}),
+        })
+        return
+      }
+
+      if (
+        req.method === "GET" &&
+        parts.length === 4 &&
+        parts[0] === "v1" &&
+        parts[1] === "boards" &&
+        parts[2] &&
+        parts[3]
+      ) {
+        const gameId = parts[2]
+        const modeId = parts[3]
+        const entry = verifiers[gameId]
+        if (!entry) {
+          json(res, 404, { error: `unknown game: ${gameId}` })
+          return
+        }
+        if (!entry.meta.modes.some((mode) => mode.id === modeId)) {
+          json(res, 404, { error: `unknown mode: ${modeId}` })
           return
         }
 

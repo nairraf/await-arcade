@@ -747,6 +747,59 @@ export const styles = `
   margin-top: 4px;
 }
 
+.arcade-board {
+  width: min(470px, 100%);
+  text-align: left;
+}
+
+.arcade-board .arcade-overlay-kicker,
+.arcade-board .arcade-overlay-title {
+  text-align: center;
+}
+
+.arcade-board-list {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: min(46vh, 340px);
+  overflow: auto;
+}
+
+.arcade-board-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--arcade-line);
+  font-size: 12px;
+}
+
+.arcade-board-rank {
+  color: var(--arcade-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.arcade-board-row:first-child .arcade-board-rank,
+.arcade-board-row:first-child .arcade-board-player {
+  color: var(--arcade-coin);
+}
+
+.arcade-board-player {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.arcade-board-score {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--game-accent);
+}
+
 .arcade-foot {
   flex: none;
   display: flex;

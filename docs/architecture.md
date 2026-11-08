@@ -7,7 +7,7 @@ contract   types only: GameMeta, GameCore, GameView, Replay, Score
 framework  runner, seeded RNG, surface, verifier, testkit
 shell      launcher, HUD, local host, styles, generated game registry
 games      pure core + view per cabinet
-server     run issuance + replay verification + boards (in-memory for now)
+server     run issuance + replay verification + Firestore-backed boards
 hosts      OpenCode GUI plugin and Antigravity sidecar
 apps/web   the same shell in a browser
 ```
@@ -90,10 +90,10 @@ stops trivial score injection.
   a `div`; styles go through `ctx.add(Style, …)`. The server part owns the API
   client, run issuance, the submit queue, and (later) auth tokens.
 - **Antigravity**: a Node sidecar serves `index.html`, `app.js`, `app.css` on
-  loopback and proxies `/api/start`, `/api/submit`, `/api/best`, and
-  `/api/status` to the verifier. The page mounts the same shell. The sidecar data
-  directory holds the player id and the submit queue; auth moves to the native
-  state directory later.
+  loopback and proxies `/api/start`, `/api/submit`, `/api/best`, `/api/board`,
+  and `/api/status` to the verifier. The page mounts the same shell. The sidecar
+  data directory holds the player id and the submit queue; auth moves to the
+  native state directory later.
 
 The shell is framework-free DOM, so both hosts can mount it without shipping a
 React/Solid runtime into the game layer. The OpenCode wrapper is Solid because

@@ -30,9 +30,10 @@ onMount(() => {
 })
 ```
 
-Next: hydrate remote bests/leaderboards, keep `auth.opencode.json` in the
-native state directory when auth lands, and use the RPC methods for account and
-board actions.
+Remote bests and the leaderboard are wired: `GameHost.loadBest` refreshes the
+cached best, and `GameHost.board` feeds the cabinet's Board overlay. Next: keep
+`auth.opencode.json` in the native state directory when auth lands, and use the
+RPC methods for account actions.
 
 ## Antigravity
 
@@ -52,9 +53,9 @@ Model: a **sidecar** process plus a **web UI extension**.
   the native per-OS state directory (`auth.antigravity.json`, `0600`); use
   `ANTIGRAVITY_EXECUTABLE_DATA_DIR` for non-secret sidecar cache and queue state.
 
-Next: hydrate remote bests/leaderboards, keep the auth file in the native state
-directory when auth lands, and use `window.sidecar.agent.sendMessage` for
-"brief me on my run" style actions.
+Remote bests and the leaderboard are wired through `/api/best` and `/api/board`.
+Next: keep the auth file in the native state directory when auth lands, and use
+`window.sidecar.agent.sendMessage` for "brief me on my run" style actions.
 
 ## Verifier API
 
@@ -69,6 +70,10 @@ Both host server halves use `@await-arcade/api-client`.
 - **Offline queue:** a submit that fails with a network or 5xx error is stored in
   the host server state and retried on the next start/submit. 4xx rejections are
   not queued.
+- **Best and board:** `GameHost.loadBest` asks the host half for the player's
+  best and merges it with the local cache (the better score wins). `GameHost.board`
+  returns the top 50 for the cabinet's Board overlay. Both are optional; a local
+  host omits them and the shell stays local-only.
 - **Boundary:** the renderer never calls the API and never holds a credential.
   The host server half owns the API client, the player identity, and (later) the
   auth token.

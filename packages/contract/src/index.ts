@@ -226,6 +226,13 @@ export interface AudioBus {
   toggle(): boolean
 }
 
+/** A scored entry on a hosted board. */
+export interface BoardEntry {
+  readonly playerId: string
+  readonly score: Score
+  readonly achievedAt: number
+}
+
 /**
  * The capability boundary. Games never get auth tokens or raw network access;
  * the shell owns identity, submission, and anti-cheat.
@@ -242,6 +249,13 @@ export interface GameHost {
     readonly seed: number
     readonly runId?: string
   }>
+  /**
+   * Refresh the personal best from the hosted board. Local hosts omit this.
+   * The returned score may be worse than the local cache; callers should merge.
+   */
+  loadBest?(gameId: string, modeId: string): Promise<Score | undefined>
+  /** Top entries from the hosted board. Local hosts omit this. */
+  board?(gameId: string, modeId: string): Promise<readonly BoardEntry[]>
   readonly storage: GameStorage
   readonly audio: AudioBus
   toast(message: string): void

@@ -57,6 +57,7 @@ export default {
         }
       },
       best: async (input) => ({ best: await client.bestFor(input.gameId, input.modeId) }),
+      board: async (input) => client.board(input.gameId, input.modeId),
       status: async () => ({
         mode: "online",
         playerId,

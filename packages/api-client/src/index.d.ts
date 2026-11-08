@@ -1,4 +1,6 @@
-import type { Replay, Score, SubmitResult } from "@await-arcade/contract"
+import type { BoardEntry, Replay, Score, SubmitResult } from "@await-arcade/contract"
+
+export type { BoardEntry }
 
 export interface ArcadeClientOptions {
   readonly baseUrl: string
@@ -12,14 +14,9 @@ export interface StartRun {
   readonly expiresAt?: number
 }
 
-export interface BoardEntry {
-  readonly playerId: string
-  readonly score: Score
-  readonly achievedAt?: number
-}
-
 export interface Board {
   readonly entries: BoardEntry[]
+  readonly period?: string
 }
 
 export interface ArcadeClient {

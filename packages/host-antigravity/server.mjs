@@ -116,6 +116,7 @@ app.api(
 )
 
 app.api("/api/best", async (data) => ({ best: await client.bestFor(data.gameId, data.modeId) }), "POST")
+app.api("/api/board", async (data) => client.board(data.gameId, data.modeId), "POST")
 app.api("/api/status", async () => ({ mode: "online", playerId, queued: readQueue().length }), "GET")
 
 await app.run()

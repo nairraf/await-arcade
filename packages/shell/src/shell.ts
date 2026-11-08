@@ -123,10 +123,11 @@ export function createArcade(options: ArcadeOptions): Arcade {
   top.append(brand, topMeta)
 
   const main = el("main", "arcade-main")
+  const online = host.board !== undefined
   const foot = el("footer", "arcade-foot")
   foot.append(
-    el("span", "", "Await Arcade v0.1 · local scores"),
-    el("span", "", "Replay verification server: packages/server"),
+    el("span", "", `Await Arcade v0.1 · ${online ? "online leaderboards" : "local scores"}`),
+    el("span", "", "Replay-verified runs"),
   )
 
   root.append(top, main, foot)
@@ -151,7 +152,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     hero.append(
       el("div", "arcade-kicker", "INSERT COIN · FREE PLAY"),
       el("h1", "arcade-hero-title", "Await Arcade"),
-      el("p", "arcade-hero-sub", "A tiny arcade for the wait. Pick a game, chase a personal best, and come back for the daily seed once the backend is wired."),
+      el("p", "arcade-hero-sub", online ? "A tiny arcade for the wait. Pick a game, chase a personal best, and climb the shared board." : "A tiny arcade for the wait. Pick a game and chase a personal best."),
     )
     launcher.append(hero)
 
@@ -181,10 +182,28 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
       const metaRow = el("div", "arcade-card-meta")
       metaRow.append(el("span", "arcade-chip", `${entry.meta.modes.length} mode${entry.meta.modes.length === 1 ? "" : "s"}`))
-      metaRow.append(
-        el("span", "arcade-chip", `${scoreLabel(entry.meta)}: ${best ? formatScore(best, entry.meta) : "—"}`),
+      const bestChip = el(
+        "span",
+        "arcade-chip",
+        `${scoreLabel(entry.meta)}: ${best ? formatScore(best, entry.meta) : "—"}`,
       )
+      metaRow.append(bestChip)
       body.append(metaRow)
+
+      if (host.loadBest) {
+        void host
+          .loadBest(entry.meta.id, defaultMode.id)
+          .then((remote) => {
+            const local = host.best(entry.meta.id, defaultMode.id)
+            const best = remote && (!local || isBetter(remote, local)) ? remote : local
+            if (best && card.isConnected) {
+              bestChip.textContent = `${scoreLabel(entry.meta)}: ${formatScore(best, entry.meta)}`
+            }
+          })
+          .catch(() => {
+            // Offline or signed out. The local chip stays.
+          })
+      }
 
       const actions = el("div", "arcade-card-actions")
       const play = el("button", "arcade-btn arcade-btn-primary", "Play")
@@ -279,6 +298,15 @@ export function createArcade(options: ArcadeOptions): Arcade {
     restart.type = "button"
 
     actions.append(modeSelect, pause, restart)
+    let boardButton: HTMLButtonElement | undefined
+    if (host.board) {
+      boardButton = el("button", "arcade-btn", "Board")
+      boardButton.type = "button"
+      boardButton.addEventListener("click", () => {
+        void showBoard()
+      })
+      actions.append(boardButton)
+    }
     head.append(back, titleWrap, actions)
 
     const score = hudCell(entry.meta.score.type === "lower" ? "Time" : "Score", "—")
@@ -289,6 +317,23 @@ export function createArcade(options: ArcadeOptions): Arcade {
     )
     const hud = el("div", "arcade-hud")
     hud.append(score.root, bestCell.root, time.root)
+
+    if (host.loadBest) {
+      void host
+        .loadBest(entry.meta.id, mode.id)
+        .then((remote) => {
+          if (generation !== playGeneration) return
+          const local = host.best(entry.meta.id, mode.id)
+          const best = remote && (!local || isBetter(remote, local)) ? remote : local
+          if (!best) return
+          const text = formatScore(best, entry.meta)
+          bestCell.value.textContent = text
+          cabinetBest.textContent = `${scoreLabel(entry.meta)}: ${text}`
+        })
+        .catch(() => {
+          // Offline; keep the cached best.
+        })
+    }
 
     const surface = el("div", "arcade-surface")
     surface.tabIndex = 0
@@ -307,12 +352,19 @@ export function createArcade(options: ArcadeOptions): Arcade {
     section.append(cabinet, head, hud, surface, controls, overlay)
     main.append(section)
 
+    let overlayEpoch = 0
+    let closeBoard: (() => void) | undefined
+
     const showOverlay = (build: () => HTMLElement): void => {
+      overlayEpoch += 1
+      closeBoard = undefined
       overlay.replaceChildren(build())
       overlay.hidden = false
     }
 
     const hideOverlay = (): void => {
+      overlayEpoch += 1
+      closeBoard = undefined
       overlay.hidden = true
       overlay.replaceChildren()
     }
@@ -346,6 +398,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
     let runner!: GameRunner<any, any>
     let lastTicks = 0
+    let boardPending = false
 
     const showPaused = (): void => {
       showOverlay(() =>
@@ -386,6 +439,10 @@ export function createArcade(options: ArcadeOptions): Arcade {
     const onKey = (event: KeyboardEvent): void => {
       if (event.key === "Escape") {
         event.preventDefault()
+        if (closeBoard) {
+          closeBoard()
+          return
+        }
         togglePause()
       }
     }
@@ -413,6 +470,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     ): void => {
       pause.disabled = true
       pause.textContent = "Pause"
+      if (boardButton) boardButton.disabled = true
 
       const improved = submit.best !== undefined && isBetter(submit.best, previousBest)
       const kicker = !result.score.ranked ? "UNRANKED RUN" : improved ? "NEW BEST" : "RUN COMPLETE"
@@ -485,6 +543,112 @@ export function createArcade(options: ArcadeOptions): Arcade {
           })
       },
     })
+
+    const showBoard = async (): Promise<void> => {
+      if (pause.disabled || boardPending) return
+      const board = host.board?.bind(host)
+      if (!board) return
+      boardPending = true
+
+      const wasRunning = !runner.paused()
+      const wasPaused = runner.paused()
+      if (wasRunning) {
+        runner.pause()
+        pause.textContent = "Resume"
+      }
+
+      const close = (): void => {
+        boardPending = false
+        if (wasRunning) {
+          hideOverlay()
+          runner.resume()
+          pause.textContent = "Pause"
+        } else if (wasPaused) {
+          showPaused()
+        } else {
+          hideOverlay()
+        }
+      }
+
+      const loadingClose = button("Resume", true, close)
+      showOverlay(() => {
+        const card = el("div", "arcade-overlay-card")
+        card.setAttribute("role", "dialog")
+        card.setAttribute("aria-modal", "true")
+        card.setAttribute("aria-label", "Leaderboard")
+        const actions = el("div", "arcade-overlay-actions")
+        actions.append(loadingClose)
+        card.append(
+          el("div", "arcade-overlay-kicker", "LEADERBOARD"),
+          el("h2", "arcade-overlay-title", "Loading…"),
+          actions,
+        )
+        return card
+      })
+      closeBoard = close
+      loadingClose.focus()
+      const token = overlayEpoch
+
+      try {
+        const entries = await board(entry.meta.id, mode.id)
+        if (generation !== playGeneration || token !== overlayEpoch) return
+
+        const card = el("div", "arcade-overlay-card arcade-board")
+        card.setAttribute("role", "dialog")
+        card.setAttribute("aria-modal", "true")
+        const titleId = `arcade-board-title-${generation}`
+        card.setAttribute("aria-labelledby", titleId)
+
+        const heading = el("h2", "arcade-overlay-title", entry.meta.title)
+        heading.id = titleId
+        card.append(el("div", "arcade-overlay-kicker", "LEADERBOARD · ALL TIME"), heading)
+
+        if (entries.length === 0) {
+          card.append(el("div", "arcade-overlay-detail", "No ranked runs yet. Be the first."))
+        } else {
+          const list = el("div", "arcade-board-list")
+          entries.forEach((item, index) => {
+            const row = el("div", "arcade-board-row")
+            const player = el("span", "arcade-board-player", item.playerId)
+            player.title = item.playerId
+            row.append(
+              el("span", "arcade-board-rank", `#${index + 1}`),
+              player,
+              el("span", "arcade-board-score", formatScore(item.score, entry.meta)),
+            )
+            list.append(row)
+          })
+          card.append(list)
+        }
+
+        const boardActions = el("div", "arcade-overlay-actions")
+        const closeButton = button(wasRunning ? "Resume" : "Close", true, close)
+        boardActions.append(
+          closeButton,
+          button("Play again", false, () => playGame(entry, mode.id)),
+        )
+        card.append(boardActions)
+        showOverlay(() => card)
+        closeBoard = close
+        closeButton.focus()
+      } catch (error) {
+        if (generation !== playGeneration || token !== overlayEpoch) return
+        const closeButton = button("Close", true, close)
+        showOverlay(() =>
+          overlayCard(
+            "LEADERBOARD",
+            "Offline",
+            "—",
+            error instanceof Error ? error.message : String(error),
+            [closeButton],
+          ),
+        )
+        closeBoard = close
+        closeButton.focus()
+      } finally {
+        boardPending = false
+      }
+    }
 
     active = { runner, cleanup }
     surface.focus()

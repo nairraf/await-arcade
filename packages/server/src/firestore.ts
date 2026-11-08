@@ -73,4 +73,29 @@ export class FirestoreStore implements ArcadeStore {
 
     return snapshot.docs.map((doc) => doc.data() as BoardEntry)
   }
+
+  async getEntry(boardId: string, playerId: string): Promise<BoardEntry | undefined> {
+    const snapshot = await this.entryDoc(boardId, playerId).get()
+    return snapshot.exists ? (snapshot.data() as BoardEntry) : undefined
+  }
+
+  async rank(
+    boardId: string,
+    playerId: string,
+    scoreType: "higher" | "lower",
+    entry?: BoardEntry,
+  ): Promise<number | undefined> {
+    const mine = entry ?? (await this.getEntry(boardId, playerId))
+    if (!mine) return undefined
+
+    const snapshot = await this.db
+      .collection("boards")
+      .doc(boardId)
+      .collection("entries")
+      .where("score.value", scoreType === "lower" ? "<" : ">", mine.score.value)
+      .count()
+      .get()
+
+    return snapshot.data().count + 1
+  }
 }

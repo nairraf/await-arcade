@@ -1,5 +1,5 @@
-import { LocalHost } from "@await-arcade/shell"
-import type { RunResult, SubmitResult } from "@await-arcade/contract"
+import { LocalHost, normaliseBoard } from "@await-arcade/shell"
+import type { BoardEntry, RunResult, Score, SubmitResult } from "@await-arcade/contract"
 
 interface SidecarBridge {
   fetch(input: string, init?: RequestInit): Promise<Response>
@@ -44,5 +44,15 @@ export class SidecarHost extends LocalHost {
       this.storage.set(`best.${run.gameId}.${run.modeId}`, result.best)
     }
     return result
+  }
+
+  async loadBest(gameId: string, modeId: string): Promise<Score | undefined> {
+    const result = await this.call<{ best?: Score }>("/api/best", { gameId, modeId })
+    return this.mergeBest(gameId, modeId, result.best)
+  }
+
+  async board(gameId: string, modeId: string): Promise<readonly BoardEntry[]> {
+    const result = await this.call<{ entries?: unknown }>("/api/board", { gameId, modeId })
+    return normaliseBoard(result.entries)
   }
 }

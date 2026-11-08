@@ -1,4 +1,4 @@
-import type { Score } from "@await-arcade/contract"
+import type { BoardEntry, Score } from "@await-arcade/contract"
 
 export interface RunRecord {
   readonly runId: string
@@ -10,11 +10,7 @@ export interface RunRecord {
   readonly expiresAt: number
 }
 
-export interface BoardEntry {
-  readonly playerId: string
-  readonly score: Score
-  readonly achievedAt: number
-}
+export type { BoardEntry }
 
 export interface StoreTx {
   getRun(runId: string): Promise<RunRecord | undefined>
@@ -29,6 +25,21 @@ export interface ArcadeStore {
   getRun(runId: string): Promise<RunRecord | undefined>
   transaction<T>(fn: (tx: StoreTx) => Promise<T>): Promise<T>
   top(boardId: string, limit: number, scoreType: Score["type"]): Promise<BoardEntry[]>
+  getEntry(boardId: string, playerId: string): Promise<BoardEntry | undefined>
+  /**
+   * 1-based competition rank, or undefined when the player has no entry.
+   * Pass `entry` when the caller already read it to avoid a second fetch.
+   */
+  rank(
+    boardId: string,
+    playerId: string,
+    scoreType: Score["type"],
+    entry?: BoardEntry,
+  ): Promise<number | undefined>
+}
+
+function beats(candidate: Score, other: Score, scoreType: Score["type"]): boolean {
+  return scoreType === "lower" ? candidate.value < other.value : candidate.value > other.value
 }
 
 export class MemoryStore implements ArcadeStore {
@@ -76,5 +87,24 @@ export class MemoryStore implements ArcadeStore {
         : right.score.value - left.score.value,
     )
     return entries.slice(0, limit)
+  }
+
+  async getEntry(boardId: string, playerId: string): Promise<BoardEntry | undefined> {
+    return this.boards.get(boardId)?.get(playerId)
+  }
+
+  async rank(
+    boardId: string,
+    playerId: string,
+    scoreType: Score["type"],
+    entry?: BoardEntry,
+  ): Promise<number | undefined> {
+    const mine = entry ?? (await this.getEntry(boardId, playerId))
+    if (!mine) return undefined
+    let better = 0
+    for (const item of this.boards.get(boardId)?.values() ?? []) {
+      if (item.playerId !== playerId && beats(item.score, mine.score, scoreType)) better += 1
+    }
+    return better + 1
   }
 }

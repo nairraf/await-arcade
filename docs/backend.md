@@ -63,7 +63,8 @@ GET  /v1/challenges/:id/board     daily board
 GET  /v1/runs/:id/ghost           practice descriptor + replay for a verified run
 POST /v1/runs                     { gameId, modeId } -> { runId, seed, expiresAt }
 POST /v1/runs/:id/submit          { replay } -> { score, best, rank }
-GET  /v1/boards/:boardId          top 50 + your rank
+GET  /v1/boards/:gameId/:modeId         -> { entries, period }
+GET  /v1/boards/:gameId/:modeId/player/:playerId -> { entry?, rank? }
 GET  /v1/me                       profile, bests, XP, medals
 PATCH /v1/me                      display name
 DELETE /v1/me                     delete the player and all player-linked data

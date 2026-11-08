@@ -1,5 +1,5 @@
-import type { SubmitResult, RunResult } from "@await-arcade/contract"
-import { LocalHost } from "@await-arcade/shell"
+import type { BoardEntry, Score, SubmitResult, RunResult } from "@await-arcade/contract"
+import { LocalHost, normaliseBoard } from "@await-arcade/shell"
 import { Api } from "./rpc.js"
 
 interface RpcClient {
@@ -37,5 +37,17 @@ export class OpenCodeHost extends LocalHost {
     }
 
     return result
+  }
+
+  async loadBest(gameId: string, modeId: string): Promise<Score | undefined> {
+    const result = (await this.client.rpc(Api).best({ gameId, modeId })) as { best?: Score }
+    return this.mergeBest(gameId, modeId, result.best)
+  }
+
+  async board(gameId: string, modeId: string): Promise<readonly BoardEntry[]> {
+    const result = (await this.client.rpc(Api).board({ gameId, modeId })) as {
+      entries?: unknown
+    }
+    return normaliseBoard(result.entries)
   }
 }

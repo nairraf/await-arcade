@@ -7,13 +7,22 @@ export function createArcadeClient(options) {
   const playerId = options.playerId
   const fetchImpl = options.fetchImpl ?? globalThis.fetch
 
+  if (typeof playerId !== "string" || playerId.length === 0) {
+    throw new Error("Await Arcade: a playerId is required")
+  }
+
   if (typeof fetchImpl !== "function") {
     throw new Error("Await Arcade: this host has no fetch")
   }
 
   async function request(path, init) {
+    const timeout =
+      typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+        ? AbortSignal.timeout(15_000)
+        : undefined
     const response = await fetchImpl(`${baseUrl}${path}`, {
       ...init,
+      ...(init?.signal ? {} : timeout ? { signal: timeout } : {}),
       headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
     })
 
@@ -46,11 +55,10 @@ export function createArcadeClient(options) {
   }
 
   async function bestFor(gameId, modeId) {
-    const value = await board(gameId, modeId)
-    const entry = Array.isArray(value.entries)
-      ? value.entries.find((item) => item.playerId === playerId)
-      : undefined
-    return entry?.score
+    const value = await request(
+      `/v1/boards/${encodeURIComponent(gameId)}/${encodeURIComponent(modeId)}/player/${encodeURIComponent(playerId)}`,
+    )
+    return value.entry?.score
   }
 
   async function status() {
