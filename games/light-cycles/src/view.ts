@@ -90,9 +90,10 @@ export function view(ctx: ViewContext<CycleState, CycleInput>): GameView<CycleSt
 
     state.boostTicks.forEach((ticks, player) => {
       if (ticks <= 0) return
+      const label = player === 0 ? "P1" : state.modeId === "duel" ? "P2" : "AI"
       canvas.fillStyle = COLORS[player] ?? "#e6edf3"
       canvas.font = "9px ui-monospace, Menlo, monospace"
-      canvas.fillText(`BOOST ${player === 0 ? "P1" : "AI"}`, 8, 12 + player * 12)
+      canvas.fillText(`BOOST ${label}`, 8, 12 + player * 12)
     })
 
     canvas.strokeStyle = "rgba(148, 163, 184, 0.22)"
