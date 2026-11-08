@@ -1,8 +1,10 @@
 # Brickstorm
 
-A seeded brick-buster with three brick bands, a glowing save brick, and
-explosive super bricks that clear their neighbours. Score is awarded per brick,
-with higher rows worth more.
+A seeded brick-buster with three brick bands, gold armor bricks, a glowing
+save brick, and explosive super bricks that clear their neighbours. Gold bricks
+take three hits (gold → silver → bronze); the save grants a short floor bounce
+and raises the ball speed. Every 12 cleared bricks adds a capped speed level.
+Score is awarded per brick, with higher rows worth more.
 
 ## Files
 
