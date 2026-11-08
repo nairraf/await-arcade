@@ -656,6 +656,7 @@ export const styles = `
   max-width: 100%;
   image-rendering: pixelated;
   border-radius: 6px;
+  touch-action: none;
 }
 
 .arcade-controls {

@@ -7,6 +7,7 @@ import type {
   Score,
   VerifiedResult,
 } from "@await-arcade/contract"
+import { stateHash } from "./utils"
 
 /**
  * Re-run a replay against the pure core and derive the score server-side.
@@ -38,8 +39,11 @@ export function verifyReplay<S, I>(
   }
   if (replay.durationMs > meta.maxDurationMs) return fail("replay exceeds the maximum duration")
 
+  if (!Array.isArray(replay.inputs)) return fail("replay inputs are not an array")
+
   let previousTick = -1
   for (const event of replay.inputs) {
+    if (typeof event !== "object" || event === null) return fail("invalid input event")
     if (!Number.isInteger(event.tick) || event.tick < 0) return fail("invalid input tick")
     if (event.tick < previousTick) return fail("inputs are out of order")
     previousTick = event.tick
@@ -84,6 +88,11 @@ export function verifyReplay<S, I>(
 
   if (core.phase(state) === "playing") {
     return fail("replay ended while the game was still running")
+  }
+
+  const computed = stateHash(core.serialize(state))
+  if (replay.stateHash !== undefined && replay.stateHash !== computed) {
+    return fail("state hash mismatch")
   }
 
   const elapsedMs = replay.durationMs

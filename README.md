@@ -2,12 +2,16 @@
 
 Await Arcade is a tiny cross-host arcade for OpenCode Desktop and Antigravity.
 
-Two cabinets ship in the scaffold:
+Four cabinets ship in the scaffold:
 
 - **Minesweeper** — turn-based, safe first click, flood reveal, chording,
   keyboard play, replay-verified personal bests.
 - **Neon Cycles** — realtime grid light cycles, solo vs AI or local duel, a
   canvas reference implementation.
+- **2048** — seeded tile merging, keyboard/swipe/on-screen pad, a DOM
+  reference implementation with score-attack ranking.
+- **Breakout** — realtime brick-busting with pointer and keyboard control, a
+  second canvas reference and a higher-score board.
 
 The point is the framework: the shell is the product, games are content. Adding
 a cabinet should be one folder plus `npm run aa -- sync`.
@@ -114,16 +118,17 @@ See `packages/host-antigravity/README.md`.
 
 ## Verified in this scaffold
 
-- `npm run check` passes: workspace typecheck, OpenCode host typecheck, 11 tests,
-  core determinism scan, and both replay fixtures.
+- `npm run check` passes: workspace typecheck, OpenCode host typecheck, 31 tests,
+  core determinism scan, and all four replay fixtures.
 - `npm run build` builds the browser demo.
 - `npm run build:hosts` builds `gui-experimental.cjs` and the Antigravity
   `index.html` + `app.js`.
 - The Antigravity sidecar serves `/`, `/app.js`, and an empty `/app.css` on
   loopback.
 - In the browser: the launcher renders, Minesweeper reveals/floods, Neon Cycles
-  runs and ends, the game-over overlay saves a personal best, and the best score
-  survives a return to the launcher via `localStorage`.
+  runs and ends, 2048 merges tiles by keyboard/swipe/pad, Breakout follows
+  pointer and keyboard paddle aim, the game-over overlay saves a personal best,
+  and the best score survives a return to the launcher via `localStorage`.
 - `aa new-game` scaffolds a working template game, and its test + `check`
   pass.
 
