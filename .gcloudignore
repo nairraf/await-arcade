@@ -1,0 +1,17 @@
+# Keep the Cloud Build upload small; this is not a Docker ignore file.
+.git
+.github
+.DS_Store
+node_modules
+**/node_modules
+**/dist
+docs
+skills
+scripts
+packages/host-opencode/gui-experimental.cjs
+packages/host-antigravity/app.js
+packages/host-antigravity/app.css
+packages/host-antigravity/index.html
+packages/host-antigravity/.data
+*.png
+*.docx

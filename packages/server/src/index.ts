@@ -3,20 +3,11 @@ import { randomBytes } from "node:crypto"
 import type { Replay, Score, VerifiedResult } from "@await-arcade/contract"
 import { verifyReplay } from "@await-arcade/framework"
 import { verifiers } from "./registry.generated"
+import { MemoryStore, type ArcadeStore, type RunRecord } from "./store"
 
-interface RunRecord {
-  readonly runId: string
-  readonly gameId: string
-  readonly modeId: string
-  readonly seed: number
-  readonly playerId: string
-  readonly createdAt: number
-}
-
-interface BoardEntry {
-  readonly playerId: string
-  readonly score: Score
-  readonly achievedAt: number
+export interface ArcadeServerOptions {
+  readonly store?: ArcadeStore
+  readonly host?: string
 }
 
 export interface ArcadeServer {
@@ -26,10 +17,14 @@ export interface ArcadeServer {
 }
 
 const MAX_BODY = 1_000_000
-const RUN_TTL_MS = 10 * 60 * 1000
+const RUN_TTL_MS = 24 * 60 * 60 * 1000
 
 function winner(a: Score, b: Score): boolean {
   return a.type === "lower" ? a.value < b.value : a.value > b.value
+}
+
+function boardKey(gameId: string, modeId: string): string {
+  return `${gameId}:${modeId}:all`
 }
 
 function json(res: ServerResponse, status: number, body: unknown): void {
@@ -68,12 +63,9 @@ function record(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {}
 }
 
-export function createArcadeServer(): ArcadeServer {
-  // These two maps are the entire persistence layer in the scaffold.
-  // A Firestore-backed implementation needs: createRun, getRun, deleteRun,
-  // getEntry, putEntry, and top.
-  const runs = new Map<string, RunRecord>()
-  const boards = new Map<string, Map<string, BoardEntry>>()
+export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeServer {
+  const store = options.store ?? new MemoryStore()
+  const bindHost = options.host ?? "127.0.0.1"
 
   const server = createHttpServer(async (req, res) => {
     if (req.method === "OPTIONS") {
@@ -129,20 +121,25 @@ export function createArcadeServer(): ArcadeServer {
           return
         }
 
-        const runId = randomBytes(12).toString("hex")
-        const seed = randomBytes(4).readUInt32LE(0)
-        const playerId = text(body.playerId) ?? text(req.headers["x-arcade-player"]) ?? "local"
         const createdAt = Date.now()
-
-        runs.set(runId, { runId, gameId, modeId, seed, playerId, createdAt })
-
-        json(res, 201, {
-          runId,
+        const run: RunRecord = {
+          runId: randomBytes(12).toString("hex"),
           gameId,
           modeId,
-          seed,
-          playerId,
+          seed: randomBytes(4).readUInt32LE(0),
+          playerId: text(body.playerId) ?? text(req.headers["x-arcade-player"]) ?? "local",
+          createdAt,
           expiresAt: createdAt + RUN_TTL_MS,
+        }
+
+        await store.createRun(run)
+        json(res, 201, {
+          runId: run.runId,
+          gameId: run.gameId,
+          modeId: run.modeId,
+          seed: run.seed,
+          playerId: run.playerId,
+          expiresAt: run.expiresAt,
         })
         return
       }
@@ -154,12 +151,12 @@ export function createArcadeServer(): ArcadeServer {
           return
         }
 
-        const run = runs.get(runId)
+        const run = await store.getRun(runId)
         if (!run) {
           json(res, 404, { error: "run not found" })
           return
         }
-        if (Date.now() - run.createdAt > RUN_TTL_MS) {
+        if (Date.now() > run.expiresAt) {
           json(res, 410, { error: "run expired" })
           return
         }
@@ -197,50 +194,56 @@ export function createArcadeServer(): ArcadeServer {
           return
         }
 
-        const boardKey = `${run.gameId}:${run.modeId}:all`
-        let board = boards.get(boardKey)
-        if (!board) {
-          board = new Map()
-          boards.set(boardKey, board)
-        }
+        const score = verified.score
+        const key = boardKey(run.gameId, run.modeId)
 
-        const previous = board.get(run.playerId)
-        const best = !previous || winner(verified.score, previous.score) ? verified.score : previous.score
-        board.set(run.playerId, {
-          playerId: run.playerId,
-          score: best,
-          achievedAt: previous && best === previous.score ? previous.achievedAt : Date.now(),
+        const outcome = await store.transaction(async (tx) => {
+          const current = await tx.getRun(runId)
+          if (!current) return { missing: true as const }
+
+          const previous = await tx.getEntry(key, run.playerId)
+          const best = !previous || winner(score, previous.score) ? score : previous.score
+
+          if (!previous || best === score) {
+            await tx.putEntry(key, {
+              playerId: run.playerId,
+              score: best,
+              achievedAt: Date.now(),
+            })
+          }
+
+          await tx.deleteRun(runId)
+          return { missing: false as const, best }
         })
 
-        const sorted = [...board.values()].sort((left, right) =>
-          left.score.type === "lower" ? left.score.value - right.score.value : right.score.value - left.score.value,
-        )
+        if (outcome.missing) {
+          json(res, 404, { error: "run not found" })
+          return
+        }
+
+        const sorted = await store.top(key, 50, entry.meta.score.type)
         const rank = sorted.findIndex((item) => item.playerId === run.playerId) + 1
 
-        runs.delete(runId)
-        json(res, 200, { ok: true, score: verified.score, best, rank })
+        json(res, 200, {
+          ok: true,
+          score,
+          best: outcome.best,
+          ...(rank > 0 ? { rank } : {}),
+        })
         return
       }
 
       if (req.method === "GET" && parts[0] === "v1" && parts[1] === "boards" && parts[2] && parts[3]) {
-        const boardKey = `${parts[2]}:${parts[3]}:all`
-        const board = boards.get(boardKey)
-        const entries = board
-          ? [...board.values()]
-              .sort((left, right) =>
-                left.score.type === "lower"
-                  ? left.score.value - right.score.value
-                  : right.score.value - left.score.value,
-              )
-              .slice(0, 50)
-          : []
+        const gameId = parts[2]
+        const modeId = parts[3]
+        const entry = verifiers[gameId]
+        if (!entry) {
+          json(res, 404, { error: `unknown game: ${gameId}` })
+          return
+        }
 
-        json(res, 200, {
-          gameId: parts[2],
-          modeId: parts[3],
-          period: "all",
-          entries,
-        })
+        const entries = await store.top(boardKey(gameId, modeId), 50, entry.meta.score.type)
+        json(res, 200, { gameId, modeId, period: "all", entries })
         return
       }
 
@@ -255,7 +258,7 @@ export function createArcadeServer(): ArcadeServer {
     listen(port: number) {
       return new Promise((resolve, reject) => {
         server.once("error", reject)
-        server.listen(port, "127.0.0.1", () => {
+        server.listen(port, bindHost, () => {
           const address = server.address()
           resolve(typeof address === "object" && address ? address.port : port)
         })

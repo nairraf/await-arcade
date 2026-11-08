@@ -214,10 +214,19 @@ Cache each board's top 50 in Cloud Run memory for 30–60 seconds, set
 
 ## Deployment sketch
 
+The repo ships a `Dockerfile`, `packages/server/vite.server.config.ts`, the
+Firestore store in `packages/server/src/firestore.ts`, and
+`scripts/deploy-cloud-run.sh`. `npm run dev --workspace @await-arcade/server`
+keeps using the in-memory store; the Cloud Run entry uses Firestore.
+
+```sh
+PROJECT_ID=await-arcade-dev ./scripts/deploy-cloud-run.sh
+```
+
 ```sh
 gcloud run deploy await-arcade-api \
   --source . \
-  --region africa-south1 \
+  --region northamerica-northeast1 \
   --allow-unauthenticated \
   --max-instances 2 \
   --min-instances 0 \
@@ -227,10 +236,12 @@ gcloud run deploy await-arcade-api \
   --timeout 10
 ```
 
-- Firestore in the region closest to your players. The region is permanent.
+- Firestore in `northamerica-northeast1` (Montreal), matching the existing
+  Selos database. The region is permanent.
 - Cloud Run service account: `roles/datastore.user` only.
 - GitHub OAuth app client secret in Secret Manager, mounted as an env var.
-- Firestore rules: deny all client access; everything goes through the API.
+- Firestore rules in `firestore.rules` deny all client access; everything goes
+  through the API. Deploy them with the Firebase CLI or the rules API.
 - Budget alert at $5; per-player rate limits.
 
 ## What to build first
