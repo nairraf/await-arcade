@@ -164,8 +164,8 @@ export function createArcade(options: ArcadeOptions): Arcade {
       card.tabIndex = 0
       card.setAttribute("role", "button")
       card.setAttribute("aria-label", `Play ${entry.meta.title}`)
-      card.style.setProperty("--game-accent", entry.meta.theme?.accent ?? "#22d3ee")
-      card.style.setProperty("--game-accent-2", entry.meta.theme?.accent2 ?? "#f472b6")
+      card.style.setProperty("--game-accent-dark", entry.meta.theme?.accent ?? "#22d3ee")
+      card.style.setProperty("--game-accent-2-dark", entry.meta.theme?.accent2 ?? "#f472b6")
       card.dataset.mode = entry.meta.theme?.mode ?? "neon"
 
       const marquee = el("div", "arcade-card-marquee")
@@ -222,8 +222,8 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
     const best = host.best(entry.meta.id, mode.id)
     const section = el("section", "arcade-game")
-    section.style.setProperty("--game-accent", entry.meta.theme?.accent ?? "#22d3ee")
-    section.style.setProperty("--game-accent-2", entry.meta.theme?.accent2 ?? "#f472b6")
+    section.style.setProperty("--game-accent-dark", entry.meta.theme?.accent ?? "#22d3ee")
+    section.style.setProperty("--game-accent-2-dark", entry.meta.theme?.accent2 ?? "#f472b6")
     section.dataset.mode = entry.meta.theme?.mode ?? "neon"
 
     const cabinet = el("div", "arcade-cabinet-marquee")

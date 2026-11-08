@@ -83,6 +83,11 @@ remain a dark CRT screen inside the light cabinet; that is intentional. A DOM
 game like Minesweeper should use the light board tokens so it reads as a desk
 game in light mode.
 
+In light mode the shell derives a **darker text/edge accent** and a **more
+saturated cartridge-label accent** from the dark theme accent. Primary actions
+become a solid accent with cream text, so light mode never puts light blue text
+on a white surface.
+
 Test both modes with the top-bar theme toggle before shipping a game. Emulate
 `prefers-color-scheme: light` as well as the manual toggle.
 

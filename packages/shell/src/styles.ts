@@ -88,6 +88,33 @@ export const styles = `
   box-sizing: border-box;
 }
 
+/* Bright game accents in the dark cabinet; a darker mix on paper. */
+.arcade-card,
+.arcade-game {
+  --game-accent: var(--game-accent-dark, #22d3ee);
+  --game-accent-2: var(--game-accent-2-dark, #f472b6);
+  --game-label: var(--game-accent-dark, #22d3ee);
+  --game-label-2: var(--game-accent-2-dark, #f472b6);
+}
+
+.arcade[data-theme="light"] .arcade-card,
+.arcade[data-theme="light"] .arcade-game {
+  --game-accent: color-mix(in srgb, var(--game-accent-dark, #22d3ee) 38%, var(--arcade-fg, #1b1f24));
+  --game-accent-2: color-mix(in srgb, var(--game-accent-2-dark, #f472b6) 38%, var(--arcade-fg, #1b1f24));
+  --game-label: color-mix(in srgb, var(--game-accent-dark, #22d3ee) 62%, var(--arcade-fg, #1b1f24));
+  --game-label-2: color-mix(in srgb, var(--game-accent-2-dark, #f472b6) 62%, var(--arcade-fg, #1b1f24));
+}
+
+@media (prefers-color-scheme: light) {
+  .arcade[data-theme="auto"] .arcade-card,
+  .arcade[data-theme="auto"] .arcade-game {
+    --game-accent: color-mix(in srgb, var(--game-accent-dark, #22d3ee) 38%, var(--arcade-fg, #1b1f24));
+    --game-accent-2: color-mix(in srgb, var(--game-accent-2-dark, #f472b6) 38%, var(--arcade-fg, #1b1f24));
+    --game-label: color-mix(in srgb, var(--game-accent-dark, #22d3ee) 62%, var(--arcade-fg, #1b1f24));
+    --game-label-2: color-mix(in srgb, var(--game-accent-2-dark, #f472b6) 62%, var(--arcade-fg, #1b1f24));
+  }
+}
+
 .arcade-top {
   display: flex;
   align-items: center;
@@ -232,7 +259,7 @@ export const styles = `
   position: absolute;
   inset: 0 0 auto;
   height: 2px;
-  background: linear-gradient(90deg, var(--game-accent), var(--game-accent-2));
+  background: linear-gradient(90deg, var(--game-label), var(--game-label-2));
   opacity: 0.9;
   z-index: 3;
   pointer-events: none;
@@ -265,8 +292,8 @@ export const styles = `
   padding: 14px;
   background:
     repeating-linear-gradient(0deg, color-mix(in srgb, var(--arcade-fg) 4%, transparent) 0 1px, transparent 1px 4px),
-    radial-gradient(140% 140% at 18% 0%, color-mix(in srgb, var(--game-accent) 38%, transparent), transparent 58%),
-    radial-gradient(120% 120% at 100% 100%, color-mix(in srgb, var(--game-accent-2) 34%, transparent), transparent 55%),
+    radial-gradient(140% 140% at 18% 0%, color-mix(in srgb, var(--game-label) 38%, transparent), transparent 58%),
+    radial-gradient(120% 120% at 100% 100%, color-mix(in srgb, var(--game-label-2) 34%, transparent), transparent 55%),
     var(--arcade-slot);
   border-bottom: 1px solid var(--arcade-line);
 }
@@ -286,6 +313,24 @@ export const styles = `
   z-index: 2;
 }
 
+.arcade[data-theme="light"] .arcade-card-marquee {
+  background:
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--arcade-fg) 4%, transparent) 0 1px, transparent 1px 4px),
+    radial-gradient(140% 140% at 18% 0%, color-mix(in srgb, var(--game-label) 58%, transparent), transparent 64%),
+    radial-gradient(120% 120% at 100% 100%, color-mix(in srgb, var(--game-label-2) 52%, transparent), transparent 60%),
+    var(--arcade-slot);
+}
+
+@media (prefers-color-scheme: light) {
+  .arcade[data-theme="auto"] .arcade-card-marquee {
+    background:
+      repeating-linear-gradient(0deg, color-mix(in srgb, var(--arcade-fg) 4%, transparent) 0 1px, transparent 1px 4px),
+      radial-gradient(140% 140% at 18% 0%, color-mix(in srgb, var(--game-label) 58%, transparent), transparent 64%),
+      radial-gradient(120% 120% at 100% 100%, color-mix(in srgb, var(--game-label-2) 52%, transparent), transparent 60%),
+      var(--arcade-slot);
+  }
+}
+
 .arcade-card-marquee::after {
   content: "";
   position: absolute;
@@ -301,7 +346,7 @@ export const styles = `
   font-weight: 800;
   line-height: 0.85;
   color: color-mix(in srgb, var(--arcade-fg) 92%, transparent);
-  text-shadow: 0 0 26px color-mix(in srgb, var(--game-accent) 55%, transparent);
+  text-shadow: 0 0 26px color-mix(in srgb, var(--game-label) 55%, transparent);
 }
 
 .arcade-card-body {
@@ -397,6 +442,49 @@ export const styles = `
 
 .arcade-btn-primary:hover {
   background: color-mix(in srgb, var(--arcade-accent) 26%, transparent);
+}
+
+.arcade[data-theme="light"] .arcade-btn-primary {
+  border-color: var(--arcade-accent);
+  background: var(--arcade-accent);
+  color: #fffdf7;
+}
+
+.arcade[data-theme="light"] .arcade-card .arcade-btn-primary {
+  border-color: var(--game-accent);
+  background: var(--game-accent);
+  color: #fffdf7;
+}
+
+.arcade[data-theme="light"] .arcade-btn-primary:hover,
+.arcade[data-theme="light"] .arcade-card .arcade-btn-primary:hover {
+  background: color-mix(in srgb, var(--arcade-accent) 82%, #000);
+}
+
+.arcade[data-theme="light"] .arcade-card .arcade-btn-primary:hover {
+  background: color-mix(in srgb, var(--game-accent) 82%, #000);
+}
+
+@media (prefers-color-scheme: light) {
+  .arcade[data-theme="auto"] .arcade-btn-primary {
+    border-color: var(--arcade-accent);
+    background: var(--arcade-accent);
+    color: #fffdf7;
+  }
+
+  .arcade[data-theme="auto"] .arcade-card .arcade-btn-primary {
+    border-color: var(--game-accent);
+    background: var(--game-accent);
+    color: #fffdf7;
+  }
+
+  .arcade[data-theme="auto"] .arcade-btn-primary:hover {
+    background: color-mix(in srgb, var(--arcade-accent) 82%, #000);
+  }
+
+  .arcade[data-theme="auto"] .arcade-card .arcade-btn-primary:hover {
+    background: color-mix(in srgb, var(--game-accent) 82%, #000);
+  }
 }
 
 .arcade-btn-ghost {
