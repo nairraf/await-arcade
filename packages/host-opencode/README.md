@@ -10,9 +10,9 @@ the Antigravity sidecar.
 npm run build --workspace @await-arcade/host-opencode
 ```
 
-This writes `packages/host-opencode/gui-experimental.cjs`. The server part is
-the plain `server.js` next to it; its `id` is `await-arcade`, which becomes the
-plugin id.
+This writes `gui-experimental.cjs` and the bundled server half at
+`dist/server.js`. The server bundle inlines the workspace API client so the host
+does not have to resolve workspace symlinks at plugin load time.
 
 ## Install locally
 

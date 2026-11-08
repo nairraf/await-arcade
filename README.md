@@ -110,9 +110,11 @@ AWAIT_ARCADE_API_URL=https://await-arcade-api-164244433164.northamerica-northeas
 The installer symlinks `packages/host-opencode` to
 `~/.config/opencode/plugins/await-arcade`. The plugin id is `await-arcade`
 (from `server.js`); it adds a pinned **Await Arcade** side panel, a command, and
-a titlebar pill. Rebuild after changing the shell, framework, or games. If your
-plugin directory is not the default, set `OPENCODE_PLUGINS_DIR` or add the
-absolute directory to `plugins` in `~/.config/opencode/opencode.jsonc`.
+a titlebar pill. `npm run build:hosts` writes both `gui-experimental.cjs` and
+the bundled server half at `dist/server.js`. Rebuild after changing the shell,
+framework, or games. If your plugin directory is not the default, set
+`OPENCODE_PLUGINS_DIR` or add the absolute directory to `plugins` in
+`~/.config/opencode/opencode.jsonc`.
 
 ### Antigravity
 
