@@ -30,9 +30,9 @@ onMount(() => {
 })
 ```
 
-Next: add an RPC contract (`server.js` + `src/rpc.ts`), keep `auth.opencode.json`
-in the native state directory, and proxy leaderboard calls through the plugin
-server so the renderer never holds a token.
+Next: hydrate remote bests/leaderboards, keep `auth.opencode.json` in the
+native state directory when auth lands, and use the RPC methods for account and
+board actions.
 
 ## Antigravity
 
@@ -52,13 +52,30 @@ Model: a **sidecar** process plus a **web UI extension**.
   the native per-OS state directory (`auth.antigravity.json`, `0600`); use
   `ANTIGRAVITY_EXECUTABLE_DATA_DIR` for non-secret sidecar cache and queue state.
 
-Next: proxy the verifier API through `server.mjs`, keep the auth file in the
-native state directory, and use `window.sidecar.agent.sendMessage` for
+Next: hydrate remote bests/leaderboards, keep the auth file in the native state
+directory when auth lands, and use `window.sidecar.agent.sendMessage` for
 "brief me on my run" style actions.
+
+## Verifier API
+
+Both host server halves use `@await-arcade/api-client`.
+
+- **Ranked runs:** the shell calls `GameHost.start`, which asks the host server
+  to `POST /v1/runs` for a server seed and run id. The runner carries the run id;
+  submit sends the replay with it.
+- **Local runs:** if the API is unavailable, or the host has no start hook, the
+  shell uses a local random seed and stores a local best. That replay is not
+  submitted as ranked.
+- **Offline queue:** a submit that fails with a network or 5xx error is stored in
+  the host server state and retried on the next start/submit. 4xx rejections are
+  not queued.
+- **Boundary:** the renderer never calls the API and never holds a credential.
+  The host server half owns the API client, the player identity, and (later) the
+  auth token.
 
 ## Shared shell
 
 The shell is framework-free DOM and canvas. It mounts into any element. The
-OpenCode wrapper is Solid because the host requires Solid components; the
-shell itself stays independent. Both hosts use the same `games` registry, the
-same `LocalHost` (until the API proxy lands), and the same styles.
+OpenCode wrapper is Solid because the host requires Solid components; the shell
+itself stays independent. Both hosts use the same `games` registry and styles;
+each supplies its own `GameHost` proxy, with `LocalHost` as the fallback.

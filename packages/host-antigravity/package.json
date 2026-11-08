@@ -8,6 +8,7 @@
     "build": "vite build"
   },
   "dependencies": {
+    "@await-arcade/api-client": "0.1.0",
     "@await-arcade/shell": "0.1.0"
   }
 }

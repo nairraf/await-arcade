@@ -4,11 +4,13 @@ import {
   Plugin,
   Style,
   TitlebarItem,
+  usePlugin,
   type PanelTab,
 } from "@opencode/plugin/gui"
 import { onCleanup, onMount } from "solid-js"
-import { createArcade, LocalHost, styles } from "@await-arcade/shell"
+import { createArcade, styles } from "@await-arcade/shell"
 import { games } from "@await-arcade/shell/registry"
+import { OpenCodeHost } from "./host"
 
 const ID = "main"
 
@@ -24,13 +26,14 @@ const tab: PanelTab = {
 }
 
 function ArcadePanel() {
+  const ctx = usePlugin()
   let mount!: HTMLDivElement
 
   onMount(() => {
     const arcade = createArcade({
       root: mount,
       games,
-      host: new LocalHost({ prefix: "opencode", name: "opencode" }),
+      host: new OpenCodeHost(ctx.client),
       injectStyles: false,
     })
 

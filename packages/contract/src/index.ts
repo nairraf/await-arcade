@@ -139,6 +139,8 @@ export interface VerifiedResult {
 export interface RunResult<I = unknown> {
   readonly gameId: string
   readonly modeId: string
+  /** Server-issued run id for ranked submissions; absent for local fallback. */
+  readonly runId?: string
   readonly score: Score
   readonly replay: Replay<I>
 }
@@ -232,6 +234,14 @@ export interface GameHost {
   readonly name: string
   best(gameId: string, modeId: string): Score | undefined
   submit(run: RunResult): Promise<SubmitResult>
+  /**
+   * Ask the host for a run. A hosted host returns a server-issued seed and run
+   * id; a local host omits this and the shell uses a local random seed.
+   */
+  start?(input: { readonly gameId: string; readonly modeId: string }): Promise<{
+    readonly seed: number
+    readonly runId?: string
+  }>
   readonly storage: GameStorage
   readonly audio: AudioBus
   toast(message: string): void

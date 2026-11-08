@@ -73,7 +73,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     if (entry.meta.modes.length === 0) throw new Error(`Await Arcade: ${entry.meta.id} has no modes`)
   }
 
-  const host =
+  const host: GameHost =
     options.host ??
     new LocalHost({ prefix: "await-arcade", toastRoot: root })
 
@@ -132,6 +132,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
   root.append(top, main, foot)
 
   let active: ActiveGame | undefined
+  let playGeneration = 0
 
   const destroyActive = (): void => {
     if (!active) return
@@ -141,6 +142,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
   }
 
   const showLauncher = (): void => {
+    playGeneration += 1
     destroyActive()
     main.replaceChildren()
 
@@ -213,8 +215,21 @@ export function createArcade(options: ArcadeOptions): Arcade {
     main.append(launcher)
   }
 
-  const playGame = (entry: GameEntry, modeId: string): void => {
+  const playGame = async (entry: GameEntry, modeId: string): Promise<void> => {
+    const generation = ++playGeneration
     destroyActive()
+    main.replaceChildren()
+    main.append(el("div", "arcade-empty", "Starting…"))
+
+    let session: { seed: number; runId?: string }
+    try {
+      session = host.start ? await host.start({ gameId: entry.meta.id, modeId }) : { seed: randomSeed() }
+    } catch {
+      host.toast("Online unavailable; playing locally.")
+      session = { seed: randomSeed() }
+    }
+
+    if (generation !== playGeneration) return
     main.replaceChildren()
 
     const mode = entry.meta.modes.find((item) => item.id === modeId) ?? entry.meta.modes[0]
@@ -446,7 +461,8 @@ export function createArcade(options: ArcadeOptions): Arcade {
       host,
       container: surface,
       mode,
-      seed: randomSeed(),
+      seed: session.seed,
+      ...(session.runId !== undefined ? { runId: session.runId } : {}),
       onTick(state, elapsedMs, ticks) {
         lastTicks = ticks
         const preview = entry.core.score(state, { elapsedMs, ticks })
@@ -478,6 +494,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
   return {
     destroy() {
+      playGeneration += 1
       destroyActive()
       root.classList.remove("arcade")
       root.replaceChildren()

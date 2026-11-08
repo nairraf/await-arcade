@@ -22,6 +22,7 @@ export interface RunnerOptions<S, I> {
   readonly container: HTMLElement
   readonly mode: Mode
   readonly seed: number
+  readonly runId?: string
   readonly onEnd?: (result: RunResult<I>) => void
   readonly onTick?: (state: S, elapsedMs: number, ticks: number) => void
 }
@@ -59,7 +60,7 @@ const caf = (id: number): void => {
 }
 
 export function createRunner<S, I>(options: RunnerOptions<S, I>): GameRunner<S, I> {
-  const { meta, core, host, container, mode, seed, onEnd, onTick } = options
+  const { meta, core, host, container, mode, seed, runId, onEnd, onTick } = options
   const rate = meta.kind === "realtime" ? (meta.tickRate ?? 60) : 0
   const dt = rate > 0 ? 1000 / rate : 0
 
@@ -115,7 +116,13 @@ export function createRunner<S, I>(options: RunnerOptions<S, I>): GameRunner<S, 
       stateHash: stateHash(core.serialize(state)),
     }
 
-    lastResult = { gameId: meta.id, modeId: mode.id, score, replay }
+    lastResult = {
+      gameId: meta.id,
+      modeId: mode.id,
+      ...(runId !== undefined ? { runId } : {}),
+      score,
+      replay,
+    }
     view.render(state, 1)
     onTick?.(state, durationMs, ticks)
     onEnd?.(lastResult)

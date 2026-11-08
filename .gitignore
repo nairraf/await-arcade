@@ -9,6 +9,7 @@ packages/host-opencode/gui-experimental.cjs
 packages/host-antigravity/index.html
 packages/host-antigravity/app.js
 packages/host-antigravity/app.css
+packages/host-antigravity/.data/
 
 # private agent memory (symlinked from ~/ai/memory/projects/await-arcade)
 AGENTS.md
