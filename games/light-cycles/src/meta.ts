@@ -5,7 +5,7 @@ export const meta: GameMeta = {
   title: "Neon Cycles",
   description: "Grid light cycles. Cut off the other rider, or survive the grid for as long as you can.",
   author: "Await Arcade",
-  version: "1.0.0",
+  version: "1.1.0",
   engines: { arcade: "^0.1.0" },
   kind: "realtime",
   tickRate: 12,

@@ -72,18 +72,51 @@ function blockedCells(state: CycleState): Set<number> {
  * lookahead: it prefers open space over a move that survives one tick but
  * seals the rider into a pocket.
  */
-function freeSpace(state: CycleState, start: number, blocked: Set<number>): number {
-  if (blocked.has(start)) return 0
+function edgeDistance(state: CycleState, start: number, blocked: Set<number>): number {
+  if (blocked.has(start)) return Number.POSITIVE_INFINITY
+
+  const seen = new Set<number>([start])
+  const queue: Array<[number, number]> = [[start, 0]]
+
+  while (queue.length > 0) {
+    const [index, depth] = queue.shift()!
+    const x = index % state.width
+    const y = Math.floor(index / state.width)
+    if (x === 0 || y === 0 || x === state.width - 1 || y === state.height - 1) return depth
+
+    for (const [dx, dy] of DIRECTIONS) {
+      const nx = x + dx
+      const ny = y + dy
+      if (nx < 0 || ny < 0 || nx >= state.width || ny >= state.height) continue
+
+      const next = ny * state.width + nx
+      if (seen.has(next) || blocked.has(next)) continue
+      seen.add(next)
+      queue.push([next, depth + 1])
+    }
+  }
+
+  return Number.POSITIVE_INFINITY
+}
+
+function freeSpaceInfo(
+  state: CycleState,
+  start: number,
+  blocked: Set<number>,
+): { count: number; edge: boolean } {
+  if (blocked.has(start)) return { count: 0, edge: false }
 
   const seen = new Set<number>([start])
   const stack = [start]
   let count = 0
+  let edge = false
 
   while (stack.length > 0) {
     const index = stack.pop()!
     count += 1
     const x = index % state.width
     const y = Math.floor(index / state.width)
+    if (x === 0 || y === 0 || x === state.width - 1 || y === state.height - 1) edge = true
 
     for (const [dx, dy] of DIRECTIONS) {
       const nx = x + dx
@@ -97,15 +130,19 @@ function freeSpace(state: CycleState, start: number, blocked: Set<number>): numb
     }
   }
 
-  return count
+  return { count, edge }
 }
 
-function playerEscape(
+function freeSpace(state: CycleState, start: number, blocked: Set<number>): number {
+  return freeSpaceInfo(state, start, blocked).count
+}
+
+function playerReplies(
   state: CycleState,
   player: CycleBike,
   blocked: Set<number>,
-): number {
-  let best = 0
+): number[] {
+  const replies: number[] = []
 
   for (const turn of [-1, 0, 1] as const) {
     const direction = turnDirection(player.dir, turn)
@@ -115,11 +152,10 @@ function playerEscape(
     if (x < 0 || y < 0 || x >= state.width || y >= state.height) continue
 
     const index = y * state.width + x
-    if (blocked.has(index)) continue
-    best = Math.max(best, freeSpace(state, index, blocked))
+    if (!blocked.has(index)) replies.push(index)
   }
 
-  return best
+  return replies
 }
 
 function aiTurn(state: CycleState, player: 0 | 1): Turn {
@@ -156,30 +192,49 @@ function aiTurn(state: CycleState, player: 0 | 1): Turn {
     const index = y * state.width + x
     if (blocked.has(index)) continue
 
-    const aiSpace = freeSpace(state, index, blocked)
+    const aiSpace = freeSpaceInfo(state, index, blocked)
     const after = new Set(blocked)
     after.add(index)
 
-    // One-move prediction: assume the player takes their best legal reply,
-    // then score the AI move by how little escape that reply leaves.
-    const playerSpace = target ? playerEscape(state, target, after) : 0
+    // Worst-case reply: the player's legal moves include the one that seals
+    // the AI's pocket. Evaluate the AI's space and exit after each reply.
+    const replies = target ? playerReplies(state, target, after) : []
+    let worstSpace = aiSpace.count
+    let worstEdge = aiSpace.edge
+    let worstExit = edgeDistance(state, index, after)
+    let playerSpace = 0
+
+    for (const reply of replies) {
+      const afterPlayer = new Set(after)
+      afterPlayer.add(reply)
+      const info = freeSpaceInfo(state, index, afterPlayer)
+      worstSpace = Math.min(worstSpace, info.count)
+      if (!info.edge) worstEdge = false
+      worstExit = Math.max(worstExit, edgeDistance(state, index, afterPlayer))
+      playerSpace = Math.max(playerSpace, freeSpace(state, reply, afterPlayer))
+    }
+
     const distance = target ? Math.abs(x - target.x) + Math.abs(y - target.y) : 0
     const interceptDistance = intercept
       ? Math.abs(x - intercept.x) + Math.abs(y - intercept.y)
       : 0
     const chase = distance > 8 ? 1.6 : 1
 
-    // Survival first; pursue the intercept, then cut off the reply; turning
-    // costs momentum so the AI does not micro-turn while the player runs.
-    const safety = aiSpace < 24 ? -400 : 0
+    // Survival first; treat a pocket that does not touch the border as a trap,
+    // keep a short route to the open edge, then pursue and cut off. Turning
+    // costs momentum. If the AI is deep inside, stop chasing and get out.
+    const danger = worstExit > 8 ? 0.2 : 1
+    const safety = worstSpace < 24 || !worstEdge ? -400 : 0
+    const trap = Number.isFinite(worstExit) ? worstExit * 150 : 3_000
     const turnPenalty = turn === 0 ? 0 : 60
     candidates.push({
       turn,
       score:
-        aiSpace * 4 -
+        worstSpace * 4 -
         playerSpace * 2 -
-        interceptDistance * 8 * chase -
-        distance * 2 -
+        interceptDistance * 8 * chase * danger -
+        distance * 2 * danger -
+        trap -
         turnPenalty +
         safety +
         rng.next() * 2,
