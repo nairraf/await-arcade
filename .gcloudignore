@@ -1,6 +1,7 @@
 # Keep the Cloud Build upload small; this is not a Docker ignore file.
 .git
 .github
+infra
 .DS_Store
 node_modules
 **/node_modules

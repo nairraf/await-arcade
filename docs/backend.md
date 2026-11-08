@@ -223,26 +223,18 @@ keeps using the in-memory store; the Cloud Run entry uses Firestore.
 PROJECT_ID=await-arcade-dev ./scripts/deploy-cloud-run.sh
 ```
 
-```sh
-gcloud run deploy await-arcade-api \
-  --source . \
-  --region northamerica-northeast1 \
-  --allow-unauthenticated \
-  --max-instances 2 \
-  --min-instances 0 \
-  --memory 256Mi \
-  --cpu 1 \
-  --concurrency 80 \
-  --timeout 10
-```
+The script passes `--service-account`, so the revision runs as `arcade-api` with
+`roles/datastore.user`, not the default Compute Engine account.
 
 - Firestore in `northamerica-northeast1` (Montreal), matching the existing
   Selos database. The region is permanent.
-- Cloud Run service account: `roles/datastore.user` only.
-- GitHub OAuth app client secret in Secret Manager, mounted as an env var.
+- Terraform owns the base resources; see `infra/terraform/README.md`.
+- The GitHub OAuth client secret container exists in Secret Manager, and the API
+  service account can read it. No version is mounted yet; GitHub auth wiring
+  adds `--set-secrets` when it lands.
 - Firestore rules in `firestore.rules` deny all client access; everything goes
   through the API. Deploy them with the Firebase CLI or the rules API.
-- Budget alert at $5; per-player rate limits.
+- Budget alert at $5 (CAD); per-player rate limits are still open work.
 
 ## What to build first
 
