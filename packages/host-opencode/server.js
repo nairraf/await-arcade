@@ -65,6 +65,17 @@ function clearAuthIf(refreshToken) {
   return true
 }
 
+function apiUrl() {
+  if (process.env.AWAIT_ARCADE_API_URL) return process.env.AWAIT_ARCADE_API_URL
+  try {
+    const value = JSON.parse(readFileSync(join(stateDir(), "config.json"), "utf8"))
+    if (typeof value?.apiUrl === "string" && value.apiUrl.length > 0) return value.apiUrl
+  } catch {
+    // No local config; fall back to the dev default.
+  }
+  return "http://127.0.0.1:8787"
+}
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 export default {
@@ -76,7 +87,7 @@ export default {
       await ctx.storage.set("playerId", playerId)
     }
 
-    const baseUrl = process.env.AWAIT_ARCADE_API_URL ?? "http://127.0.0.1:8787"
+    const baseUrl = apiUrl()
     let auth = readAuth()
     let accessToken
     let accessExpiresAt = 0

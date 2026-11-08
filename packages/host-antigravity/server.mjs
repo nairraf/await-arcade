@@ -80,6 +80,13 @@ function stateDir() {
 
 const authFile = join(stateDir(), "auth.antigravity.json")
 
+function apiUrl() {
+  if (process.env.AWAIT_ARCADE_API_URL) return process.env.AWAIT_ARCADE_API_URL
+  const config = readJson(join(stateDir(), "config.json"), undefined)
+  if (typeof config?.apiUrl === "string" && config.apiUrl.length > 0) return config.apiUrl
+  return "http://127.0.0.1:8787"
+}
+
 function readAuth() {
   const value = readJson(authFile, undefined)
   return typeof value?.refreshToken === "string" && typeof value?.playerId === "string"
@@ -117,7 +124,7 @@ let accessToken
 let accessExpiresAt = 0
 
 const client = createArcadeClient({
-  baseUrl: process.env.AWAIT_ARCADE_API_URL ?? "http://127.0.0.1:8787",
+  baseUrl: apiUrl(),
   playerId,
   getToken: () => accessToken,
 })
