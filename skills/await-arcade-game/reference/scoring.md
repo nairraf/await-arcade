@@ -15,7 +15,7 @@ interface Score {
 - `ranked` is for the leaderboard: is this run eligible?
 - `value` is what the board stores.
 
-## Minesweeper
+## Mineflag
 
 - `value` is elapsed milliseconds.
 - `ranked` is true only on a win.

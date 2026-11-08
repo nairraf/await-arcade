@@ -1,8 +1,8 @@
 import type { GameMeta } from "@await-arcade/contract"
 
 export const meta: GameMeta = {
-  id: "merge-2048",
-  title: "2048",
+  id: "mergegrid",
+  title: "Mergegrid",
   description: "Slide the grid, merge matching tiles, and reach 2048 before the board fills. A seeded classic for the arcade shelf.",
   author: "Await Arcade",
   version: "1.0.0",

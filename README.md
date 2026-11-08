@@ -4,14 +4,14 @@ Await Arcade is a tiny cross-host arcade for OpenCode Desktop and Antigravity.
 
 Four cabinets ship in the scaffold:
 
-- **Minesweeper** — turn-based, safe first click, flood reveal, chording,
+- **Mineflag** — turn-based, safe first click, flood reveal, chording,
   keyboard play, replay-verified personal bests.
 - **Neon Cycles** — realtime grid light cycles, solo vs AI or local duel, a
   canvas reference implementation.
-- **2048** — seeded tile merging, keyboard/swipe/on-screen pad, a DOM
+- **Mergegrid** — seeded tile merging, keyboard/swipe/on-screen pad, a DOM
   reference implementation with score-attack ranking.
-- **Breakout** — realtime brick-busting with pointer and keyboard control, a
-  second canvas reference and a higher-score board.
+- **Brickstorm** — realtime brick-busting with three bands, save bricks, and
+  explosive supers.
 
 The point is the framework: the shell is the product, games are content. Adding
 a cabinet should be one folder plus `npm run aa -- sync`.
@@ -52,7 +52,7 @@ npm run check                  # typecheck + tests + core scan + replay fixtures
 npm run aa -- list
 npm run aa -- sync
 npm run aa -- new-game my-game
-npm run aa -- verify minesweeper games/minesweeper/replay.json
+npm run aa -- verify mineflag games/mineflag/replay.json
 ```
 
 ## Layout
@@ -62,12 +62,14 @@ packages/
   contract/        types and the GameCore/GameView contract
   framework/       runner, seeded RNG, surface, replay verifier, testkit
   shell/           launcher, HUD, local host, styles, generated game registry
-  server/          in-memory verifier API + generated verifier registry
+  server/          verifier API (in-memory for tests, Firestore on Cloud Run)
   host-opencode/   OpenCode Desktop GUI plugin
   host-antigravity/Antigravity sidecar
 games/
-  minesweeper/     turn-based reference
+  mineflag/        turn-based reference
   light-cycles/    canvas/realtime reference
+  mergegrid/       DOM turn-based reference
+  brickstorm/      canvas brick-buster with power bricks
 tools/
   cli/             new-game, sync, verify, check
 skills/
@@ -138,8 +140,8 @@ to `~/.gemini/config/config.json`, with a matching project file. Open the
   `index.html` + `app.js`.
 - The Antigravity sidecar serves `/`, `/app.js`, and an empty `/app.css` on
   loopback.
-- In the browser: the launcher renders, Minesweeper reveals/floods, Neon Cycles
-  runs and ends, 2048 merges tiles by keyboard/swipe/pad, Breakout follows
+- In the browser: the launcher renders, Mineflag reveals/floods, Neon Cycles
+  runs and ends, Mergegrid merges tiles by keyboard/swipe/pad, Brickstorm follows
   pointer and keyboard paddle aim, the game-over overlay saves a personal best,
   and the best score survives a return to the launcher via `localStorage`.
 - `aa new-game` scaffolds a working template game, and its test + `check`

@@ -46,7 +46,7 @@ talking to the backend.
 - A player can open a high-score run as unranked practice on the same board; it
   writes no board entry and consumes no daily attempt.
 - The arcade reads correctly in light and dark modes for DOM cabinets
-  (Minesweeper, 2048) and canvas cabinets (Neon Cycles, Breakout).
+  (Mineflag, Mergegrid) and canvas cabinets (Neon Cycles, Brickstorm).
 - Arcade XP aggregates across games without one game dominating.
 - Tokens never enter the renderer or webview.
 - `DELETE /v1/me` removes the player, sessions, and board entries.

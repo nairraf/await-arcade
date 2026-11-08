@@ -1,16 +1,24 @@
 import type { GameMeta } from "@await-arcade/contract"
 
 export const meta: GameMeta = {
-  id: "breakout",
-  title: "Breakout",
-  description: "Bounce the ball, clear the wall, keep the paddle under it. A seeded brick-buster with pointer and keyboard control.",
+  id: "brickstorm",
+  title: "Brickstorm",
+  description:
+    "Three brick bands, a glowing save brick, and explosive supers that take their neighbours with them. Keep the ball alive and clear the wall.",
   author: "Await Arcade",
   version: "1.0.0",
   engines: { arcade: "^0.1.0" },
   kind: "realtime",
   tickRate: 60,
-  modes: [{ id: "classic", title: "Classic", description: "8 × 5 wall, one ball", difficulty: 1 }],
-  score: { type: "higher", min: 0, max: 1_200 },
+  modes: [
+    {
+      id: "classic",
+      title: "Classic",
+      description: "3 bands, 48 bricks, save and explosive bricks",
+      difficulty: 1,
+    },
+  ],
+  score: { type: "higher", min: 0, max: 2_000 },
   leaderboard: "replay",
   status: "experimental",
   controls: [
@@ -18,7 +26,7 @@ export const meta: GameMeta = {
     { keys: "Mouse / touch", action: "Aim paddle" },
   ],
   display: { surface: "canvas", width: 320, height: 240 },
-  theme: { accent: "#a3e635", accent2: "#38bdf8", mode: "neon" },
+  theme: { accent: "#fb923c", accent2: "#f43f5e", mode: "neon" },
   maxDurationMs: 600_000,
   tags: ["action", "classic", "arcade"],
 }

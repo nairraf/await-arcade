@@ -1,26 +1,20 @@
 {
   "version": 1,
-  "gameId": "breakout",
+  "gameId": "brickstorm",
   "gameVersion": "1.0.0",
   "frameworkVersion": "0.1.0",
   "modeId": "classic",
   "seed": 77,
   "kind": "realtime",
   "tickRate": 60,
-  "durationMs": 3350.0000000000005,
+  "durationMs": 1000.0000000000001,
   "inputs": [
     {
       "tick": 30,
       "input": {
         "target": 80
       }
-    },
-    {
-      "tick": 90,
-      "input": {
-        "target": 240
-      }
     }
   ],
-  "stateHash": "76d4bbc7"
+  "stateHash": "bc13c2b5"
 }

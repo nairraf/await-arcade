@@ -1,7 +1,8 @@
-# Breakout
+# Brickstorm
 
-A seeded brick-buster: move the paddle, keep the ball alive, clear the wall.
-Score is awarded per brick, with higher rows worth more.
+A seeded brick-buster with three brick bands, a glowing save brick, and
+explosive super bricks that clear their neighbours. Score is awarded per brick,
+with higher rows worth more.
 
 ## Files
 

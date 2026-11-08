@@ -39,12 +39,12 @@ Suggested accents:
 
 | Cabinet | Accent | Secondary | Mode |
 |---|---|---|---|
-| Minesweeper | `#60a5fa` | `#fbbf24` | terminal |
+| Mineflag | `#60a5fa` | `#fbbf24` | terminal |
 | Neon Cycles | `#22d3ee` | `#f472b6` | neon |
-| Breakout | `#fbbf24` | `#f472b6` | neon |
+| Brickstorm | `#fb923c` | `#f43f5e` | neon |
 | Missile Defense | `#4ade80` | `#fb7185` | terminal |
 | Space Invaders-like | `#4ade80` | `#a78bfa` | neon |
-| 2048 | `#d97706` | `#78716c` | paper |
+| Mergegrid | `#f0b429` | `#8b5cf6` | paper |
 
 ## The cartridge
 
@@ -80,7 +80,7 @@ and CSS variables. `auto` follows `prefers-color-scheme`.
 Light mode is a **paper cabinet**: warm off-white, dark ink, same accents at
 lower saturation, no heavy glow, scanlines barely visible. The game surface may
 remain a dark CRT screen inside the light cabinet; that is intentional. A DOM
-game like Minesweeper should use the light board tokens so it reads as a desk
+game like Mineflag should use the light board tokens so it reads as a desk
 game in light mode.
 
 In light mode the shell derives a **darker text/edge accent** and a **more
@@ -94,7 +94,7 @@ Test both modes with the top-bar theme toggle before shipping a game. Emulate
 ## Accessibility
 
 - Contrast: body text and HUD values must pass against the panel in both modes.
-- Never use color alone: Minesweeper uses digits and glyphs; Neon Cycles should
+- Never use color alone: Mineflag uses digits and glyphs; Neon Cycles should
   give bikes a head marker/pattern, not just cyan vs pink.
 - Focus rings use the cabinet accent.
 - Respect `prefers-reduced-motion`; no flashing above 3 Hz.

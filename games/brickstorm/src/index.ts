@@ -1,4 +1,4 @@
 export { meta } from "./meta"
 export { core } from "./core"
 export { view } from "./view"
-export type { BreakoutInput, BreakoutState } from "./core"
+export type { BrickKind, BrickstormInput, BrickstormState } from "./core"

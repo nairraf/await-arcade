@@ -1,12 +1,20 @@
 import type { GameView, ViewContext } from "@await-arcade/contract"
-import type { BreakoutInput, BreakoutState } from "./core"
+import {
+  BRICK_COLS,
+  brickRect,
+  type BrickstormInput,
+  type BrickstormState,
+} from "./core"
 
-const BRICK_COLORS = ["#a3e635", "#4ade80", "#38bdf8", "#f472b6", "#fbbf24"]
-const COLS = 8
+const BAND_COLORS = [
+  ["#a3e635", "#4ade80"],
+  ["#38bdf8", "#818cf8"],
+  ["#f472b6", "#fb7185"],
+]
 
-export function view(ctx: ViewContext<BreakoutState, BreakoutInput>): GameView<BreakoutState> {
+export function view(ctx: ViewContext<BrickstormState, BrickstormInput>): GameView<BrickstormState> {
   const canvas = ctx.ctx2d
-  if (!canvas) throw new Error("Breakout needs a canvas surface")
+  if (!canvas) throw new Error("Brickstorm needs a canvas surface")
 
   const pointerTarget = (event: PointerEvent): number | undefined => {
     const surface = ctx.container.querySelector("canvas")
@@ -53,7 +61,7 @@ export function view(ctx: ViewContext<BreakoutState, BreakoutInput>): GameView<B
   ctx.container.addEventListener("pointerdown", onPointerDown)
   ctx.container.addEventListener("pointercancel", onPointerCancel)
 
-  const render = (state: BreakoutState): void => {
+  const render = (state: BrickstormState): void => {
     const width = state.width
     const height = state.height
 
@@ -75,19 +83,44 @@ export function view(ctx: ViewContext<BreakoutState, BreakoutInput>): GameView<B
       canvas.stroke()
     }
 
-    const brickWidth = (width - 24 - 4 * (COLS - 1)) / COLS
     state.bricks.forEach((alive, index) => {
       if (!alive) return
-      const row = Math.floor(index / COLS)
-      const column = index % COLS
-      canvas.fillStyle = BRICK_COLORS[row] ?? "#a3e635"
-      canvas.globalAlpha = 0.9
-      canvas.fillRect(12 + column * (brickWidth + 4), 30 + row * 16, brickWidth, 12)
-    })
-    canvas.globalAlpha = 1
+      const row = Math.floor(index / BRICK_COLS)
+      const band = Math.floor(row / 2)
+      const rect = brickRect(index)
+      const kind = state.kinds[index]
 
-    canvas.fillStyle = "#a3e635"
-    canvas.shadowColor = "#a3e635"
+      let color = BAND_COLORS[band]?.[row % 2] ?? "#a3e635"
+      if (kind === "save") color = "#67e8f9"
+      else if (kind === "explosive") color = "#fb923c"
+
+      canvas.fillStyle = color
+      canvas.globalAlpha = 0.92
+      canvas.fillRect(rect.x, rect.y, rect.w, rect.h)
+      canvas.globalAlpha = 1
+
+      if (kind === "save") {
+        canvas.strokeStyle = "#ecfeff"
+        canvas.lineWidth = 1.5
+        canvas.beginPath()
+        canvas.arc(rect.x + rect.w / 2, rect.y + rect.h / 2, 2.5, 0, Math.PI * 2)
+        canvas.stroke()
+      } else if (kind === "explosive") {
+        const cx = rect.x + rect.w / 2
+        const cy = rect.y + rect.h / 2
+        canvas.strokeStyle = "#7c2d12"
+        canvas.lineWidth = 1.5
+        canvas.beginPath()
+        canvas.moveTo(cx - 3, cy)
+        canvas.lineTo(cx + 3, cy)
+        canvas.moveTo(cx, cy - 3)
+        canvas.lineTo(cx, cy + 3)
+        canvas.stroke()
+      }
+    })
+
+    canvas.fillStyle = "#fb923c"
+    canvas.shadowColor = "#fb923c"
     canvas.shadowBlur = 12
     canvas.fillRect(state.paddleX - state.paddleWidth / 2, state.paddleY, state.paddleWidth, 7)
 
@@ -99,10 +132,23 @@ export function view(ctx: ViewContext<BreakoutState, BreakoutInput>): GameView<B
     canvas.fill()
     canvas.shadowBlur = 0
 
-    canvas.fillStyle = "rgba(226, 232, 240, 0.55)"
+    canvas.fillStyle = "rgba(226, 232, 240, 0.8)"
     canvas.font = "9px ui-monospace, Menlo, monospace"
     canvas.fillText(`SCORE ${state.score}`, 12, 16)
-    canvas.fillText(`BRICKS ${state.hits}/40`, width - 78, 16)
+    canvas.fillText(`BRICKS ${state.hits}/48`, width - 78, 16)
+
+    const remaining = state.saveUntilTick - state.ticks
+    if (remaining > 0) {
+      canvas.strokeStyle = "rgba(103, 232, 249, 0.55)"
+      canvas.lineWidth = 2
+      canvas.beginPath()
+      canvas.moveTo(0, height - 3)
+      canvas.lineTo(width, height - 3)
+      canvas.stroke()
+
+      canvas.fillStyle = "#67e8f9"
+      canvas.fillText(`SAVE ${(remaining / 60).toFixed(1)}s`, width - 64, height - 8)
+    }
   }
 
   return {

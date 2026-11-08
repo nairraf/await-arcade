@@ -35,7 +35,7 @@ function winningInputs(seed: number): MineInput[] {
   return inputs
 }
 
-describe("minesweeper core", () => {
+describe("mineflag core", () => {
   it("keeps the first click and its neighbors safe", () => {
     const state = core.step(core.create(99, mode), [{ type: "reveal", x: 4, y: 4 }], 0)
     const first = state.cells[4 * state.width + 4]!

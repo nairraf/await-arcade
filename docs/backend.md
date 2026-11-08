@@ -52,8 +52,8 @@ own least-privilege service account.
 Board ids:
 
 ```
-minesweeper:expert:all
-minesweeper:expert:daily:2026-11-07
+mineflag:expert:all
+mineflag:expert:daily:2026-11-07
 await-arcade:xp:all
 await-arcade:xp:season:2026-11
 ```
@@ -192,7 +192,7 @@ That rewards breadth, not grinding one cabinet.
 One **featured game per day**. A server-side schedule picks the game/mode; a
 deterministic rotation is the fallback.
 
-`seed = HMAC(secret, gameId + ":" + YYYY-MM-DD)`. Minesweeper also gets a fixed
+`seed = HMAC(secret, gameId + ":" + YYYY-MM-DD)`. Mineflag also gets a fixed
 **anchor** (the first-click cell) so the same seed produces the same board for
 everyone; the first replay input must be that anchor.
 
@@ -220,7 +220,7 @@ A verified high-score run can be replayed as **unranked practice**:
 - The client starts a practice run with the same seed/anchor. It is clearly
   labeled **Practice**, writes no board entry, consumes no daily attempt, and
   needs no submission.
-- Minesweeper first (same board); Neon Cycles can add a ghost trail later;
+- Mineflag first (same board); Neon Cycles can add a ghost trail later;
   Missile Command's wave plan becomes the ghost when that cabinet lands.
 
 ## Cost
@@ -266,7 +266,7 @@ The script passes `--service-account`, so the revision runs as `arcade-api` with
 ## What to build first
 
 1. Cloud Run + Firestore + a GitHub OAuth app with Device Flow enabled.
-2. `minesweeper:expert:all`, submit + top 50 + personal best.
+2. `mineflag:expert:all`, submit + top 50 + personal best.
 3. Featured daily challenge (3 attempts, best of 3) + ghost practice + arcade XP.
 4. Replay verification (already implemented in `packages/framework`).
 5. Game #2 on the same schema.

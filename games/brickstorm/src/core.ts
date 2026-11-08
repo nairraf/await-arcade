@@ -1,7 +1,9 @@
 import type { GameCore, Phase, Score, ScoreContext } from "@await-arcade/contract"
 import { createRng } from "@await-arcade/framework"
 
-export interface BreakoutState {
+export type BrickKind = "normal" | "save" | "explosive"
+
+export interface BrickstormState {
   readonly width: number
   readonly height: number
   readonly seed: number
@@ -16,13 +18,18 @@ export interface BreakoutState {
   right: boolean
   targetX: number | undefined
   bricks: boolean[]
+  kinds: BrickKind[]
   score: number
   hits: number
+  saves: number
+  blasts: number
   ticks: number
+  saveUntilTick: number
+  relocated: number
   phase: Phase
 }
 
-export interface BreakoutInput {
+export interface BrickstormInput {
   readonly left?: boolean
   readonly right?: boolean
   readonly target?: number
@@ -35,14 +42,20 @@ const PADDLE_Y = HEIGHT - 18
 const PADDLE_WIDTH = 58
 const PADDLE_SPEED = 300
 const BALL_SPEED = 210
-const COLS = 8
-const ROWS = 5
-const BRICK_TOP = 30
-const BRICK_HEIGHT = 12
-const BRICK_GAP = 4
-const BRICK_LEFT = 12
-const BRICK_RIGHT = 12
 const MAX_TICKS = 36_000
+const SAVE_TICKS = 5 * 60
+const MAX_RELOCATIONS = 3
+
+export const BRICK_COLS = 8
+export const BRICK_ROWS = 6
+export const BRICK_TOP = 26
+export const BRICK_HEIGHT = 11
+export const BRICK_GAP = 4
+export const BAND_GAP = 10
+export const BRICK_LEFT = 12
+export const BRICK_RIGHT = 12
+export const BRICK_WIDTH =
+  (WIDTH - BRICK_LEFT - BRICK_RIGHT - BRICK_GAP * (BRICK_COLS - 1)) / BRICK_COLS
 
 // Unit-ish launch vectors made of exact binary fractions: 126² + 168² = 210².
 const LAUNCH: ReadonlyArray<readonly [number, number]> = [
@@ -52,27 +65,33 @@ const LAUNCH: ReadonlyArray<readonly [number, number]> = [
   [-168, -126],
 ]
 
-function brickRow(index: number): number {
-  return Math.floor(index / COLS)
-}
-
-function brickRect(index: number): { x: number; y: number; w: number; h: number } {
-  const column = index % COLS
-  const row = brickRow(index)
-  const width = (WIDTH - BRICK_LEFT - BRICK_RIGHT - BRICK_GAP * (COLS - 1)) / COLS
+export function brickRect(index: number): { x: number; y: number; w: number; h: number } {
+  const column = index % BRICK_COLS
+  const row = Math.floor(index / BRICK_COLS)
+  const band = Math.floor(row / 2)
   return {
-    x: BRICK_LEFT + column * (width + BRICK_GAP),
-    y: BRICK_TOP + row * (BRICK_HEIGHT + BRICK_GAP),
-    w: width,
+    x: BRICK_LEFT + column * (BRICK_WIDTH + BRICK_GAP),
+    y: BRICK_TOP + row * (BRICK_HEIGHT + BRICK_GAP) + band * BAND_GAP,
+    w: BRICK_WIDTH,
     h: BRICK_HEIGHT,
   }
 }
 
 function pointsForRow(row: number): number {
-  return (ROWS - row) * 10
+  return (BRICK_ROWS - row) * 10
 }
 
-function resetBall(state: BreakoutState): void {
+function pickCells(seed: number, rows: readonly number[], count: number): number[] {
+  const candidates: number[] = []
+  for (const row of rows) {
+    for (let column = 0; column < BRICK_COLS; column += 1) {
+      candidates.push(row * BRICK_COLS + column)
+    }
+  }
+  return createRng(seed).shuffle(candidates).slice(0, count)
+}
+
+function resetBall(state: BrickstormState): void {
   state.ballX = state.width / 2
   state.ballY = state.height * 0.62
   const rng = createRng((state.seed ^ Math.imul(state.hits + 1, 0x9e3779b1)) >>> 0)
@@ -86,7 +105,7 @@ function clamp(value: number, min: number, max: number): number {
   return value < min ? min : value > max ? max : value
 }
 
-function hitsBrick(state: BreakoutState, index: number): boolean {
+function hitsBrick(state: BrickstormState, index: number): boolean {
   if (!state.bricks[index]) return false
   const rect = brickRect(index)
   return (
@@ -97,7 +116,7 @@ function hitsBrick(state: BreakoutState, index: number): boolean {
   )
 }
 
-function movePaddle(state: BreakoutState, dt: number): void {
+function movePaddle(state: BrickstormState, dt: number): void {
   if (state.targetX !== undefined) {
     const half = state.paddleWidth / 2
     const target = clamp(state.targetX, half, state.width - half)
@@ -106,13 +125,65 @@ function movePaddle(state: BreakoutState, dt: number): void {
     state.paddleX += Math.abs(delta) <= step ? delta : Math.sign(delta) * step
   } else {
     const direction = (state.right ? 1 : 0) - (state.left ? 1 : 0)
-    state.paddleX += direction * (PADDLE_SPEED * dt) / 1000
+    state.paddleX += (direction * (PADDLE_SPEED * dt)) / 1000
   }
   const half = state.paddleWidth / 2
   state.paddleX = clamp(state.paddleX, half, state.width - half)
 }
 
-function moveBall(state: BreakoutState, dt: number): void {
+function destroyBrick(state: BrickstormState, index: number, trigger: boolean): void {
+  if (!state.bricks[index]) return
+
+  const row = Math.floor(index / BRICK_COLS)
+  const kind = state.kinds[index] ?? "normal"
+
+  state.bricks[index] = false
+  state.kinds[index] = "normal"
+  state.score += pointsForRow(row)
+  state.hits += 1
+
+  if (kind === "save" && trigger) {
+    state.saves += 1
+    state.saveUntilTick = Math.max(state.saveUntilTick, state.ticks + SAVE_TICKS)
+
+    // Relocate the save brick to an empty middle-band cell, unless it was the
+    // last brick or the relocation cap has been reached.
+    const others = state.bricks.some((alive) => alive)
+    if (!others || state.relocated >= MAX_RELOCATIONS) return
+
+    const empty: number[] = []
+    for (const candidateRow of [2, 3]) {
+      for (let column = 0; column < BRICK_COLS; column += 1) {
+        const candidate = candidateRow * BRICK_COLS + column
+        if (!state.bricks[candidate]) empty.push(candidate)
+      }
+    }
+    if (empty.length === 0) return
+
+    const rng = createRng((state.seed ^ Math.imul(state.relocated + 1, 0x9e3779b1)) >>> 0)
+    const next = rng.pick(empty)
+    state.bricks[next] = true
+    state.kinds[next] = "save"
+    state.relocated += 1
+  }
+
+  if (kind === "explosive" && trigger) {
+    state.blasts += 1
+    const column = index % BRICK_COLS
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        if (dx === 0 && dy === 0) continue
+        const nextRow = row + dy
+        const nextColumn = column + dx
+        if (nextRow < 0 || nextRow >= BRICK_ROWS) continue
+        if (nextColumn < 0 || nextColumn >= BRICK_COLS) continue
+        destroyBrick(state, nextRow * BRICK_COLS + nextColumn, false)
+      }
+    }
+  }
+}
+
+function moveBall(state: BrickstormState, dt: number): void {
   const seconds = dt / 1000
   state.ballX += state.vx * seconds
   state.ballY += state.vy * seconds
@@ -147,22 +218,38 @@ function moveBall(state: BreakoutState, dt: number): void {
     state.vy = -126
   }
 
+  // A save keeps the ball alive for a few seconds; it bounces off the floor.
+  if (state.ballY - BALL > state.height) {
+    if (state.ticks <= state.saveUntilTick) {
+      state.ballY = state.height - BALL
+      state.vy = -Math.abs(state.vy)
+    } else {
+      state.phase = "lost"
+      return
+    }
+  }
+
   for (let index = 0; index < state.bricks.length; index += 1) {
     if (!hitsBrick(state, index)) continue
-    state.bricks[index] = false
-    state.score += pointsForRow(brickRow(index))
-    state.hits += 1
+    destroyBrick(state, index, true)
     state.vy = -state.vy
     break
   }
 
   if (state.bricks.every((alive) => !alive)) state.phase = "won"
-  else if (state.ballY - BALL > state.height) state.phase = "lost"
 }
 
-export const core: GameCore<BreakoutState, BreakoutInput> = {
+export const core: GameCore<BrickstormState, BrickstormInput> = {
   create(seed) {
-    const state: BreakoutState = {
+    const kinds: BrickKind[] = Array(BRICK_COLS * BRICK_ROWS).fill("normal")
+    const [saveCell] = pickCells(seed ^ 0x51ed270b, [2, 3], 1)
+    const [topExplosive] = pickCells(seed ^ 0x1b873593, [0, 1], 1)
+    const [bottomExplosive] = pickCells(seed ^ 0x85ebca6b, [4, 5], 1)
+    if (saveCell !== undefined) kinds[saveCell] = "save"
+    if (topExplosive !== undefined) kinds[topExplosive] = "explosive"
+    if (bottomExplosive !== undefined) kinds[bottomExplosive] = "explosive"
+
+    const state: BrickstormState = {
       width: WIDTH,
       height: HEIGHT,
       seed,
@@ -176,10 +263,15 @@ export const core: GameCore<BreakoutState, BreakoutInput> = {
       left: false,
       right: false,
       targetX: undefined,
-      bricks: Array(COLS * ROWS).fill(true),
+      bricks: Array(BRICK_COLS * BRICK_ROWS).fill(true),
+      kinds,
       score: 0,
       hits: 0,
+      saves: 0,
+      blasts: 0,
       ticks: 0,
+      saveUntilTick: 0,
+      relocated: 0,
       phase: "playing",
     }
     resetBall(state)
@@ -189,7 +281,7 @@ export const core: GameCore<BreakoutState, BreakoutInput> = {
   step(state, inputs, dt) {
     for (const raw of inputs) {
       if (typeof raw !== "object" || raw === null) continue
-      const input = raw as BreakoutInput
+      const input = raw as BrickstormInput
       if (typeof input.left === "boolean") {
         state.left = input.left
         state.targetX = undefined
@@ -230,7 +322,9 @@ export const core: GameCore<BreakoutState, BreakoutInput> = {
       ranked: state.phase !== "playing",
       detail: {
         bricks: state.hits,
-        maxBricks: COLS * ROWS,
+        maxBricks: BRICK_COLS * BRICK_ROWS,
+        saves: state.saves,
+        blasts: state.blasts,
         elapsedMs: context.elapsedMs,
       },
     }
@@ -250,9 +344,14 @@ export const core: GameCore<BreakoutState, BreakoutInput> = {
       r: state.right,
       t: state.targetX ?? null,
       b: state.bricks,
+      k: state.kinds,
       s: state.score,
       n: state.hits,
-      k: state.ticks,
+      sv: state.saves,
+      bl: state.blasts,
+      c: state.ticks,
+      u: state.saveUntilTick,
+      q: state.relocated,
       p: state.phase,
     }
   },

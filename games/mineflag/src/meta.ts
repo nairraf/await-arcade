@@ -1,8 +1,8 @@
 import type { GameMeta } from "@await-arcade/contract"
 
 export const meta: GameMeta = {
-  id: "minesweeper",
-  title: "Minesweeper",
+  id: "mineflag",
+  title: "Mineflag",
   description: "Clear the field without detonating the mines. Safe first click, flood reveal, chording, and keyboard play.",
   author: "Await Arcade",
   version: "1.0.0",

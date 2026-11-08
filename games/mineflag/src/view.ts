@@ -188,7 +188,7 @@ const css = `
 `
 
 export function view(ctx: ViewContext<MineState, MineInput>): GameView<MineState> {
-  ensureStyle("arcade-game-minesweeper", css)
+  ensureStyle("arcade-game-mineflag", css)
 
   const wrap = el("div", "ms-wrap")
   const bar = el("div", "ms-bar")

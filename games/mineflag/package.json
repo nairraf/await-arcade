@@ -1,6 +1,6 @@
 {
-  "name": "@await-arcade/game-breakout",
-  "version": "0.1.0",
+  "name": "@await-arcade/game-mineflag",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "exports": {

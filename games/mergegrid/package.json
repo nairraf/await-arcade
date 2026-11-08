@@ -1,5 +1,5 @@
 {
-  "name": "@await-arcade/game-merge-2048",
+  "name": "@await-arcade/game-mergegrid",
   "version": "0.1.0",
   "private": true,
   "type": "module",
