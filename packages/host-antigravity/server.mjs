@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
@@ -67,10 +67,131 @@ const writeQueue = (items) => {
   writeFileSync(queueFile, JSON.stringify(items, null, 2), { mode: 0o600 })
 }
 
+function stateDir() {
+  if (process.env.AWAIT_ARCADE_STATE_DIR) return process.env.AWAIT_ARCADE_STATE_DIR
+  if (process.platform === "darwin") {
+    return join(homedir(), "Library", "Application Support", "await-arcade")
+  }
+  if (process.platform === "win32") {
+    return join(process.env.LOCALAPPDATA ?? homedir(), "await-arcade")
+  }
+  return join(process.env.XDG_STATE_HOME ?? join(homedir(), ".local", "state"), "await-arcade")
+}
+
+const authFile = join(stateDir(), "auth.antigravity.json")
+
+function readAuth() {
+  const value = readJson(authFile, undefined)
+  return typeof value?.refreshToken === "string" && typeof value?.playerId === "string"
+    ? value
+    : undefined
+}
+
+function writeAuth(value) {
+  mkdirSync(stateDir(), { recursive: true, mode: 0o700 })
+  const temp = `${authFile}.${process.pid}.tmp`
+  writeFileSync(temp, JSON.stringify(value, null, 2), { mode: 0o600 })
+  try {
+    renameSync(temp, authFile)
+  } catch {
+    rmSync(authFile, { force: true })
+    renameSync(temp, authFile)
+  }
+}
+
+function clearAuth() {
+  rmSync(authFile, { force: true })
+}
+
+function clearAuthIf(refreshToken) {
+  const current = readAuth()
+  if (current && current.refreshToken !== refreshToken) return false
+  clearAuth()
+  return true
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+let auth = readAuth()
+let accessToken
+let accessExpiresAt = 0
+
 const client = createArcadeClient({
   baseUrl: process.env.AWAIT_ARCADE_API_URL ?? "http://127.0.0.1:8787",
   playerId,
+  getToken: () => accessToken,
 })
+
+const status = async () => ({
+  signedIn: Boolean(auth),
+  ...(auth
+    ? {
+        playerId: auth.playerId,
+        displayName: auth.displayName,
+        ...(auth.githubLogin ? { githubLogin: auth.githubLogin } : {}),
+      }
+    : {}),
+  queued: readQueue().length,
+})
+
+async function refresh() {
+  if (!auth?.refreshToken) return false
+  try {
+    const result = await client.authRefresh(auth.refreshToken)
+    auth = {
+      host: "antigravity",
+      playerId: result.player.playerId,
+      displayName: result.player.displayName,
+      ...(result.player.githubLogin ? { githubLogin: result.player.githubLogin } : {}),
+      refreshToken: result.refreshToken,
+      createdAt: auth.createdAt ?? Date.now(),
+      lastUsedAt: Date.now(),
+    }
+    writeAuth(auth)
+    accessToken = result.accessToken
+    accessExpiresAt = result.expiresAt
+    return true
+  } catch (error) {
+    if (error?.status === 401) {
+      const rejected = auth.refreshToken
+      for (const delay of [250, 500, 1_000, 2_000]) {
+        await sleep(delay)
+        const latest = readAuth()
+        if (latest && latest.refreshToken !== rejected) {
+          auth = latest
+          return refresh()
+        }
+      }
+
+      if (!clearAuthIf(rejected)) {
+        auth = readAuth()
+        return refresh()
+      }
+      auth = undefined
+      accessToken = undefined
+    }
+    return false
+  }
+}
+
+let refreshing
+async function ensureAuth() {
+  if (accessToken && accessExpiresAt > Date.now() + 60_000) return true
+  if (!auth?.refreshToken) return false
+  if (!refreshing) {
+    refreshing = refresh().finally(() => {
+      refreshing = undefined
+    })
+  }
+  return refreshing
+}
+
+async function requireAuth() {
+  if (!auth) return
+  if (!(await ensureAuth())) throw new Error("sign-in expired; sign in again")
+}
+
+void ensureAuth()
 
 async function flush() {
   const items = readQueue()
@@ -90,6 +211,7 @@ async function flush() {
 app.api(
   "/api/start",
   async (data) => {
+    await requireAuth()
     await flush()
     return client.start(data.gameId, data.modeId)
   },
@@ -99,6 +221,7 @@ app.api(
 app.api(
   "/api/submit",
   async (data) => {
+    await requireAuth()
     try {
       const result = await client.submit(data.runId, data.replay)
       await flush()
@@ -115,9 +238,65 @@ app.api(
   "POST",
 )
 
-app.api("/api/best", async (data) => ({ best: await client.bestFor(data.gameId, data.modeId) }), "POST")
-app.api("/api/board", async (data) => client.board(data.gameId, data.modeId), "POST")
+app.api("/api/best", async (data) => {
+  await ensureAuth()
+  return { best: await client.bestFor(data.gameId, data.modeId) }
+}, "POST")
+app.api("/api/board", async (data) => {
+  await ensureAuth()
+  return client.board(data.gameId, data.modeId)
+}, "POST")
 app.api("/api/status", async () => ({ mode: "online", playerId, queued: readQueue().length }), "GET")
+
+app.api("/api/auth/status", async () => status(), "POST")
+app.api("/api/auth/start", async () => client.authStart("antigravity"), "POST")
+app.api(
+  "/api/auth/poll",
+  async (data) => {
+    const result = await client.authPoll(data.flowId)
+    if (result.status === "complete") {
+      auth = {
+        host: "antigravity",
+        playerId: result.player.playerId,
+        displayName: result.player.displayName,
+        ...(result.player.githubLogin ? { githubLogin: result.player.githubLogin } : {}),
+        refreshToken: result.refreshToken,
+        createdAt: Date.now(),
+        lastUsedAt: Date.now(),
+      }
+      writeAuth(auth)
+      accessToken = result.accessToken
+      accessExpiresAt = result.expiresAt
+      return { status: "complete", ...(await status()) }
+    }
+    return { status: "pending", interval: result.interval }
+  },
+  "POST",
+)
+app.api(
+  "/api/auth/signout",
+  async () => {
+    await ensureAuth()
+    await client.authSignOut()
+    auth = undefined
+    accessToken = undefined
+    clearAuth()
+    return status()
+  },
+  "POST",
+)
+app.api(
+  "/api/auth/delete",
+  async () => {
+    await ensureAuth()
+    await client.deleteMe()
+    auth = undefined
+    accessToken = undefined
+    clearAuth()
+    return status()
+  },
+  "POST",
+)
 
 await app.run()
 console.log("[await-arcade] sidecar running")

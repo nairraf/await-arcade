@@ -6,6 +6,14 @@ REGION="${REGION:-northamerica-northeast1}"
 SERVICE="${SERVICE:-await-arcade-api}"
 SERVICE_ACCOUNT="${SERVICE_ACCOUNT:-arcade-api@${PROJECT_ID}.iam.gserviceaccount.com}"
 
+ENV_VARS="AWAIT_ARCADE_PROJECT_ID=${PROJECT_ID},GOOGLE_CLOUD_PROJECT=${PROJECT_ID}"
+if [[ -n "${AWAIT_ARCADE_GITHUB_CLIENT_ID:-}" ]]; then
+  ENV_VARS+=",AWAIT_ARCADE_GITHUB_CLIENT_ID=${AWAIT_ARCADE_GITHUB_CLIENT_ID}"
+fi
+if [[ -n "${AWAIT_ARCADE_REQUIRE_AUTH:-}" ]]; then
+  ENV_VARS+=",AWAIT_ARCADE_REQUIRE_AUTH=${AWAIT_ARCADE_REQUIRE_AUTH}"
+fi
+
 gcloud run deploy "$SERVICE" \
   --source . \
   --project "$PROJECT_ID" \
@@ -16,4 +24,4 @@ gcloud run deploy "$SERVICE" \
   --min-instances 0 \
   --memory 256Mi \
   --cpu 1 \
-  --set-env-vars "AWAIT_ARCADE_PROJECT_ID=${PROJECT_ID},GOOGLE_CLOUD_PROJECT=${PROJECT_ID}"
+  --set-env-vars "$ENV_VARS"

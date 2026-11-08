@@ -2,7 +2,6 @@ import {
   FRAMEWORK_VERSION,
   REPLAY_VERSION,
   type GameCore,
-  type GameHost,
   type GameMeta,
   type GameView,
   type InputEvent,
@@ -10,6 +9,7 @@ import {
   type Replay,
   type RunResult,
   type ViewContext,
+  type ViewHost,
 } from "@await-arcade/contract"
 import { createSurface } from "./surface"
 import { stateHash } from "./utils"
@@ -18,7 +18,7 @@ export interface RunnerOptions<S, I> {
   readonly meta: GameMeta
   readonly core: GameCore<S, I>
   readonly view: (ctx: ViewContext<S, I>) => GameView<S>
-  readonly host: GameHost
+  readonly host: ViewHost
   readonly container: HTMLElement
   readonly mode: Mode
   readonly seed: number

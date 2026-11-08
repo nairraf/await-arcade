@@ -31,9 +31,11 @@ onMount(() => {
 ```
 
 Remote bests and the leaderboard are wired: `GameHost.loadBest` refreshes the
-cached best, and `GameHost.board` feeds the cabinet's Board overlay. Next: keep
-`auth.opencode.json` in the native state directory when auth lands, and use the
-RPC methods for account actions.
+cached best, and `GameHost.board` feeds the cabinet's Board overlay. Auth is
+wired too: the server part owns `auth.opencode.json` in the native state
+directory, exposes `authStatus`/`authStart`/`authPoll`/`authSignOut`, and the
+shell renders the GitHub device-code panel. Use the RPC methods for account
+actions.
 
 ## Antigravity
 
@@ -54,7 +56,8 @@ Model: a **sidecar** process plus a **web UI extension**.
   `ANTIGRAVITY_EXECUTABLE_DATA_DIR` for non-secret sidecar cache and queue state.
 
 Remote bests and the leaderboard are wired through `/api/best` and `/api/board`.
-Next: keep the auth file in the native state directory when auth lands, and use
+Auth is wired through `/api/auth/status|start|poll|signout|delete`; the sidecar
+owns `auth.antigravity.json` and the shell shows the device code. Next: use
 `window.sidecar.agent.sendMessage` for "brief me on my run" style actions.
 
 ## Verifier API

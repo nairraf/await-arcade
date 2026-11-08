@@ -1,4 +1,12 @@
-import type { BoardEntry, Score, SubmitResult, RunResult } from "@await-arcade/contract"
+import type {
+  AuthPoll,
+  AuthState,
+  BoardEntry,
+  DeviceFlow,
+  RunResult,
+  Score,
+  SubmitResult,
+} from "@await-arcade/contract"
 import { LocalHost, normaliseBoard } from "@await-arcade/shell"
 import { Api } from "./rpc.js"
 
@@ -49,5 +57,25 @@ export class OpenCodeHost extends LocalHost {
       entries?: unknown
     }
     return normaliseBoard(result.entries)
+  }
+
+  async authState(): Promise<AuthState> {
+    return (await this.client.rpc(Api).authStatus()) as AuthState
+  }
+
+  async authStart(): Promise<DeviceFlow> {
+    return (await this.client.rpc(Api).authStart()) as DeviceFlow
+  }
+
+  async authPoll(flowId: string): Promise<AuthPoll> {
+    return (await this.client.rpc(Api).authPoll({ flowId })) as AuthPoll
+  }
+
+  async signOut(): Promise<AuthState> {
+    return (await this.client.rpc(Api).authSignOut()) as AuthState
+  }
+
+  async deleteAccount(): Promise<AuthState> {
+    return (await this.client.rpc(Api).deleteAccount()) as AuthState
   }
 }

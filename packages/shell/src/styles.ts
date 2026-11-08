@@ -801,6 +801,41 @@ export const styles = `
   color: var(--game-accent);
 }
 
+.arcade-auth-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: color-mix(in srgb, var(--arcade-bg) 74%, transparent);
+  backdrop-filter: blur(6px);
+}
+
+.arcade-auth-card {
+  width: min(430px, 100%);
+}
+
+.arcade-auth-code {
+  margin: 4px 0;
+  padding: 10px;
+  border: 1px dashed color-mix(in srgb, var(--arcade-accent) 45%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--arcade-accent) 10%, transparent);
+  color: var(--arcade-fg);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-align: center;
+}
+
+.arcade-auth-link {
+  color: var(--arcade-accent);
+  font-size: 11px;
+  text-align: center;
+  word-break: break-all;
+}
+
 .arcade-foot {
   flex: none;
   display: flex;

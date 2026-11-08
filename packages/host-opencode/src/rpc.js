@@ -58,6 +58,29 @@ export const Api = define({
     status: {
       output: { type: "object", additionalProperties: true },
     },
+    authStatus: {
+      output: { type: "object", additionalProperties: true },
+    },
+    authStart: {
+      output: { type: "object", additionalProperties: true },
+    },
+    authPoll: {
+      input: {
+        type: "object",
+        properties: {
+          flowId: { type: "string" },
+        },
+        required: ["flowId"],
+        additionalProperties: false,
+      },
+      output: { type: "object", additionalProperties: true },
+    },
+    authSignOut: {
+      output: { type: "object", additionalProperties: true },
+    },
+    deleteAccount: {
+      output: { type: "object", additionalProperties: true },
+    },
   },
   // Core reads `definition.events` unconditionally.
   events: {},

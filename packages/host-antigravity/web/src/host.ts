@@ -1,5 +1,13 @@
 import { LocalHost, normaliseBoard } from "@await-arcade/shell"
-import type { BoardEntry, RunResult, Score, SubmitResult } from "@await-arcade/contract"
+import type {
+  AuthPoll,
+  AuthState,
+  BoardEntry,
+  DeviceFlow,
+  RunResult,
+  Score,
+  SubmitResult,
+} from "@await-arcade/contract"
 
 interface SidecarBridge {
   fetch(input: string, init?: RequestInit): Promise<Response>
@@ -54,5 +62,25 @@ export class SidecarHost extends LocalHost {
   async board(gameId: string, modeId: string): Promise<readonly BoardEntry[]> {
     const result = await this.call<{ entries?: unknown }>("/api/board", { gameId, modeId })
     return normaliseBoard(result.entries)
+  }
+
+  async authState(): Promise<AuthState> {
+    return this.call<AuthState>("/api/auth/status", {})
+  }
+
+  async authStart(): Promise<DeviceFlow> {
+    return this.call<DeviceFlow>("/api/auth/start", {})
+  }
+
+  async authPoll(flowId: string): Promise<AuthPoll> {
+    return this.call<AuthPoll>("/api/auth/poll", { flowId })
+  }
+
+  async signOut(): Promise<AuthState> {
+    return this.call<AuthState>("/api/auth/signout", {})
+  }
+
+  async deleteAccount(): Promise<AuthState> {
+    return this.call<AuthState>("/api/auth/delete", {})
   }
 }

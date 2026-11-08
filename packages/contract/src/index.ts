@@ -171,7 +171,7 @@ export interface GameCore<S, I> {
 }
 
 export interface ViewContext<S, I> {
-  readonly host: GameHost
+  readonly host: ViewHost
   readonly meta: GameMeta
   readonly container: HTMLElement
   /** Present only when `meta.display.surface === "canvas"`. */
@@ -233,6 +233,26 @@ export interface BoardEntry {
   readonly achievedAt: number
 }
 
+export interface AuthState {
+  readonly signedIn: boolean
+  readonly playerId?: string
+  readonly displayName?: string
+  readonly githubLogin?: string
+  readonly queued?: number
+}
+
+export interface DeviceFlow {
+  readonly flowId: string
+  readonly userCode: string
+  readonly verificationUri: string
+  readonly interval: number
+  readonly expiresAt: number
+}
+
+export type AuthPoll =
+  | { readonly status: "pending"; readonly interval?: number }
+  | ({ readonly status: "complete" } & AuthState)
+
 /**
  * The capability boundary. Games never get auth tokens or raw network access;
  * the shell owns identity, submission, and anti-cheat.
@@ -256,7 +276,22 @@ export interface GameHost {
   loadBest?(gameId: string, modeId: string): Promise<Score | undefined>
   /** Top entries from the hosted board. Local hosts omit this. */
   board?(gameId: string, modeId: string): Promise<readonly BoardEntry[]>
+  /** Sign-in and account capabilities. Local hosts omit these. */
+  authState?(): Promise<AuthState>
+  authStart?(): Promise<DeviceFlow>
+  authPoll?(flowId: string): Promise<AuthPoll>
+  signOut?(): Promise<AuthState>
+  deleteAccount?(): Promise<AuthState>
   readonly storage: GameStorage
   readonly audio: AudioBus
   toast(message: string): void
 }
+
+/**
+ * What game views get: play and presentation only. Account mutation stays with
+ * the shell so a cabinet cannot delete a player or revoke a session.
+ */
+export type ViewHost = Pick<
+  GameHost,
+  "name" | "best" | "submit" | "start" | "loadBest" | "board" | "storage" | "audio" | "toast"
+>

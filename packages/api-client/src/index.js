@@ -6,6 +6,7 @@ export function createArcadeClient(options) {
   const baseUrl = options.baseUrl.replace(/\/$/, "")
   const playerId = options.playerId
   const fetchImpl = options.fetchImpl ?? globalThis.fetch
+  const getToken = options.getToken ?? (() => undefined)
 
   if (typeof playerId !== "string" || playerId.length === 0) {
     throw new Error("Await Arcade: a playerId is required")
@@ -20,12 +21,18 @@ export function createArcadeClient(options) {
       typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
         ? AbortSignal.timeout(15_000)
         : undefined
+    const token = getToken()
     const response = await fetchImpl(`${baseUrl}${path}`, {
       ...init,
       ...(init?.signal ? {} : timeout ? { signal: timeout } : {}),
-      headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
+      headers: {
+        "content-type": "application/json",
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+        ...(init?.headers ?? {}),
+      },
     })
 
+    if (response.status === 204) return {}
     const body = await response.json().catch(() => ({}))
     if (!response.ok) {
       const failure = new Error(body?.error ?? body?.reason ?? `${response.status} ${response.statusText}`)
@@ -55,15 +62,61 @@ export function createArcadeClient(options) {
   }
 
   async function bestFor(gameId, modeId) {
+    const who = getToken() ? "me" : encodeURIComponent(playerId)
     const value = await request(
-      `/v1/boards/${encodeURIComponent(gameId)}/${encodeURIComponent(modeId)}/player/${encodeURIComponent(playerId)}`,
+      `/v1/boards/${encodeURIComponent(gameId)}/${encodeURIComponent(modeId)}/player/${who}`,
     )
     return value.entry?.score
+  }
+
+  async function authStart(host) {
+    return request("/v1/auth/github/start", {
+      method: "POST",
+      body: JSON.stringify({ host }),
+    })
+  }
+
+  async function authPoll(flowId) {
+    return request("/v1/auth/github/poll", {
+      method: "POST",
+      body: JSON.stringify({ flowId }),
+    })
+  }
+
+  async function authRefresh(refreshToken) {
+    return request("/v1/auth/refresh", {
+      method: "POST",
+      body: JSON.stringify({ refreshToken }),
+    })
+  }
+
+  async function authSignOut() {
+    return request("/v1/auth/signout", { method: "POST", body: "{}" })
+  }
+
+  async function me() {
+    return request("/v1/me")
+  }
+
+  async function deleteMe() {
+    return request("/v1/me", { method: "DELETE" })
   }
 
   async function status() {
     return { mode: "online", playerId }
   }
 
-  return { start, submit, board, bestFor, status }
+  return {
+    start,
+    submit,
+    board,
+    bestFor,
+    authStart,
+    authPoll,
+    authRefresh,
+    authSignOut,
+    me,
+    deleteMe,
+    status,
+  }
 }

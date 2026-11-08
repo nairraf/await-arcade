@@ -1,4 +1,7 @@
 import type {
+  AuthPoll,
+  AuthState,
+  DeviceFlow,
   GameEntry,
   GameHost,
   GameMeta,
@@ -48,6 +51,21 @@ function randomSeed(): number {
     return buffer[0]!
   }
   return Math.floor(Math.random() * 0xffffffff)
+}
+
+function safeVerificationUri(value: string): string {
+  try {
+    const url = new URL(value)
+    if (
+      url.protocol === "https:" &&
+      (url.hostname === "github.com" || url.hostname === "www.github.com")
+    ) {
+      return url.toString()
+    }
+  } catch {
+    // Fall through to the canonical URL.
+  }
+  return "https://github.com/login/device"
 }
 
 function hudCell(label: string, value: string): { root: HTMLElement; value: HTMLElement } {
@@ -104,6 +122,12 @@ export function createArcade(options: ArcadeOptions): Arcade {
   const topMeta = el("div", "arcade-top-meta")
   topMeta.append(el("span", "arcade-badge", host.name === "local" ? "LOCAL" : host.name.toUpperCase()))
 
+  const authButton = el("button", "arcade-btn arcade-btn-ghost", "Sign in")
+  authButton.type = "button"
+  authButton.hidden = host.authState === undefined
+  authButton.title = "Sign in with GitHub"
+  authButton.addEventListener("click", () => openAuth())
+
   const theme = el("button", "arcade-btn arcade-btn-ghost", themeLabel(themeMode))
   theme.type = "button"
   theme.title = "Theme: auto, light, or dark"
@@ -119,7 +143,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     const muted = host.audio.toggle()
     sound.textContent = muted ? "Muted" : "Sound"
   })
-  topMeta.append(theme, sound)
+  topMeta.append(authButton, theme, sound)
   top.append(brand, topMeta)
 
   const main = el("main", "arcade-main")
@@ -131,6 +155,219 @@ export function createArcade(options: ArcadeOptions): Arcade {
   )
 
   root.append(top, main, foot)
+
+  let authState: AuthState | undefined
+
+  const applyAuth = (state: AuthState): void => {
+    authState = state
+    authButton.hidden = false
+    authButton.textContent = state.signedIn
+      ? `@${state.githubLogin ?? state.displayName ?? "player"}`
+      : "Sign in"
+    authButton.title = state.signedIn
+      ? `Signed in as ${state.displayName ?? state.githubLogin ?? "player"}`
+      : "Sign in with GitHub"
+  }
+
+  const openAuth = (): void => {
+    if (!host.authState) return
+    if (root.querySelector(".arcade-auth-backdrop")) return
+
+    const backdrop = el("div", "arcade-auth-backdrop")
+    const card = el("div", "arcade-overlay-card arcade-auth-card")
+    backdrop.append(card)
+    root.append(backdrop)
+
+    let timer: ReturnType<typeof setInterval> | undefined
+    const close = (): void => {
+      if (timer) clearInterval(timer)
+      timer = undefined
+      backdrop.remove()
+    }
+
+    backdrop.addEventListener("click", (event) => {
+      if (event.target === backdrop) close()
+    })
+
+    const authAction = (label: string, primary: boolean, run: () => void): HTMLButtonElement => {
+      const node = el("button", `arcade-btn${primary ? " arcade-btn-primary" : ""}`, label)
+      node.type = "button"
+      node.addEventListener("click", run)
+      return node
+    }
+
+    const actionRow = (...buttons: HTMLButtonElement[]): HTMLElement => {
+      const row = el("div", "arcade-overlay-actions")
+      row.append(...buttons)
+      return row
+    }
+
+    const renderSignedOut = (message?: string): void => {
+      card.replaceChildren(
+        el("div", "arcade-overlay-kicker", "ACCOUNT"),
+        el("h2", "arcade-overlay-title", "Sign in to rank"),
+        el(
+          "div",
+          "arcade-overlay-detail",
+          message ??
+            "Play as a guest, or sign in with GitHub to submit verified runs to the shared boards.",
+        ),
+        actionRow(
+          authAction("Sign in with GitHub", true, () => {
+            void startFlow()
+          }),
+          authAction("Close", false, close),
+        ),
+      )
+    }
+
+    const renderFlow = (flow: DeviceFlow): void => {
+      const status = el("div", "arcade-overlay-detail", "Waiting for GitHub…")
+      const verification = safeVerificationUri(flow.verificationUri)
+      const link = el("a", "arcade-auth-link", verification)
+      link.href = verification
+      link.target = "_blank"
+      link.rel = "noreferrer"
+
+      card.replaceChildren(
+        el("div", "arcade-overlay-kicker", "GITHUB DEVICE FLOW"),
+        el("h2", "arcade-overlay-title", "Enter this code"),
+        el("div", "arcade-auth-code", flow.userCode),
+        el("div", "arcade-overlay-detail", "Open GitHub and enter the code to authorize Await Arcade."),
+        link,
+        status,
+        actionRow(
+          authAction("Copy code", false, () => {
+            void globalThis.navigator?.clipboard
+              ?.writeText(flow.userCode)
+              .then(() => host.toast("Code copied"))
+              .catch(() => undefined)
+          }),
+          authAction("Cancel", false, close),
+        ),
+      )
+
+      let interval = Math.max(1, flow.interval)
+      let polling = false
+      const schedule = (): void => {
+        if (timer) clearInterval(timer)
+        timer = setInterval(() => {
+          void tick()
+        }, interval * 1000)
+      }
+      const tick = async (): Promise<void> => {
+        if (polling) return
+        polling = true
+        try {
+          const result: AuthPoll = await host.authPoll!(flow.flowId)
+          if (result.status === "complete") {
+            applyAuth(result)
+            close()
+            host.toast("Signed in")
+            return
+          }
+          if (result.interval && result.interval !== interval) {
+            interval = Math.max(1, result.interval)
+            schedule()
+          }
+        } catch (error) {
+          if (timer) clearInterval(timer)
+          timer = undefined
+          status.textContent = error instanceof Error ? error.message : String(error)
+        } finally {
+          polling = false
+        }
+      }
+
+      schedule()
+      void tick()
+    }
+
+    const startFlow = async (): Promise<void> => {
+      try {
+        const flow = await host.authStart!()
+        renderFlow(flow)
+      } catch (error) {
+        renderSignedOut(error instanceof Error ? error.message : String(error))
+      }
+    }
+
+    const renderSignedIn = (state: AuthState): void => {
+      card.replaceChildren(
+        el("div", "arcade-overlay-kicker", "ACCOUNT"),
+        el("h2", "arcade-overlay-title", state.displayName ?? "Signed in"),
+        el(
+          "div",
+          "arcade-overlay-detail",
+          `GitHub @${state.githubLogin ?? "player"}${state.queued ? ` · ${state.queued} queued` : ""}`,
+        ),
+        actionRow(
+          authAction("Sign out", false, () => {
+            void host
+              .signOut!()
+              .then((next) => {
+                applyAuth(next)
+                renderSignedOut("Signed out. Guest scores stay local.")
+              })
+              .catch((error: unknown) => {
+                const message = error instanceof Error ? error.message : String(error)
+                if (authState?.signedIn) {
+                  renderSignedIn(authState)
+                  host.toast(message)
+                } else {
+                  renderSignedOut(message)
+                }
+              })
+          }),
+          authAction("Delete account", false, () => {
+            const ok =
+              typeof globalThis.confirm === "function"
+                ? globalThis.confirm("Delete your player, sessions, and leaderboard entries?")
+                : false
+            if (!ok) return
+            void host
+              .deleteAccount!()
+              .then((next) => {
+                applyAuth(next)
+                renderSignedOut("Account deleted.")
+              })
+              .catch((error: unknown) => {
+                const message = error instanceof Error ? error.message : String(error)
+                if (authState?.signedIn) {
+                  renderSignedIn(authState)
+                  host.toast(message)
+                } else {
+                  renderSignedOut(message)
+                }
+              })
+          }),
+          authAction("Close", true, close),
+        ),
+      )
+    }
+
+    if (authState?.signedIn) {
+      renderSignedIn(authState)
+      return
+    }
+
+    renderSignedOut()
+    void host
+      .authState()
+      .then((state) => {
+        applyAuth(state)
+        if (state.signedIn) renderSignedIn(state)
+      })
+      .catch(() => undefined)
+  }
+
+  if (host.authState) {
+    void host
+      .authState()
+      .then(applyAuth)
+      .catch(() => undefined)
+  }
+
 
   let active: ActiveGame | undefined
   let playGeneration = 0
@@ -244,7 +481,11 @@ export function createArcade(options: ArcadeOptions): Arcade {
     try {
       session = host.start ? await host.start({ gameId: entry.meta.id, modeId }) : { seed: randomSeed() }
     } catch {
-      host.toast("Online unavailable; playing locally.")
+      host.toast(
+        authState && !authState.signedIn
+          ? "Playing locally. Sign in to rank."
+          : "Online unavailable; playing locally.",
+      )
       session = { seed: randomSeed() }
     }
 
@@ -512,11 +753,23 @@ export function createArcade(options: ArcadeOptions): Arcade {
       )
     }
 
+    const viewHost: GameHost = {
+      name: host.name,
+      storage: host.storage,
+      audio: host.audio,
+      best: (gameId, modeId) => host.best(gameId, modeId),
+      submit: (run) => host.submit(run),
+      toast: (message) => host.toast(message),
+      ...(host.start ? { start: (input) => host.start!(input) } : {}),
+      ...(host.loadBest ? { loadBest: (gameId, modeId) => host.loadBest!(gameId, modeId) } : {}),
+      ...(host.board ? { board: (gameId, modeId) => host.board!(gameId, modeId) } : {}),
+    }
+
     runner = createRunner({
       meta: entry.meta,
       core: entry.core,
       view: entry.view,
-      host,
+      host: viewHost,
       container: surface,
       mode,
       seed: session.seed,

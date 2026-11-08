@@ -21,17 +21,18 @@ a cabinet should be one folder plus `npm run aa -- sync`.
 This is a working scaffold, not a finished arcade.
 
 - ✅ Framework contract, fixed-timestep runner, seeded RNG, replay verifier.
-- ✅ Shell: launcher, HUD, pause, restart, local bests, replay download.
-- ✅ Two reference games with tests and replay verification.
+- ✅ Shell: launcher, HUD, pause, restart, local bests, replay download, leaderboard.
+- ✅ Four reference games with tests and replay verification.
 - ✅ OpenCode Desktop host (GUI plugin) and Antigravity host (sidecar).
-- ✅ In-memory verifier API (`packages/server`) with run issuance and boards.
+- ✅ Verifier API (`packages/server`) with run issuance and replay-checked boards.
 - ✅ `aa` CLI: `new-game`, `sync`, `verify`, `check`, `list`.
 - ✅ `await-arcade-game` skill with contract docs, determinism rules, and templates.
-- ⏳ GitHub device-flow auth, durable Firestore boards, daily challenge, arcade
-  XP/medals. The design is in `docs/backend.md`.
+- ✅ Firestore + Cloud Run backend, Terraform-managed dev base, and GitHub Device
+  Flow auth with per-host sessions.
+- ⏳ Daily challenge, arcade XP/medals, and the production deployment.
 
-Scores are local in the hosts today. The verifier server is real but in-memory;
-it is the shape the GCP backend will take.
+Scores are local for guests. Signed-in players submit replay-verified runs to the
+shared Firestore boards; the dev API is live, and `docs/backend.md` has the design.
 
 ## Quick start
 
@@ -118,7 +119,7 @@ See `packages/host-antigravity/README.md`.
 
 ## Verified in this scaffold
 
-- `npm run check` passes: workspace typecheck, OpenCode host typecheck, 31 tests,
+- `npm run check` passes: workspace typecheck, OpenCode host typecheck, 37 tests,
   core determinism scan, and all four replay fixtures.
 - `npm run build` builds the browser demo.
 - `npm run build:hosts` builds `gui-experimental.cjs` and the Antigravity
@@ -137,17 +138,18 @@ See `packages/host-antigravity/README.md`.
 The first milestone is **beta-1**. See `docs/roadmap.md` for scope, acceptance
 criteria, and what is deliberately out of scope.
 
-1. Wire the shell's `GameHost.submit` to the verifier API:
+1. ✅ Wire the shell's `GameHost.submit` to the verifier API:
    - OpenCode: a small RPC in `packages/host-opencode/server.js`; the server part
      owns `auth.opencode.json` in the native state directory.
    - Antigravity: proxy through `server.mjs`; store `auth.antigravity.json` in the
      native state directory. The sidecar data directory is for non-secret cache.
-2. GitHub Device Flow + per-host persistent sessions; local guest mode; account
-   deletion (see `docs/backend.md`).
-3. Firestore + Cloud Run: replace the in-memory store in `packages/server`.
-4. Featured daily challenge (3 attempts, best of 3), unranked ghost practice,
+2. ✅ GitHub Device Flow + per-host persistent sessions; local guest mode;
+   account deletion (see `docs/backend.md`).
+3. ✅ Firestore + Cloud Run: the server keeps the in-memory store for tests and
+   uses Firestore in production.
+4. ⏳ Featured daily challenge (3 attempts, best of 3), unranked ghost practice,
    and arcade XP/medals.
-5. Add the next cabinet from the skill; Missile Defense async PvP is the first
+5. ⏳ Add the next cabinet from the skill; Missile Defense async PvP is the first
    multiplayer candidate.
 
 ## Design docs

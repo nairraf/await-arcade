@@ -37,9 +37,10 @@ own least-privilege service account.
 
 | Collection | Key | Purpose |
 |---|---|---|
-| `players/{playerId}` | random UUID | durable identity, private numeric `githubId`, display name, XP, status |
+| `players/{playerId}` | random UUID | durable identity, display name, provider link, XP, status |
 | `providers/github:{numericId}` | provider ID | maps a GitHub account to a `playerId` |
-| `sessions/{tokenHash}` | token hash | access/refresh session, player, host, expiry, last use |
+| `sessions/{sessionId}` | random id | player, host, rotating refresh hash, previous-hash grace, expiry |
+| `accessTokens/{tokenHash}` | token hash | short-lived access token, player, session, expiry |
 | `challenges/{challengeId}` | challengeId | featured daily: game, mode, seed, anchor, attempts, window |
 | `challengeAttempts/{challengeId}:{playerId}` | composite | attempts used, best run and score |
 | `games/{gameId}` | gameId | catalog, modes, score type, version |
@@ -96,14 +97,19 @@ sign-in. A future “claim a local replay” flow can be added later.
 
 ### GitHub Device Flow
 
-1. The host server calls `POST /v1/auth/github/start`; Cloud Run holds the
-   GitHub OAuth app client secret and requests a device code from GitHub.
+1. The host server calls `POST /v1/auth/github/start`; Cloud Run uses the OAuth
+   app **client ID** (the device flow does not need the client secret) and
+   requests a device code from GitHub.
 2. The UI shows `userCode` and opens `https://github.com/login/device`.
 3. The host server polls `POST /v1/auth/github/poll`; Cloud Run polls GitHub.
 4. On success, Cloud Run reads the numeric GitHub `id`, `login`, and display
    name, upserts `players` and `providers/github:{id}`, issues session tokens,
    and discards the GitHub access token. We never store or reuse it.
 5. The host server stores the refresh token and keeps the access token in memory.
+
+The OAuth app must have Device Flow enabled. GitHub still requires a callback
+URL in the registration form even though the device flow never redirects; any
+valid HTTPS URL works (the repository URL is fine).
 
 Use GitHub's numeric `id`, not the login; logins can change. The public board
 shows only `playerId` and display name, never the GitHub ID or email.
@@ -124,10 +130,13 @@ Per-host files (`auth.opencode.json`, `auth.antigravity.json`), directory `0700`
 file `0600`, atomic writes. Each file holds `playerId`, `displayName`,
 `refreshToken`, `host`, `createdAt`, and `lastUsedAt`.
 
-- **Access token:** short-lived (about 15 minutes), memory only. Opaque, stored
-  as a hash in `sessions`, with a small Cloud Run cache.
+- **Access token:** short-lived (about 15 minutes), memory only. Opaque; only
+  its SHA-256 hash is stored, in `accessTokens`. Refreshing does not revoke
+  access tokens already handed out, so two hosts cannot invalidate each other.
 - **Refresh token:** 180 days, sliding, rotated on every use; only its hash is
-  stored in Firestore. The host file holds the plaintext token.
+  stored in `sessions`. Rotation is a Firestore transaction, and the previous
+  hash stays valid for five minutes so concurrent refreshes (two windows, or a
+  host retry) do not destroy the session.
 - **Per-host sessions:** OpenCode and Antigravity each have their own refresh
   token, so they cannot rotate each other out. Both GitHub sign-ins map to the
   same `playerId`.
@@ -136,8 +145,9 @@ file `0600`, atomic writes. Each file holds `playerId`, `displayName`,
   host restart, or changed Antigravity port reads the same file and refreshes
   silently. Re-auth only when the file is deleted, the refresh token is
   revoked/expired, or the user signs out.
-- **Sign-out:** delete that host's auth file, revoke the session, and return to
-  guest mode.
+- **Sign-out:** revoke the session and its access tokens, then delete that
+  host's auth file. If revocation fails, the host does not report success; the
+  local file stays so the user can retry.
 
 ### Account deletion (GDPR)
 
@@ -145,11 +155,14 @@ file `0600`, atomic writes. Each file holds `playerId`, `displayName`,
 
 - the `players/{playerId}` document,
 - the `providers/github:{numericId}` mapping,
-- every `sessions` entry for the player (all hosts),
-- every board entry and personal best for the player.
+- every `sessions` entry and `accessTokens` entry for the player (all hosts),
+- pending `runs` for the player,
+- every board entry for the player.
 
-Then the host clears its local auth file and returns to guest mode. The GitHub
-account is untouched. Beta-1 uses a hard delete; `runs` already have a TTL.
+Board parent documents are written on submit, so deletion can enumerate every
+board without a collection-group index. Deletion uses Firestore's `BulkWriter`,
+so it is not limited to a 500-write batch. Then the host clears its local auth
+file and returns to guest mode. The GitHub account is untouched.
 
 ### Rejected alternatives
 
@@ -229,18 +242,23 @@ Firestore store in `packages/server/src/firestore.ts`, and
 keeps using the in-memory store; the Cloud Run entry uses Firestore.
 
 ```sh
-PROJECT_ID=await-arcade-dev ./scripts/deploy-cloud-run.sh
+AWAIT_ARCADE_GITHUB_CLIENT_ID=<client-id> \
+  PROJECT_ID=await-arcade-dev ./scripts/deploy-cloud-run.sh
 ```
 
 The script passes `--service-account`, so the revision runs as `arcade-api` with
 `roles/datastore.user`, not the default Compute Engine account.
 
+- Set `AWAIT_ARCADE_GITHUB_CLIENT_ID` to the OAuth app's client ID to enable
+  sign-in. Without it the auth endpoints return 503; guest play still works.
+- Ranked run issuance and submission require a session whenever the client ID is
+  configured. `AWAIT_ARCADE_REQUIRE_AUTH=0` opts back into guest-ranked writes
+  for local testing; don't use it in production.
 - Firestore in `northamerica-northeast1` (Montreal), matching the existing
   Selos database. The region is permanent.
 - Terraform owns the base resources; see `infra/terraform/README.md`.
-- The GitHub OAuth client secret container exists in Secret Manager, and the API
-  service account can read it. No version is mounted yet; GitHub auth wiring
-  adds `--set-secrets` when it lands.
+- The GitHub OAuth client secret container exists in Secret Manager, but the
+  device flow does not use it. It is reserved for a future web flow.
 - Firestore rules in `firestore.rules` deny all client access; everything goes
   through the API. Deploy them with the Firebase CLI or the rules API.
 - Budget alert at $5 (CAD); per-player rate limits are still open work.
