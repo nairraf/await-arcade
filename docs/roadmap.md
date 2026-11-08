@@ -15,9 +15,10 @@ talking to the backend.
   and account deletion. Tokens stay in the host server halves, never the renderer.
 - **Backend:** Firestore + Cloud Run, run issuance, replay verification, top boards,
   personal bests, rate limits, and a $5 budget alert.
-- **Featured daily challenge + arcade XP:** one featured game per day, a fixed
+- **Featured daily challenge (done):** one featured game per day, a fixed
   seed/anchor, three attempts consumed on start, best-of-three scoring, a separate
-  daily board, and a cross-game XP/medal board that rewards breadth.
+  daily board, and a launcher daily tile with attempts and a reset countdown.
+- **Arcade XP/medals (next):** a cross-game XP/medal board that rewards breadth.
 - **Ghost practice:** play a verified high-score run on the same seed/anchor as
   unranked practice; no board entry and no daily attempt consumed.
 - **Visual system:** cartridge/cabinet shell, per-game accents, Auto/Light/Dark

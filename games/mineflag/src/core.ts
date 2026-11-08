@@ -198,7 +198,9 @@ export const core: GameCore<MineState, MineInput> = {
 
   score(state, context: ScoreContext): Score {
     return {
-      value: context.elapsedMs,
+      // Wall time is client-supplied in a turn replay, so rank the verified
+      // move count instead. Every input is already in the replayed log.
+      value: context.ticks,
       type: "lower",
       won: state.phase === "won",
       ranked: state.phase === "won",
@@ -206,6 +208,7 @@ export const core: GameCore<MineState, MineInput> = {
         width: state.width,
         height: state.height,
         mines: state.mineCount,
+        moves: context.ticks,
         revealed: state.revealed,
         flags: state.flags,
       },

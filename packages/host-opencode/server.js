@@ -219,6 +219,18 @@ export default {
         await requireAuth()
         return client.playerBest(input.gameId, input.modeId)
       },
+      daily: async () => {
+        await ensureAuth()
+        return client.dailyToday()
+      },
+      dailyStart: async (input) => {
+        await requireAuth()
+        return client.dailyStart(input.challengeId)
+      },
+      dailyBoard: async (input) => {
+        await ensureAuth()
+        return client.dailyBoard(input.challengeId)
+      },
       status,
       authStatus: status,
       authStart: async () => client.authStart(HOST),

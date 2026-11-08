@@ -91,7 +91,8 @@ export const styles = `
 /* Bright game accents in the dark cabinet; a darker mix on paper. */
 .arcade-card,
 .arcade-game,
-.arcade-boards {
+.arcade-boards,
+.arcade-daily {
   --game-accent: var(--game-accent-dark, #22d3ee);
   --game-accent-2: var(--game-accent-2-dark, #f472b6);
   --game-label: var(--game-accent-dark, #22d3ee);
@@ -100,7 +101,8 @@ export const styles = `
 
 .arcade[data-theme="light"] .arcade-card,
 .arcade[data-theme="light"] .arcade-game,
-.arcade[data-theme="light"] .arcade-boards {
+.arcade[data-theme="light"] .arcade-boards,
+.arcade[data-theme="light"] .arcade-daily {
   --game-accent: color-mix(in srgb, var(--game-accent-dark, #22d3ee) 38%, var(--arcade-fg, #1b1f24));
   --game-accent-2: color-mix(in srgb, var(--game-accent-2-dark, #f472b6) 38%, var(--arcade-fg, #1b1f24));
   --game-label: color-mix(in srgb, var(--game-accent-dark, #22d3ee) 62%, var(--arcade-fg, #1b1f24));
@@ -110,7 +112,8 @@ export const styles = `
 @media (prefers-color-scheme: light) {
   .arcade[data-theme="auto"] .arcade-card,
   .arcade[data-theme="auto"] .arcade-game,
-  .arcade[data-theme="auto"] .arcade-boards {
+  .arcade[data-theme="auto"] .arcade-boards,
+  .arcade[data-theme="auto"] .arcade-daily {
     --game-accent: color-mix(in srgb, var(--game-accent-dark, #22d3ee) 38%, var(--arcade-fg, #1b1f24));
     --game-accent-2: color-mix(in srgb, var(--game-accent-2-dark, #f472b6) 38%, var(--arcade-fg, #1b1f24));
     --game-label: color-mix(in srgb, var(--game-accent-dark, #22d3ee) 62%, var(--arcade-fg, #1b1f24));
@@ -549,6 +552,17 @@ export const styles = `
   letter-spacing: -0.08em;
 }
 
+.arcade-cabinet-badge.arcade-cabinet-daily {
+  width: auto;
+  height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border-color: color-mix(in srgb, var(--arcade-coin) 55%, transparent);
+  color: var(--arcade-coin);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+
 .arcade-cabinet-title {
   min-width: 0;
   font-size: 16px;
@@ -813,6 +827,129 @@ export const styles = `
   color: var(--game-accent);
 }
 
+.arcade-daily-slot {
+  display: flex;
+}
+
+.arcade-daily {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, var(--game-accent) 44%, var(--arcade-line));
+  border-left: 3px solid var(--game-accent);
+  border-radius: 12px;
+  background:
+    linear-gradient(120deg, color-mix(in srgb, var(--game-accent) 12%, transparent), transparent 62%),
+    var(--arcade-panel);
+  box-shadow: 0 16px 34px -30px var(--arcade-shadow);
+}
+
+.arcade-daily-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.arcade-daily-title {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+}
+
+.arcade-daily-sub {
+  margin: 0;
+  color: var(--arcade-muted);
+  font-size: 11px;
+}
+
+.arcade-daily-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-top: 6px;
+}
+
+.arcade-daily-label {
+  color: var(--arcade-muted);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.arcade-daily-attempts,
+.arcade-daily-reset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.arcade-daily-pip {
+  width: 16px;
+  height: 6px;
+  border: 1px solid var(--arcade-line-strong);
+  border-radius: 999px;
+  background: transparent;
+}
+
+.arcade-daily-pip-used {
+  border-color: var(--game-accent);
+  background: var(--game-accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--game-accent) 55%, transparent);
+}
+
+.arcade-daily-count {
+  color: var(--arcade-muted);
+  font-size: 10px;
+}
+
+.arcade-daily-reset-value {
+  color: var(--arcade-fg);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.arcade-daily-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.arcade-boards-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.arcade-tab {
+  appearance: none;
+  padding: 5px 10px;
+  border: 1px solid var(--arcade-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--arcade-muted);
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.arcade-tab:hover {
+  color: var(--arcade-fg);
+  border-color: var(--arcade-line-strong);
+}
+
+.arcade-tab-active {
+  color: var(--game-accent);
+  border-color: color-mix(in srgb, var(--game-accent) 50%, var(--arcade-line));
+  background: color-mix(in srgb, var(--game-accent) 10%, transparent);
+}
+
 .arcade-boards {
   max-width: 1000px;
   margin: 0 auto;
@@ -1062,6 +1199,18 @@ export const styles = `
 
   .arcade-boards-signin {
     margin-left: 0;
+  }
+
+  .arcade-daily {
+    align-items: flex-start;
+  }
+
+  .arcade-daily-actions {
+    width: 100%;
+  }
+
+  .arcade-daily-actions .arcade-btn {
+    flex: 1;
   }
 
   .arcade-hud {

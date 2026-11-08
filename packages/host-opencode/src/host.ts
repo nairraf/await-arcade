@@ -2,6 +2,8 @@ import type {
   AuthPoll,
   AuthState,
   BoardEntry,
+  DailyChallenge,
+  DailyStart,
   DeviceFlow,
   RunResult,
   Score,
@@ -40,7 +42,7 @@ export class OpenCodeHost extends LocalHost {
       replay: run.replay,
     })) as SubmitResult
 
-    if (result.best) {
+    if (result.best && !result.challengeId) {
       this.storage.set(`best.${run.gameId}.${run.modeId}`, result.best)
     }
 
@@ -68,6 +70,21 @@ export class OpenCodeHost extends LocalHost {
       rank?: number
       playerId?: string
     }
+  }
+
+  async daily(): Promise<DailyChallenge> {
+    return (await this.client.rpc(Api).daily({})) as DailyChallenge
+  }
+
+  async startDaily(challengeId: string): Promise<DailyStart> {
+    return (await this.client.rpc(Api).dailyStart({ challengeId })) as DailyStart
+  }
+
+  async dailyBoard(challengeId: string): Promise<readonly BoardEntry[]> {
+    const result = (await this.client.rpc(Api).dailyBoard({ challengeId })) as {
+      entries?: unknown
+    }
+    return normaliseBoard(result.entries)
   }
 
   async authState(): Promise<AuthState> {

@@ -33,8 +33,10 @@ onMount(() => {
 Remote bests and the leaderboard are wired: `GameHost.loadBest` refreshes the
 cached best, `GameHost.board` feeds both the cabinet's Board overlay and the
 top-bar Boards hub, and `GameHost.playerBest` supplies the player's rank and
-entry for the hub. Auth is wired too: the server part owns
-`auth.opencode.json` in the native state directory, exposes
+entry for the hub. The daily ladder uses `GameHost.daily`,
+`GameHost.startDaily`, and `GameHost.dailyBoard`; RPC methods `daily`,
+`dailyStart`, and `dailyBoard` mirror them. Auth is wired too: the server part
+owns `auth.opencode.json` in the native state directory, exposes
 `authStatus`/`authStart`/`authPoll`/`authSignOut`, and the shell renders the
 GitHub device-code panel. Use the RPC methods for account actions.
 
@@ -57,7 +59,8 @@ Model: a **sidecar** process plus a **web UI extension**.
   `ANTIGRAVITY_EXECUTABLE_DATA_DIR` for non-secret sidecar cache and queue state.
 
 Remote bests and the leaderboard are wired through `/api/best`,
-`/api/board`, and `/api/player-best`. Auth is wired through
+`/api/board`, `/api/player-best`, `/api/daily`, `/api/daily-start`, and
+`/api/daily-board`. Auth is wired through
 `/api/auth/status|start|poll|signout|delete`; the sidecar owns
 `auth.antigravity.json` and the shell shows the device code. Next: use
 `window.sidecar.agent.sendMessage` for "brief me on my run" style actions.

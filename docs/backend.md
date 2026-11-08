@@ -41,8 +41,8 @@ own least-privilege service account.
 | `providers/github:{numericId}` | provider ID | maps a GitHub account to a `playerId` |
 | `sessions/{sessionId}` | random id | player, host, rotating refresh hash, previous-hash grace, expiry |
 | `accessTokens/{tokenHash}` | token hash | short-lived access token, player, session, expiry |
-| `challenges/{challengeId}` | challengeId | featured daily: game, mode, seed, anchor, attempts, window |
-| `challengeAttempts/{challengeId}:{playerId}` | composite | attempts used, best run and score |
+| `challenges/{challengeId}` | derived from the date | not stored; the schedule and HMAC seed reproduce it |
+| `challengeAttempts/{challengeId}__{playerId}` | composite | attempts used and update time |
 | `games/{gameId}` | gameId | catalog, modes, score type, version |
 | `runs/{runId}` | runId | issued seed/anchor, challenge, attempt, replay, verification, TTL |
 | `boards/{boardId}/entries/{playerId}` | boardId | public leaderboard entry |
@@ -69,9 +69,9 @@ GET  /v1/games                    catalog
 GET  /v1/challenges/today         featured daily descriptor + attempts left
 POST /v1/challenges/:id/runs      issue a run token (consumes an attempt)
 GET  /v1/challenges/:id/board     daily board
-GET  /v1/runs/:id/ghost           practice descriptor + replay for a verified run
+GET  /v1/runs/:id/ghost           planned: practice descriptor + replay for a verified run
 POST /v1/runs                     { gameId, modeId } -> { runId, seed, expiresAt }
-POST /v1/runs/:id/submit          { replay } -> { score, best, rank }
+POST /v1/runs/:id/submit          { replay } -> { score, best?, rank?, challengeId? }
 GET  /v1/boards/:gameId/:modeId         -> { entries, period }
 GET  /v1/boards/:gameId/:modeId/player/:playerId -> { entry?, rank? }
 GET  /v1/me                       profile, bests, XP, medals
@@ -190,18 +190,31 @@ That rewards breadth, not grinding one cabinet.
 ## Daily challenge
 
 One **featured game per day**. A server-side schedule picks the game/mode; a
-deterministic rotation is the fallback.
+deterministic rotation is the fallback. The rotation walks every installed
+game/mode pair sorted by id; `AWAIT_ARCADE_DAILY_FEATURED=game:mode` overrides it
+for a manual pick.
 
 `seed = HMAC(secret, gameId + ":" + YYYY-MM-DD)`. Mineflag also gets a fixed
 **anchor** (the first-click cell) so the same seed produces the same board for
-everyone; the first replay input must be that anchor.
+everyone; the first replay input must be that anchor. The server derives the
+anchor from the core's board dimensions (board centre instead of a hardcoded
+mode table).
 
-- **3 attempts per player.** The attempt is consumed when the run token is issued
-  (`POST /v1/challenges/:id/runs`), not on submit. Abandoned or expired runs
-  still count; a fourth start is rejected. This avoids the infinite
-  cancel/restart loophole.
+- **Secret:** `AWAIT_ARCADE_DAILY_SECRET` sets the HMAC key. The built-in fallback
+  is public and dev-only; set a real value for production. The seed is not a
+  credential (players receive it), but the key keeps the schedule opaque.
+- **3 attempts per player.** The attempt is consumed atomically when the run
+  token is issued (`POST /v1/challenges/:id/runs`), not on submit. Abandoned or
+  expired runs still count; a fourth start is rejected with 429. This avoids the
+  infinite cancel/restart loophole.
+- **Active date only.** Run tokens are issued only for the current UTC date;
+  submissions after the date rolls over return 410. Boards for past dates stay
+  readable at `/v1/challenges/:id/board`.
 - **Best of 3** is the player's daily board entry. A worse later attempt never
   lowers it.
+- **Ranked only.** A run that the core marks unranked (for example, an
+  unfinished Mineflag board) no longer writes a board entry, so a fast loss
+  cannot beat a completed time.
 - **Separate board:** `game:mode:daily:YYYY-MM-DD`. All-time boards keep using a
   fresh random seed per run.
 - **Practice is possible once the seed is known.** Three attempts limit ranked
@@ -243,6 +256,7 @@ keeps using the in-memory store; the Cloud Run entry uses Firestore.
 
 ```sh
 AWAIT_ARCADE_GITHUB_CLIENT_ID=<client-id> \
+AWAIT_ARCADE_DAILY_SECRET=<random-string> \
   PROJECT_ID=await-arcade-dev ./scripts/deploy-cloud-run.sh
 ```
 
@@ -251,6 +265,9 @@ The script passes `--service-account`, so the revision runs as `arcade-api` with
 
 - Set `AWAIT_ARCADE_GITHUB_CLIENT_ID` to the OAuth app's client ID to enable
   sign-in. Without it the auth endpoints return 503; guest play still works.
+- `AWAIT_ARCADE_DAILY_SECRET` sets the HMAC key for daily seeds. It is required
+  when `NODE_ENV=production` (Cloud Run); the built-in fallback is dev-only.
+  `AWAIT_ARCADE_DAILY_FEATURED=game:mode` pins one challenge and is optional.
 - Ranked run issuance and submission require a session whenever the client ID is
   configured. `AWAIT_ARCADE_REQUIRE_AUTH=0` opts back into guest-ranked writes
   for local testing; don't use it in production.
@@ -268,6 +285,8 @@ The script passes `--service-account`, so the revision runs as `arcade-api` with
 1. Cloud Run + Firestore + a GitHub OAuth app with Device Flow enabled.
 2. `mineflag:expert:all`, submit + top 50 + personal best.
 3. Featured daily challenge (3 attempts, best of 3) + ghost practice + arcade XP.
+   Daily challenge API, board, tile, and anchored Mineflag run are in; ghost
+   practice and XP remain.
 4. Replay verification (already implemented in `packages/framework`).
 5. Game #2 on the same schema.
 6. GitHub Device Flow + per-host persistent sessions + `DELETE /v1/me`.

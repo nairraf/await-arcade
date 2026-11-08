@@ -23,6 +23,8 @@ export interface RunnerOptions<S, I> {
   readonly mode: Mode
   readonly seed: number
   readonly runId?: string
+  /** Inputs applied before the clock starts, recorded in the replay (daily anchors). */
+  readonly prelude?: readonly I[]
   readonly onEnd?: (result: RunResult<I>) => void
   readonly onTick?: (state: S, elapsedMs: number, ticks: number) => void
 }
@@ -199,7 +201,12 @@ export function createRunner<S, I>(options: RunnerOptions<S, I>): GameRunner<S, 
   view.resize?.(surface.size())
   onTick?.(state, elapsed(), 0)
 
-  if (meta.kind === "realtime") {
+  for (const input of options.prelude ?? []) {
+    if (stopped || finished) break
+    dispatch(input)
+  }
+
+  if (meta.kind === "realtime" && !finished && !stopped) {
     lastFrame = now()
     rafId = raf(frame)
   }

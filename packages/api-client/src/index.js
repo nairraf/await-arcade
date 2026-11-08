@@ -69,6 +69,23 @@ export function createArcadeClient(options) {
     return { score: value.entry?.score, rank: value.rank, playerId: value.playerId }
   }
 
+  async function dailyToday() {
+    return request("/v1/challenges/today", {
+      headers: { "x-arcade-player": playerId },
+    })
+  }
+
+  async function dailyStart(challengeId) {
+    return request(`/v1/challenges/${encodeURIComponent(challengeId)}/runs`, {
+      method: "POST",
+      body: JSON.stringify({ playerId }),
+    })
+  }
+
+  async function dailyBoard(challengeId) {
+    return request(`/v1/challenges/${encodeURIComponent(challengeId)}/board`)
+  }
+
   async function bestFor(gameId, modeId) {
     const { score } = await playerBest(gameId, modeId)
     return score
@@ -117,6 +134,9 @@ export function createArcadeClient(options) {
     board,
     bestFor,
     playerBest,
+    dailyToday,
+    dailyStart,
+    dailyBoard,
     authStart,
     authPoll,
     authRefresh,

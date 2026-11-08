@@ -5,7 +5,7 @@ Await Arcade is a tiny cross-host arcade for OpenCode Desktop and Antigravity.
 Four cabinets ship in the scaffold:
 
 - **Mineflag** — turn-based, safe first click, flood reveal, chording,
-  keyboard play, replay-verified personal bests.
+  keyboard play, replay-verified fewest-moves ranking.
 - **Neon Cycles** — realtime grid light cycles, solo vs AI or local duel, a
   canvas reference implementation.
 - **Mergegrid** — seeded tile merging, keyboard/swipe/on-screen pad, a DOM
@@ -29,7 +29,9 @@ This is a working scaffold, not a finished arcade.
 - ✅ `await-arcade-game` skill with contract docs, determinism rules, and templates.
 - ✅ Firestore + Cloud Run backend, Terraform-managed dev base, and GitHub Device
   Flow auth with per-host sessions.
-- ⏳ Daily challenge, arcade XP/medals, and the production deployment.
+- ✅ All-time leaderboard hub and the featured daily challenge: fixed seed,
+  Mineflag anchor, three attempts, best-of-three board, and a daily tile.
+- ⏳ Arcade XP/medals, ghost practice, and the production deployment.
 
 Scores are local for guests. Signed-in players submit replay-verified runs to the
 shared Firestore boards; the dev API is live, and `docs/backend.md` has the design.
@@ -133,7 +135,7 @@ to `~/.gemini/config/config.json`, with a matching project file. Open the
 
 ## Verified in this scaffold
 
-- `npm run check` passes: workspace typecheck, OpenCode host typecheck, 44 tests,
+- `npm run check` passes: workspace typecheck, OpenCode host typecheck, 54 tests,
   core determinism scan, and all four replay fixtures.
 - `npm run build` builds the browser demo.
 - `npm run build:hosts` builds `gui-experimental.cjs` and the Antigravity
@@ -161,8 +163,8 @@ criteria, and what is deliberately out of scope.
    account deletion (see `docs/backend.md`).
 3. ✅ Firestore + Cloud Run: the server keeps the in-memory store for tests and
    uses Firestore in production.
-4. ⏳ Featured daily challenge (3 attempts, best of 3), unranked ghost practice,
-   and arcade XP/medals.
+4. ✅ Featured daily challenge (fixed seed/anchor, 3 attempts, best of 3,
+   separate board, daily tile). ⏳ Unranked ghost practice and arcade XP/medals.
 5. ⏳ Add the next cabinet from the skill; Missile Defense async PvP is the first
    multiplayer candidate.
 

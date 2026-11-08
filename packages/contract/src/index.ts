@@ -94,6 +94,8 @@ export interface GameMeta {
     readonly type: ScoreType
     readonly min: number
     readonly max: number
+    /** Display unit for the value; defaults to time for lower and points for higher. */
+    readonly unit?: "time" | "moves" | "points"
   }
   readonly leaderboard: "replay" | "bounds" | "none"
   readonly status: GamePublicationStatus
@@ -152,6 +154,8 @@ export interface SubmitResult {
   readonly best?: Score
   readonly rank?: number
   readonly reason?: string
+  /** Set for daily runs so hosts keep the daily best out of the all-time cache. */
+  readonly challengeId?: string
 }
 
 /**
@@ -235,6 +239,38 @@ export interface BoardEntry {
   readonly achievedAt: number
 }
 
+/** The required first input for an anchored daily (Mineflag). */
+export interface RunAnchor {
+  readonly type: string
+  readonly x: number
+  readonly y: number
+}
+
+export interface DailyChallenge {
+  readonly challengeId: string
+  readonly date: string
+  readonly gameId: string
+  readonly modeId: string
+  readonly seed: number
+  /** UTC midnight when the next challenge starts. */
+  readonly endsAt: number
+  readonly anchor?: RunAnchor
+  readonly attemptsUsed: number
+  readonly attemptsLeft: number
+  readonly period?: string
+  readonly serverNow?: number
+}
+
+export interface DailyStart {
+  readonly runId: string
+  readonly seed: number
+  readonly expiresAt?: number
+  readonly challengeId: string
+  readonly attempt: number
+  readonly attemptsLeft: number
+  readonly anchor?: RunAnchor
+}
+
 export interface AuthState {
   readonly signedIn: boolean
   readonly playerId?: string
@@ -283,6 +319,12 @@ export interface GameHost {
     gameId: string,
     modeId: string,
   ): Promise<{ readonly score?: Score; readonly rank?: number; readonly playerId?: string }>
+  /** Today's featured challenge, when the host supports the daily ladder. */
+  daily?(): Promise<DailyChallenge>
+  /** Start a daily attempt. Consumes one of the three attempts. */
+  startDaily?(challengeId: string): Promise<DailyStart>
+  /** The daily board for a challenge id. */
+  dailyBoard?(challengeId: string): Promise<readonly BoardEntry[]>
   /** Sign-in and account capabilities. Local hosts omit these. */
   authState?(): Promise<AuthState>
   authStart?(): Promise<DeviceFlow>

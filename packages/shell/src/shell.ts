@@ -1,11 +1,13 @@
 import type {
   AuthPoll,
   AuthState,
+  DailyChallenge,
   DeviceFlow,
   GameEntry,
   GameHost,
   GameMeta,
   Mode,
+  RunAnchor,
   RunResult,
   Score,
   SubmitResult,
@@ -51,6 +53,14 @@ function randomSeed(): number {
     return buffer[0]!
   }
   return Math.floor(Math.random() * 0xffffffff)
+}
+
+function countdownLabel(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000))
+  const hours = Math.floor(total / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const seconds = total % 60
+  return `${hours}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`
 }
 
 function safeVerificationUri(value: string): string {
@@ -115,6 +125,27 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
   if ("setToastRoot" in host && typeof (host as { setToastRoot?: unknown }).setToastRoot === "function") {
     ;(host as { setToastRoot(node: HTMLElement): void }).setToastRoot(root)
+  }
+
+  // A game version bump can change the scoring unit, so drop cached personal
+  // bests for that game. Mineflag's first run under version keys also drops
+  // its old millisecond bests from the time-scored rules.
+  for (const entry of games) {
+    const key = `game.version.${entry.meta.id}`
+    const known = host.storage.get<string>(key)
+    if (known === undefined) {
+      host.storage.set(key, entry.meta.version)
+      if (entry.meta.id === "mineflag") {
+        for (const mode of entry.meta.modes) {
+          host.storage.remove(`best.${entry.meta.id}.${mode.id}`)
+        }
+      }
+    } else if (known !== entry.meta.version) {
+      for (const mode of entry.meta.modes) {
+        host.storage.remove(`best.${entry.meta.id}.${mode.id}`)
+      }
+      host.storage.set(key, entry.meta.version)
+    }
   }
 
   const themeKey = "ui.theme"
@@ -202,7 +233,9 @@ export function createArcade(options: ArcadeOptions): Arcade {
       ? `Signed in as ${state.displayName ?? state.githubLogin ?? "player"}`
       : "Sign in with GitHub"
     if (main.querySelector(".arcade-boards")) {
-      void showBoards(boardsGame, boardsMode)
+      void showBoards(boardsGame, boardsMode, boardsDaily)
+    } else if (main.querySelector(".arcade-daily")) {
+      dailyRefresh?.()
     }
   }
 
@@ -439,8 +472,139 @@ export function createArcade(options: ArcadeOptions): Arcade {
     active = undefined
   }
 
+  let dailyTimer: ReturnType<typeof setInterval> | undefined
+  let dailyRefresh: (() => void) | undefined
+  let lastDailyRefreshDate: string | undefined
+
+  const clearDailyUi = (): void => {
+    if (dailyTimer) clearInterval(dailyTimer)
+    dailyTimer = undefined
+    dailyRefresh = undefined
+  }
+
+  const dailyCard = (challenge: DailyChallenge): HTMLElement => {
+    const entry = games.find((candidate) => candidate.meta.id === challenge.gameId)
+    const mode = entry?.meta.modes.find((candidate) => candidate.id === challenge.modeId)
+    if (!entry || !mode) {
+      return el("div", "arcade-empty", "Today's featured cabinet is not installed.")
+    }
+
+    const section = el("section", "arcade-daily")
+    section.style.setProperty("--game-accent-dark", entry.meta.theme?.accent ?? "#22d3ee")
+    section.style.setProperty("--game-accent-2-dark", entry.meta.theme?.accent2 ?? "#f472b6")
+    section.dataset.mode = entry.meta.theme?.mode ?? "neon"
+
+    const body = el("div", "arcade-daily-body")
+    body.append(
+      el("div", "arcade-kicker", `DAILY CHALLENGE · ${challenge.date}`),
+      el("h2", "arcade-daily-title", entry.meta.title),
+      el(
+        "p",
+        "arcade-daily-sub",
+        `${mode.title} · one fixed seed for everyone · best of three`,
+      ),
+    )
+
+    const remaining = Math.max(0, challenge.attemptsLeft)
+    const meta = el("div", "arcade-daily-meta")
+    const attempts = el("div", "arcade-daily-attempts")
+    attempts.append(el("span", "arcade-daily-label", "Attempts"))
+    for (let index = 0; index < 3; index += 1) {
+      attempts.append(
+        el(
+          "span",
+          `arcade-daily-pip${index < challenge.attemptsUsed ? " arcade-daily-pip-used" : ""}`,
+        ),
+      )
+    }
+    attempts.append(el("span", "arcade-daily-count", `${remaining} left`))
+
+    const serverOffset = (challenge.serverNow ?? Date.now()) - Date.now()
+    const remainingMs = (): number => challenge.endsAt - (Date.now() + serverOffset)
+    const resetValue = el(
+      "span",
+      "arcade-daily-reset-value",
+      countdownLabel(remainingMs()),
+    )
+    const reset = el("div", "arcade-daily-reset")
+    reset.append(el("span", "arcade-daily-label", "Resets in"), resetValue)
+    meta.append(attempts, reset)
+    body.append(meta)
+
+    const actions = el("div", "arcade-daily-actions")
+    const signedOut = authState !== undefined && !authState.signedIn
+    const play = el(
+      "button",
+      "arcade-btn arcade-btn-primary",
+      signedOut ? "Sign in to play" : remaining > 0 ? "Play daily" : "No attempts left",
+    )
+    play.type = "button"
+    if (signedOut) {
+      play.addEventListener("click", openAuth)
+    } else {
+      play.disabled = remaining <= 0
+      play.addEventListener("click", () => {
+        void playGame(entry, mode.id, challenge)
+      })
+    }
+
+    const board = el("button", "arcade-btn", "Daily board")
+    board.type = "button"
+    board.addEventListener("click", () => {
+      void showBoards(entry.meta.id, mode.id, challenge)
+    })
+    actions.append(play, board)
+
+    section.append(body, actions)
+
+    if (dailyTimer) clearInterval(dailyTimer)
+    dailyTimer = setInterval(() => {
+      const remaining = remainingMs()
+      resetValue.textContent = countdownLabel(remaining)
+      if (remaining <= 0 && lastDailyRefreshDate !== challenge.date) {
+        lastDailyRefreshDate = challenge.date
+        if (dailyTimer) clearInterval(dailyTimer)
+        dailyTimer = undefined
+        dailyRefresh?.()
+      }
+    }, 1000)
+
+    return section
+  }
+
+  const loadDaily = async (slot: HTMLElement, generation: number): Promise<void> => {
+    const fetchDaily = host.daily?.bind(host)
+    if (!fetchDaily) return
+
+    try {
+      const challenge = await fetchDaily()
+      if (generation !== playGeneration || !slot.isConnected) return
+      const draw = (): void => {
+        slot.replaceChildren(dailyCard(challenge))
+      }
+      dailyRefresh = () => {
+        void loadDaily(slot, playGeneration)
+      }
+      draw()
+    } catch (error) {
+      if (generation !== playGeneration || !slot.isConnected) return
+      if (dailyTimer) clearInterval(dailyTimer)
+      dailyTimer = undefined
+      const empty = el("div", "arcade-empty", `Daily challenge unavailable. ${errorMessage(error)}`)
+      const retry = el("button", "arcade-btn", "Retry")
+      retry.type = "button"
+      retry.addEventListener("click", () => {
+        void loadDaily(slot, playGeneration)
+      })
+      empty.append(retry)
+      slot.replaceChildren(empty)
+    }
+  }
+
   const showLauncher = (): void => {
     playGeneration += 1
+    const generation = playGeneration
+    clearDailyUi()
     destroyActive()
     main.replaceChildren()
 
@@ -452,6 +616,13 @@ export function createArcade(options: ArcadeOptions): Arcade {
       el("p", "arcade-hero-sub", online ? "A tiny arcade for the wait. Pick a game, chase a personal best, and climb the shared board." : "A tiny arcade for the wait. Pick a game and chase a personal best."),
     )
     launcher.append(hero)
+
+    if (host.daily) {
+      const slot = el("div", "arcade-daily-slot")
+      slot.append(el("div", "arcade-empty", "Loading the daily challenge…"))
+      launcher.append(slot)
+      void loadDaily(slot, generation)
+    }
 
     const grid = el("div", "arcade-grid")
 
@@ -540,21 +711,28 @@ export function createArcade(options: ArcadeOptions): Arcade {
   let boardsGame = games[0]!.meta.id
   let boardsMode = games[0]!.meta.modes[0]!.id
   let boardsEpoch = 0
+  let boardsDaily: DailyChallenge | undefined
 
-  const showBoards = async (gameId?: string, modeId?: string): Promise<void> => {
+  const showBoards = async (
+    gameId?: string,
+    modeId?: string,
+    daily?: DailyChallenge,
+  ): Promise<void> => {
     const loadBoard = host.board?.bind(host)
     if (!loadBoard) return
 
     playGeneration += 1
+    clearDailyUi()
+    boardsDaily = daily
     destroyActive()
     main.replaceChildren()
 
     const entry =
-      games.find((candidate) => candidate.meta.id === gameId) ??
+      games.find((candidate) => candidate.meta.id === (daily?.gameId ?? gameId)) ??
       games.find((candidate) => candidate.meta.id === boardsGame) ??
       games[0]!
     const mode =
-      entry.meta.modes.find((candidate) => candidate.id === modeId) ??
+      entry.meta.modes.find((candidate) => candidate.id === (daily?.modeId ?? modeId)) ??
       entry.meta.modes.find((candidate) => candidate.id === boardsMode) ??
       entry.meta.modes[0]!
     boardsGame = entry.meta.id
@@ -572,12 +750,56 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
     const heading = el("div", "arcade-boards-heading")
     heading.append(
-      el("div", "arcade-kicker", "ALL TIME · TOP 50"),
-      el("h1", "arcade-hero-title", "Leaderboards"),
-      el("p", "arcade-hero-sub", "Verified runs from every player. Pick a cabinet and mode."),
+      el(
+        "div",
+        "arcade-kicker",
+        daily ? `DAILY · ${daily.date}` : "ALL TIME · TOP 50",
+      ),
+      el("h1", "arcade-hero-title", daily ? "Daily leaderboard" : "Leaderboards"),
+      el(
+        "p",
+        "arcade-hero-sub",
+        daily
+          ? "One fixed seed, three attempts, best of three. Everyone plays the same board."
+          : "Verified runs from every player. Pick a cabinet and mode.",
+      ),
     )
     const head = el("header", "arcade-boards-head")
     head.append(back, heading)
+
+    const tabs = el("div", "arcade-boards-tabs")
+    if (host.daily) {
+      const allTime = el(
+        "button",
+        `arcade-tab${daily ? "" : " arcade-tab-active"}`,
+        "All time",
+      )
+      allTime.type = "button"
+      allTime.addEventListener("click", () => {
+        void showBoards(entry.meta.id, mode.id)
+      })
+
+      const dailyTab = el(
+        "button",
+        `arcade-tab${daily ? " arcade-tab-active" : ""}`,
+        "Daily",
+      )
+      dailyTab.type = "button"
+      dailyTab.addEventListener("click", () => {
+        const atEpoch = boardsEpoch
+        const atGeneration = playGeneration
+        void host
+          .daily!()
+          .then((challenge) => {
+            if (atEpoch !== boardsEpoch || atGeneration !== playGeneration) return
+            void showBoards(challenge.gameId, challenge.modeId, challenge)
+          })
+          .catch((error: unknown) => {
+            host.toast(errorMessage(error))
+          })
+      })
+      tabs.append(allTime, dailyTab)
+    }
 
     const controls = el("div", "arcade-boards-controls")
     const gameSelect = el("select", "arcade-select")
@@ -606,14 +828,21 @@ export function createArcade(options: ArcadeOptions): Arcade {
       void showBoards(entry.meta.id, modeSelect.value)
     })
 
-    const play = el("button", "arcade-btn arcade-btn-primary", "Play")
+    const play = el(
+      "button",
+      "arcade-btn arcade-btn-primary",
+      daily ? "Play daily" : "Play",
+    )
     play.type = "button"
-    play.addEventListener("click", () => playGame(entry, mode.id))
+    play.addEventListener("click", () => {
+      if (daily) void playGame(entry, mode.id, daily)
+      else playGame(entry, mode.id)
+    })
 
     const refresh = el("button", "arcade-btn", "Refresh")
     refresh.type = "button"
     refresh.addEventListener("click", () => {
-      void showBoards(entry.meta.id, mode.id)
+      void showBoards(entry.meta.id, mode.id, daily)
     })
 
     controls.append(gameSelect, modeSelect, play, refresh)
@@ -627,43 +856,72 @@ export function createArcade(options: ArcadeOptions): Arcade {
     const list = el("div", "arcade-board-list arcade-boards-list")
     list.append(el("div", "arcade-empty", "Loading…"))
 
-    section.append(head, controls, you, list)
+    section.append(head, tabs, controls, you, list)
     main.append(section)
 
     try {
-      const [entries, mineResult, auth] = await Promise.all([
-        loadBoard(entry.meta.id, mode.id),
-        host.playerBest
+      const loadEntries =
+        daily && host.dailyBoard
+          ? host.dailyBoard(daily.challengeId)
+          : loadBoard(entry.meta.id, mode.id)
+      const [entries, mineResult, auth, freshDaily] = await Promise.all([
+        loadEntries,
+        !daily && host.playerBest
           ? host.playerBest(entry.meta.id, mode.id).then(
               (value) => ({ ok: true as const, value }),
               () => ({ ok: false as const }),
             )
           : Promise.resolve({ ok: true as const, value: undefined }),
         host.authState ? host.authState().catch(() => undefined) : Promise.resolve(undefined),
+        daily && host.daily ? host.daily().catch(() => undefined) : Promise.resolve(undefined),
       ])
       if (epoch !== boardsEpoch || section.parentNode !== main) return
       if (!Array.isArray(entries)) throw new Error("The host returned an invalid leaderboard.")
 
       const mine = mineResult.ok ? mineResult.value : undefined
       const playerId = mine?.playerId ?? auth?.playerId
-      if (auth?.signedIn) {
+      const dailyIndex =
+        daily && playerId
+          ? entries.findIndex((item) => item.playerId === playerId)
+          : -1
+
+      if (daily) {
+        youLabel.textContent = auth?.signedIn
+          ? `YOUR DAILY · @${auth.githubLogin ?? auth.displayName ?? "player"}`
+          : "YOUR DAILY"
+        if (dailyIndex >= 0) {
+          const entryAt = entries[dailyIndex]!
+          youRank.textContent = `#${dailyIndex + 1}`
+          youScore.textContent = `${scoreLabel(entry.meta)}: ${formatScore(entryAt.score, entry.meta)}`
+        } else if (auth && !auth.signedIn) {
+          youRank.textContent = "—"
+          youScore.textContent = "Sign in with GitHub to play the daily."
+        } else {
+          youRank.textContent = "—"
+          youScore.textContent = `No daily run yet. ${freshDaily?.attemptsLeft ?? daily.attemptsLeft} of 3 attempts left.`
+        }
+      } else if (auth?.signedIn) {
         youLabel.textContent = `YOUR RANK · @${auth.githubLogin ?? auth.displayName ?? "player"}`
       }
-      if (!mineResult.ok) {
-        youRank.textContent = "—"
-        youScore.textContent = "Rank unavailable. Refresh to retry."
-      } else if (mine?.rank !== undefined) {
-        youRank.textContent = `#${mine.rank}`
-        youScore.textContent = mine.score
-          ? `${scoreLabel(entry.meta)}: ${formatScore(mine.score, entry.meta)}`
-          : ""
-      } else if (auth && !auth.signedIn) {
-        youRank.textContent = "—"
-        youScore.textContent = "Sign in with GitHub to rank on this board."
-      } else {
-        youRank.textContent = "—"
-        youScore.textContent = "No ranked run yet. Play to set one."
+
+      if (!daily) {
+        if (!mineResult.ok) {
+          youRank.textContent = "—"
+          youScore.textContent = "Rank unavailable. Refresh to retry."
+        } else if (mine?.rank !== undefined) {
+          youRank.textContent = `#${mine.rank}`
+          youScore.textContent = mine.score
+            ? `${scoreLabel(entry.meta)}: ${formatScore(mine.score, entry.meta)}`
+            : ""
+        } else if (auth && !auth.signedIn) {
+          youRank.textContent = "—"
+          youScore.textContent = "Sign in with GitHub to rank on this board."
+        } else {
+          youRank.textContent = "—"
+          youScore.textContent = "No ranked run yet. Play to set one."
+        }
       }
+
       if (auth && !auth.signedIn) {
         const signIn = el("button", "arcade-btn arcade-btn-ghost arcade-boards-signin", "Sign in")
         signIn.type = "button"
@@ -673,10 +931,17 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
       list.replaceChildren()
       if (entries.length === 0) {
-        const empty = el("div", "arcade-empty", "No ranked runs yet. Be the first.")
+        const empty = el(
+          "div",
+          "arcade-empty",
+          daily ? "No daily runs yet. Be the first." : "No ranked runs yet. Be the first.",
+        )
         const first = el("button", "arcade-btn arcade-btn-primary", "Play now")
         first.type = "button"
-        first.addEventListener("click", () => playGame(entry, mode.id))
+        first.addEventListener("click", () => {
+          if (daily) void playGame(entry, mode.id, daily)
+          else playGame(entry, mode.id)
+        })
         empty.append(first)
         list.append(empty)
         return
@@ -707,23 +972,57 @@ export function createArcade(options: ArcadeOptions): Arcade {
       const retry = el("button", "arcade-btn", "Retry")
       retry.type = "button"
       retry.addEventListener("click", () => {
-        void showBoards(entry.meta.id, mode.id)
+        void showBoards(entry.meta.id, mode.id, daily)
       })
       empty.append(retry)
       list.replaceChildren(empty)
     }
   }
 
-  const playGame = async (entry: GameEntry, modeId: string): Promise<void> => {
+  const playGame = async (
+    entry: GameEntry,
+    modeId: string,
+    daily?: DailyChallenge,
+  ): Promise<void> => {
     const generation = ++playGeneration
+    clearDailyUi()
     destroyActive()
     main.replaceChildren()
     main.append(el("div", "arcade-empty", "Starting…"))
 
-    let session: { seed: number; runId?: string }
+    let session: {
+      seed: number
+      runId?: string
+      anchor?: RunAnchor
+      challengeId?: string
+      attempt?: number
+      attemptsLeft?: number
+    }
     try {
-      session = host.start ? await host.start({ gameId: entry.meta.id, modeId }) : { seed: randomSeed() }
-    } catch {
+      if (daily) {
+        if (!host.startDaily) throw new Error("The daily challenge is not available.")
+        const started = await host.startDaily(daily.challengeId)
+        const anchor = started.anchor ?? daily.anchor
+        session = {
+          seed: started.seed,
+          runId: started.runId,
+          challengeId: started.challengeId,
+          attempt: started.attempt,
+          attemptsLeft: started.attemptsLeft,
+          ...(anchor ? { anchor } : {}),
+        }
+      } else {
+        session = host.start
+          ? await host.start({ gameId: entry.meta.id, modeId })
+          : { seed: randomSeed() }
+      }
+    } catch (error) {
+      if (generation !== playGeneration) return
+      if (daily) {
+        host.toast(errorMessage(error))
+        showLauncher()
+        return
+      }
       host.toast(
         authState && !authState.signedIn
           ? "Playing locally. Sign in to rank."
@@ -738,7 +1037,9 @@ export function createArcade(options: ArcadeOptions): Arcade {
     const mode = entry.meta.modes.find((item) => item.id === modeId) ?? entry.meta.modes[0]
     if (!mode) return
 
-    const best = host.best(entry.meta.id, mode.id)
+    const isDaily = Boolean(daily)
+    const best = isDaily ? undefined : host.best(entry.meta.id, mode.id)
+    const bestLabel = isDaily ? "Daily best" : scoreLabel(entry.meta)
     const section = el("section", "arcade-game")
     section.style.setProperty("--game-accent-dark", entry.meta.theme?.accent ?? "#22d3ee")
     section.style.setProperty("--game-accent-2-dark", entry.meta.theme?.accent2 ?? "#f472b6")
@@ -748,10 +1049,13 @@ export function createArcade(options: ArcadeOptions): Arcade {
     const cabinetBest = el(
       "div",
       "arcade-cabinet-score",
-      `${scoreLabel(entry.meta)}: ${best ? formatScore(best, entry.meta) : "—"}`,
+      `${bestLabel}: ${best ? formatScore(best, entry.meta) : "—"}`,
     )
     cabinet.append(
       el("span", "arcade-cabinet-badge", "AA"),
+      ...(daily
+        ? [el("span", "arcade-cabinet-badge arcade-cabinet-daily", `DAILY ${session.attempt ?? 1}/3`)]
+        : []),
       el("div", "arcade-cabinet-title", entry.meta.title),
       cabinetBest,
     )
@@ -759,7 +1063,17 @@ export function createArcade(options: ArcadeOptions): Arcade {
     const head = el("header", "arcade-game-head")
     const back = el("button", "arcade-btn arcade-btn-ghost", "← Await Arcade")
     back.type = "button"
-    back.addEventListener("click", showLauncher)
+    back.addEventListener("click", () => {
+      if (
+        daily &&
+        runInProgress &&
+        typeof globalThis.confirm === "function" &&
+        !globalThis.confirm("Leave the daily? This consumes the attempt.")
+      ) {
+        return
+      }
+      showLauncher()
+    })
 
     const titleWrap = el("div", "arcade-game-title")
     titleWrap.append(el("p", "", entry.meta.description))
@@ -773,6 +1087,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
       modeSelect.append(option)
     }
     modeSelect.value = mode.id
+    modeSelect.disabled = Boolean(daily)
     modeSelect.addEventListener("change", () => playGame(entry, modeSelect.value))
 
     const pause = el("button", "arcade-btn", "Pause")
@@ -780,6 +1095,17 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
     const restart = el("button", "arcade-btn", "Restart")
     restart.type = "button"
+
+    const restartRun = (): void => {
+      if (
+        daily &&
+        typeof globalThis.confirm === "function" &&
+        !globalThis.confirm("Restart the daily? This consumes another attempt.")
+      ) {
+        return
+      }
+      void playGame(entry, mode.id, daily)
+    }
 
     actions.append(modeSelect, pause, restart)
     let boardButton: HTMLButtonElement | undefined
@@ -793,8 +1119,15 @@ export function createArcade(options: ArcadeOptions): Arcade {
     }
     head.append(back, titleWrap, actions)
 
-    const score = hudCell(entry.meta.score.type === "lower" ? "Time" : "Score", "—")
-    const bestCell = hudCell(scoreLabel(entry.meta), best ? formatScore(best, entry.meta) : "—")
+    const score = hudCell(
+      entry.meta.score.unit === "moves"
+        ? "Moves"
+        : entry.meta.score.type === "lower"
+          ? "Time"
+          : "Score",
+      "—",
+    )
+    const bestCell = hudCell(bestLabel, best ? formatScore(best, entry.meta) : "—")
     const time = hudCell(
       entry.meta.kind === "realtime" ? "Elapsed" : "Status",
       entry.meta.kind === "realtime" ? "0.0s" : "Playing",
@@ -802,7 +1135,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     const hud = el("div", "arcade-hud")
     hud.append(score.root, bestCell.root, time.root)
 
-    if (host.loadBest) {
+    if (host.loadBest && !isDaily) {
       void host
         .loadBest(entry.meta.id, mode.id)
         .then((remote) => {
@@ -897,7 +1230,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
               hideOverlay()
               pause.textContent = "Pause"
             }),
-            button("Restart", false, () => playGame(entry, mode.id)),
+            button("Restart", false, restartRun),
             button("Lobby", false, showLauncher),
           ],
         ),
@@ -918,7 +1251,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     }
 
     pause.addEventListener("click", togglePause)
-    restart.addEventListener("click", () => playGame(entry, mode.id))
+    restart.addEventListener("click", restartRun)
 
     const onKey = (event: KeyboardEvent): void => {
       if (event.key === "Escape") {
@@ -956,19 +1289,37 @@ export function createArcade(options: ArcadeOptions): Arcade {
       pause.textContent = "Pause"
       if (boardButton) boardButton.disabled = true
 
-      const improved = submit.best !== undefined && isBetter(submit.best, previousBest)
-      const kicker = !result.score.ranked ? "UNRANKED RUN" : improved ? "NEW BEST" : "RUN COMPLETE"
+      const improved = daily
+        ? submit.best !== undefined && submit.best.value === result.score.value
+        : submit.best !== undefined && isBetter(submit.best, previousBest)
+      const kicker = daily
+        ? `DAILY ATTEMPT ${session.attempt ?? 1}/3`
+        : !result.score.ranked
+          ? "UNRANKED RUN"
+          : improved
+            ? "NEW BEST"
+            : "RUN COMPLETE"
       const title = result.score.won ? "You win." : "Run over."
       const detailParts: string[] = []
 
+      if (daily) detailParts.push(`Daily attempt ${session.attempt ?? 1} of 3.`)
       if (!result.score.ranked) detailParts.push("This run is not eligible for the leaderboard.")
-      else if (submit.ok) detailParts.push(improved ? "Personal best saved." : "Personal best stands.")
-      else detailParts.push(submit.reason ?? "Submission failed.")
+      else if (submit.ok) {
+        detailParts.push(
+          improved
+            ? daily
+              ? "Daily best saved."
+              : "Personal best saved."
+            : daily
+              ? "Daily best stands."
+              : "Personal best stands.",
+        )
+      } else detailParts.push(submit.reason ?? "Submission failed.")
 
       if (submit.rank !== undefined) detailParts.push(`Rank #${submit.rank}`)
       if (submit.best) {
         bestCell.value.textContent = formatScore(submit.best, entry.meta)
-        cabinetBest.textContent = `${scoreLabel(entry.meta)}: ${formatScore(submit.best, entry.meta)}`
+        cabinetBest.textContent = `${bestLabel}: ${formatScore(submit.best, entry.meta)}`
       }
 
       const download = button("Download replay", false, () => {
@@ -981,17 +1332,27 @@ export function createArcade(options: ArcadeOptions): Arcade {
         URL.revokeObjectURL(url)
       })
 
+      const again = button("Play again", true, restartRun)
+      if (daily && (session.attemptsLeft ?? 0) <= 0) {
+        again.disabled = true
+        again.textContent = "Daily attempts used"
+      }
+      const actions = [again, button("Lobby", false, showLauncher), download]
+      if (daily) {
+        actions.push(
+          button("Daily board", false, () => {
+            void showBoards(entry.meta.id, mode.id, daily)
+          }),
+        )
+      }
+
       showOverlay(() =>
         overlayCard(
           kicker,
           title,
           formatScore(result.score, entry.meta),
           detailParts.join(" "),
-          [
-            button("Play again", true, () => playGame(entry, mode.id)),
-            button("Lobby", false, showLauncher),
-            download,
-          ],
+          actions,
         ),
       )
     }
@@ -1017,6 +1378,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
       mode,
       seed: session.seed,
       ...(session.runId !== undefined ? { runId: session.runId } : {}),
+      ...(session.anchor ? { prelude: [session.anchor] } : {}),
       onTick(state, elapsedMs, ticks) {
         lastTicks = ticks
         const preview = entry.core.score(state, { elapsedMs, ticks })
@@ -1027,7 +1389,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
       onEnd(result) {
         runInProgress = false
         if (entry.meta.kind === "turn") time.value.textContent = result.score.won ? "Won" : "Lost"
-        const previousBest = host.best(entry.meta.id, mode.id)
+        const previousBest = isDaily ? undefined : host.best(entry.meta.id, mode.id)
         void host
           .submit(result)
           .then((submit) => showGameOver(result, submit, previousBest))
@@ -1122,7 +1484,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
         const closeButton = button(wasRunning ? "Resume" : "Close", true, close)
         boardActions.append(
           closeButton,
-          button("Play again", false, () => playGame(entry, mode.id)),
+          button("Play again", false, restartRun),
         )
         card.append(boardActions)
         showOverlay(() => card)
@@ -1157,6 +1519,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
   return {
     destroy() {
       playGeneration += 1
+      clearDailyUi()
       destroyActive()
       root.classList.remove("arcade")
       root.replaceChildren()

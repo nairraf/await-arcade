@@ -1,4 +1,11 @@
-import type { BoardEntry, Replay, Score, SubmitResult } from "@await-arcade/contract"
+import type {
+  BoardEntry,
+  DailyChallenge,
+  DailyStart,
+  Replay,
+  Score,
+  SubmitResult,
+} from "@await-arcade/contract"
 
 export type { BoardEntry }
 
@@ -20,6 +27,13 @@ export interface Board {
   readonly period?: string
 }
 
+export interface DailyBoard extends Board {
+  readonly challengeId: string
+  readonly gameId: string
+  readonly modeId: string
+  readonly date: string
+}
+
 export interface ArcadeClient {
   start(gameId: string, modeId: string): Promise<StartRun>
   submit(runId: string, replay: Replay): Promise<SubmitResult>
@@ -29,6 +43,9 @@ export interface ArcadeClient {
     gameId: string,
     modeId: string,
   ): Promise<{ readonly score?: Score; readonly rank?: number; readonly playerId?: string }>
+  dailyToday(): Promise<DailyChallenge>
+  dailyStart(challengeId: string): Promise<DailyStart>
+  dailyBoard(challengeId: string): Promise<DailyBoard>
   status(): Promise<{ readonly mode: "online"; readonly playerId: string }>
 }
 

@@ -41,4 +41,21 @@ describe("api client", () => {
     expect(mine.rank).toBe(1)
     expect(mine.score?.value).toBe(result.score.value)
   })
+
+  it("reads and starts the daily challenge", async () => {
+    const client = createArcadeClient({ baseUrl, playerId: "api-daily" })
+    const today = await client.dailyToday()
+    expect(today.gameId).toBeTruthy()
+    expect(today.modeId).toBeTruthy()
+    expect(today.attemptsLeft).toBe(3)
+
+    const started = await client.dailyStart(today.challengeId)
+    expect(started.seed).toBe(today.seed)
+    expect(started.attempt).toBe(1)
+    expect(started.attemptsLeft).toBe(2)
+
+    const board = await client.dailyBoard(today.challengeId)
+    expect(Array.isArray(board.entries)).toBe(true)
+    expect(board.challengeId).toBe(today.challengeId)
+  })
 })

@@ -51,7 +51,7 @@ describe("mineflag core", () => {
     const right = playTurn(core, meta, { seed: 7, mode, inputs, durationMs: 12_345 })
 
     expect(core.serialize(left.state)).toEqual(core.serialize(right.state))
-    expect(left.score.value).toBe(12_345)
+    expect(left.score.value).toBe(left.replay.inputs.length)
   })
 
   it("wins when every safe cell is revealed and verifies the replay", () => {
@@ -61,7 +61,7 @@ describe("mineflag core", () => {
     expect(result.state.phase).toBe("won")
     expect(result.score.ranked).toBe(true)
     expect(result.verified.ok).toBe(true)
-    expect(result.verified.score?.value).toBe(20_000)
+    expect(result.verified.score?.value).toBe(result.replay.inputs.length)
   })
 
   it("does not reveal a flagged cell", () => {

@@ -17,14 +17,19 @@ interface Score {
 
 ## Mineflag
 
-- `value` is elapsed milliseconds.
+- `value` is the verified move count (`context.ticks`) — fewer moves wins.
 - `ranked` is true only on a win.
 - A loss still gets `won: false, ranked: false`, so it never reaches the board.
+- Turn replays carry a client-supplied `durationMs`; never score from it. Use
+  `context.ticks` or the final state so the server derives the value itself.
 
 ## Score-attack games
 
 - `value` is the score, survival time, or distance.
+- For realtime games, `elapsedMs` comes from the tick-aligned replay duration.
 - `ranked` can be true for a loss: the run is complete and the score is real.
+- Set `meta.score.unit` (`time`, `moves`, or `points`) so the shell formats the
+  value correctly.
 
 ## Arcade-wide points
 

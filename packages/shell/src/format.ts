@@ -13,12 +13,17 @@ export function formatDuration(ms: number): string {
 }
 
 export function formatScore(score: Score, meta: GameMeta): string {
+  if (meta.score.unit === "moves" || meta.score.unit === "points") {
+    return new Intl.NumberFormat().format(score.value)
+  }
   if (meta.score.type === "lower") return formatDuration(score.value)
   return new Intl.NumberFormat().format(score.value)
 }
 
 export function scoreLabel(meta: GameMeta): string {
-  return meta.score.type === "lower" ? "Best time" : "High score"
+  if (meta.score.unit === "moves") return "Fewest moves"
+  if (meta.score.type === "lower") return "Best time"
+  return "High score"
 }
 
 /** Positive when `candidate` beats `previous`. */

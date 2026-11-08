@@ -38,6 +38,10 @@ export class FirestoreStore implements ArcadeStore {
     return this.db.collection("boards").doc(boardId)
   }
 
+  private attemptDoc(challengeId: string, playerId: string) {
+    return this.db.collection("challengeAttempts").doc(`${challengeId}__${playerId}`)
+  }
+
   async createRun(run: RunRecord): Promise<void> {
     await this.runDoc(run.runId).set({ ...run, expireAt: new Date(run.expiresAt) })
   }
@@ -154,6 +158,28 @@ export class FirestoreStore implements ArcadeStore {
   async getPlayer(playerId: string): Promise<PlayerRecord | undefined> {
     const snapshot = await this.playerDoc(playerId).get()
     return snapshot.exists ? (snapshot.data() as PlayerRecord) : undefined
+  }
+
+  async getChallengeAttempts(challengeId: string, playerId: string): Promise<number> {
+    const snapshot = await this.attemptDoc(challengeId, playerId).get()
+    return snapshot.exists ? Number(snapshot.get("attempts") ?? 0) : 0
+  }
+
+  async consumeChallengeAttempt(
+    challengeId: string,
+    playerId: string,
+    limit: number,
+    now: number,
+  ): Promise<number | undefined> {
+    const ref = this.attemptDoc(challengeId, playerId)
+    return this.db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(ref)
+      const used = snapshot.exists ? Number(snapshot.get("attempts") ?? 0) : 0
+      if (used >= limit) return undefined
+      const next = used + 1
+      transaction.set(ref, { challengeId, playerId, attempts: next, updatedAt: now })
+      return next
+    })
   }
 
   async putSession(session: SessionRecord): Promise<void> {
@@ -273,16 +299,18 @@ export class FirestoreStore implements ArcadeStore {
     writer.delete(this.playerDoc(playerId))
     writer.delete(this.db.collection("providers").doc(providerId))
 
-    const [sessions, tokens, runs, boards] = await Promise.all([
+    const [sessions, tokens, runs, attempts, boards] = await Promise.all([
       this.db.collection("sessions").where("playerId", "==", playerId).get(),
       this.db.collection("accessTokens").where("playerId", "==", playerId).get(),
       this.db.collection("runs").where("playerId", "==", playerId).get(),
+      this.db.collection("challengeAttempts").where("playerId", "==", playerId).get(),
       this.db.collection("boards").get(),
     ])
 
     for (const session of sessions.docs) writer.delete(session.ref)
     for (const token of tokens.docs) writer.delete(token.ref)
     for (const run of runs.docs) writer.delete(run.ref)
+    for (const attempt of attempts.docs) writer.delete(attempt.ref)
 
     const seen = new Set<string>()
     for (const boardId of boardIds) {

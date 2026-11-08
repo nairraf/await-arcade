@@ -67,6 +67,32 @@ export const Api = define({
       },
       output: { type: "object", additionalProperties: true },
     },
+    daily: {
+      input: { type: "object", properties: {}, additionalProperties: false },
+      output: { type: "object", additionalProperties: true },
+    },
+    dailyStart: {
+      input: {
+        type: "object",
+        properties: {
+          challengeId: { type: "string" },
+        },
+        required: ["challengeId"],
+        additionalProperties: false,
+      },
+      output: { type: "object", additionalProperties: true },
+    },
+    dailyBoard: {
+      input: {
+        type: "object",
+        properties: {
+          challengeId: { type: "string" },
+        },
+        required: ["challengeId"],
+        additionalProperties: false,
+      },
+      output: { type: "object", additionalProperties: true },
+    },
     status: {
       output: { type: "object", additionalProperties: true },
     },

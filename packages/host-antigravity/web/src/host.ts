@@ -3,6 +3,8 @@ import type {
   AuthPoll,
   AuthState,
   BoardEntry,
+  DailyChallenge,
+  DailyStart,
   DeviceFlow,
   RunResult,
   Score,
@@ -48,7 +50,7 @@ export class SidecarHost extends LocalHost {
       replay: run.replay,
     })
 
-    if (result.best) {
+    if (result.best && !result.challengeId) {
       this.storage.set(`best.${run.gameId}.${run.modeId}`, result.best)
     }
     return result
@@ -72,6 +74,21 @@ export class SidecarHost extends LocalHost {
       "/api/player-best",
       { gameId, modeId },
     )
+  }
+
+  async daily(): Promise<DailyChallenge> {
+    return this.call<DailyChallenge>("/api/daily", {})
+  }
+
+  async startDaily(challengeId: string): Promise<DailyStart> {
+    return this.call<DailyStart>("/api/daily-start", { challengeId })
+  }
+
+  async dailyBoard(challengeId: string): Promise<readonly BoardEntry[]> {
+    const result = await this.call<{ entries?: unknown }>("/api/daily-board", {
+      challengeId,
+    })
+    return normaliseBoard(result.entries)
   }
 
   async authState(): Promise<AuthState> {

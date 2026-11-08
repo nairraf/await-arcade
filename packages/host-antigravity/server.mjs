@@ -257,6 +257,18 @@ app.api("/api/player-best", async (data) => {
   await requireAuth()
   return client.playerBest(data.gameId, data.modeId)
 }, "POST")
+app.api("/api/daily", async () => {
+  await ensureAuth()
+  return client.dailyToday()
+}, "POST")
+app.api("/api/daily-start", async (data) => {
+  await requireAuth()
+  return client.dailyStart(data.challengeId)
+}, "POST")
+app.api("/api/daily-board", async (data) => {
+  await ensureAuth()
+  return client.dailyBoard(data.challengeId)
+}, "POST")
 app.api("/api/status", async () => ({ mode: "online", playerId, queued: readQueue().length }), "GET")
 
 app.api("/api/auth/status", async () => status(), "POST")

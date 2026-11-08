@@ -25,7 +25,7 @@ interface GameMeta {
   kind: "turn" | "realtime"
   tickRate?: number
   modes: Mode[]
-  score: { type: "higher" | "lower"; min: number; max: number }
+  score: { type: "higher" | "lower"; min: number; max: number; unit?: "time" | "moves" | "points" }
   leaderboard: "replay" | "bounds" | "none"
   status: "stable" | "experimental"
   controls: { keys: string; action: string }[]

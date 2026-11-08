@@ -3,15 +3,31 @@ import { randomBytes } from "node:crypto"
 import type { Replay, Score, VerifiedResult } from "@await-arcade/contract"
 import { verifyReplay } from "@await-arcade/framework"
 import { AuthError, AuthService, type AuthConfig } from "./auth"
+import {
+  DAILY_ATTEMPTS,
+  challengeById,
+  dailyChallenge,
+  dailyConfigFromEnv,
+  dailyDate,
+  type DailyConfig,
+} from "./challenges"
 import { githubClientFromEnv, type GitHubClient } from "./github"
 import { verifiers } from "./registry.generated"
-import { MemoryStore, type AccessTokenRecord, type ArcadeStore, type PlayerRecord, type RunRecord } from "./store"
+import {
+  MemoryStore,
+  type AccessTokenRecord,
+  type ArcadeStore,
+  type PlayerRecord,
+  type RunAnchor,
+  type RunRecord,
+} from "./store"
 
 export interface ArcadeServerOptions {
   readonly store?: ArcadeStore
   readonly host?: string
   readonly github?: GitHubClient
   readonly auth?: AuthConfig
+  readonly daily?: DailyConfig
   /** When true, run issuance and submission require a signed-in player. */
   readonly requireAuth?: boolean
 }
@@ -87,6 +103,24 @@ function record(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {}
 }
 
+function decodeSegment(value: string | undefined): string | undefined {
+  if (!value) return undefined
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return undefined
+  }
+}
+
+function matchesAnchor(
+  event: { readonly tick: number; readonly input: unknown } | undefined,
+  anchor: RunAnchor,
+): boolean {
+  if (!event || event.tick !== 0) return false
+  const input = record(event.input)
+  return input.type === anchor.type && input.x === anchor.x && input.y === anchor.y
+}
+
 function clientIp(req: IncomingMessage): string {
   const forwarded = req.headers["x-forwarded-for"]
   if (typeof forwarded === "string" && forwarded.length > 0) {
@@ -117,6 +151,33 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
     if (!auth) throw new AuthError(503, "GitHub auth is not configured")
 
     return auth.authenticate(match[1])
+  }
+
+  const daily = options.daily ?? dailyConfigFromEnv()
+  const dailyNow = (): number => daily.now?.() ?? Date.now()
+
+  const resolvePlayer = async (
+    identity: { readonly player: PlayerRecord } | undefined,
+    requested: string | undefined,
+  ): Promise<string | undefined> => {
+    const player = identity?.player.playerId ?? playerId(requested)
+    if (!player) return undefined
+
+    if (!identity) {
+      const existing = await store.getPlayer(player)
+      if (!existing) {
+        const at = Date.now()
+        await store.ensurePlayer(`guest:${player}`, {
+          playerId: player,
+          providerId: `guest:${player}`,
+          displayName: player,
+          createdAt: at,
+          updatedAt: at,
+        })
+      }
+    }
+
+    return player
   }
 
   const authStarts = new Map<string, number[]>()
@@ -226,6 +287,31 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
         return
       }
 
+      if (req.method === "GET" && parts.length === 3 && parts[0] === "v1" && parts[1] === "challenges" && parts[2] === "today") {
+        const challenge = dailyChallenge(verifiers, daily, dailyDate(dailyNow()))
+        if (!challenge) {
+          json(res, 503, { error: "no daily challenge available" })
+          return
+        }
+
+        const identity = await authenticate(req)
+        const requested =
+          text(req.headers["x-arcade-player"]) ?? text(url.searchParams.get("player"))
+        const player = identity?.player.playerId ?? playerId(requested)
+        const attemptsUsed = player
+          ? await store.getChallengeAttempts(challenge.challengeId, player)
+          : 0
+
+        json(res, 200, {
+          ...challenge,
+          period: "daily",
+          attemptsUsed,
+          attemptsLeft: Math.max(0, DAILY_ATTEMPTS - attemptsUsed),
+          serverNow: Date.now(),
+        })
+        return
+      }
+
       if (req.method === "POST" && url.pathname === "/v1/runs") {
         const body = record(await readBody(req))
         const gameId = text(body.gameId)
@@ -250,24 +336,10 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
 
         const requested =
           text(body.playerId) ?? text(req.headers["x-arcade-player"]) ?? "local"
-        const player = identity?.player.playerId ?? playerId(requested)
+        const player = await resolvePlayer(identity, requested)
         if (!player) {
           json(res, 400, { error: "invalid playerId" })
           return
-        }
-
-        if (!identity) {
-          const existing = await store.getPlayer(player)
-          if (!existing) {
-            const at = Date.now()
-            await store.ensurePlayer(`guest:${player}`, {
-              playerId: player,
-              providerId: `guest:${player}`,
-              displayName: player,
-              createdAt: at,
-              updatedAt: at,
-            })
-          }
         }
 
         const createdAt = Date.now()
@@ -289,6 +361,82 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           seed: run.seed,
           playerId: run.playerId,
           expiresAt: run.expiresAt,
+        })
+        return
+      }
+
+      if (
+        req.method === "POST" &&
+        parts.length === 4 &&
+        parts[0] === "v1" &&
+        parts[1] === "challenges" &&
+        parts[3] === "runs"
+      ) {
+        const id = decodeSegment(parts[2])
+        if (!id) {
+          json(res, 400, { error: "invalid challenge id" })
+          return
+        }
+
+        const active = dailyChallenge(verifiers, daily, dailyDate(dailyNow()))
+        if (!active || active.challengeId !== id) {
+          json(res, 409, { error: "daily challenge is not active" })
+          return
+        }
+
+        const body = record(await readBody(req))
+        const identity = await authenticate(req)
+        if (requireAuth && !identity) throw new AuthError(401, "sign in required")
+
+        const requested =
+          text(body.playerId) ?? text(req.headers["x-arcade-player"]) ?? "local"
+        const player = await resolvePlayer(identity, requested)
+        if (!player) {
+          json(res, 400, { error: "invalid playerId" })
+          return
+        }
+
+        const attempt = await store.consumeChallengeAttempt(
+          active.challengeId,
+          player,
+          DAILY_ATTEMPTS,
+          Date.now(),
+        )
+        if (attempt === undefined) {
+          json(res, 429, {
+            error: "no daily attempts left",
+            attemptsUsed: DAILY_ATTEMPTS,
+            attemptsLeft: 0,
+          })
+          return
+        }
+
+        const createdAt = Date.now()
+        const run: RunRecord = {
+          runId: randomBytes(12).toString("hex"),
+          gameId: active.gameId,
+          modeId: active.modeId,
+          seed: active.seed,
+          playerId: player,
+          createdAt,
+          expiresAt: createdAt + RUN_TTL_MS,
+          challengeId: active.challengeId,
+          attempt,
+          ...(active.anchor ? { anchor: active.anchor } : {}),
+        }
+
+        await store.createRun(run)
+        json(res, 201, {
+          runId: run.runId,
+          gameId: run.gameId,
+          modeId: run.modeId,
+          seed: run.seed,
+          playerId: run.playerId,
+          expiresAt: run.expiresAt,
+          challengeId: active.challengeId,
+          attempt,
+          attemptsLeft: DAILY_ATTEMPTS - attempt,
+          ...(active.anchor ? { anchor: active.anchor } : {}),
         })
         return
       }
@@ -339,6 +487,24 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           json(res, 422, { ok: false, reason: "replay does not match the issued run" })
           return
         }
+        if (!Array.isArray(candidate.inputs)) {
+          json(res, 422, { ok: false, reason: "replay inputs are invalid" })
+          return
+        }
+
+        if (run.challengeId) {
+          if (!run.challengeId.endsWith(`:${dailyDate(dailyNow())}`)) {
+            json(res, 410, { error: "daily challenge has ended" })
+            return
+          }
+          if (run.anchor && !matchesAnchor(candidate.inputs[0], run.anchor)) {
+            json(res, 422, {
+              ok: false,
+              reason: "daily replay must start at the anchor",
+            })
+            return
+          }
+        }
 
         const verified: VerifiedResult = verifyReplay(entry.core, entry.meta, candidate)
         if (!verified.ok || !verified.score) {
@@ -351,7 +517,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
         }
 
         const score = verified.score
-        const key = boardKey(run.gameId, run.modeId)
+        const key = run.challengeId ?? boardKey(run.gameId, run.modeId)
 
         const outcome = await store.transaction(async (tx) => {
           const current = await tx.getRun(runId)
@@ -388,9 +554,38 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
         json(res, 200, {
           ok: true,
           score,
-          best: outcome.best,
+          ...(outcome.best ? { best: outcome.best } : {}),
           ...(rank !== undefined ? { rank } : {}),
+          ...(run.challengeId ? { challengeId: run.challengeId } : {}),
         })
+        return
+      }
+
+      if (
+        req.method === "GET" &&
+        parts.length === 4 &&
+        parts[0] === "v1" &&
+        parts[1] === "challenges" &&
+        parts[3] === "board"
+      ) {
+        const id = decodeSegment(parts[2])
+        const challenge = id ? challengeById(verifiers, daily, id) : undefined
+        if (!challenge) {
+          json(res, 404, { error: "unknown challenge" })
+          return
+        }
+
+        const entry = verifiers[challenge.gameId]
+        if (!entry) {
+          json(res, 404, { error: `unknown game: ${challenge.gameId}` })
+          return
+        }
+        const entries = await store.top(
+          challenge.challengeId,
+          50,
+          entry.meta.score.type,
+        )
+        json(res, 200, { ...challenge, period: "daily", entries })
         return
       }
 

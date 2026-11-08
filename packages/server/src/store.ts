@@ -8,6 +8,18 @@ export interface RunRecord {
   readonly playerId: string
   readonly createdAt: number
   readonly expiresAt: number
+  /** Set for daily challenge runs; also the daily board id. */
+  readonly challengeId?: string
+  /** 1-based daily attempt number. */
+  readonly attempt?: number
+  /** Required first input for anchored dailies (Mineflag). */
+  readonly anchor?: RunAnchor
+}
+
+export interface RunAnchor {
+  readonly type: string
+  readonly x: number
+  readonly y: number
 }
 
 export type { BoardEntry }
@@ -89,6 +101,18 @@ export interface ArcadeStore {
   ): Promise<number | undefined>
   ensurePlayer(providerId: string, player: PlayerRecord): Promise<PlayerRecord>
   getPlayer(playerId: string): Promise<PlayerRecord | undefined>
+  /** Daily attempts already consumed by this player. */
+  getChallengeAttempts(challengeId: string, playerId: string): Promise<number>
+  /**
+   * Atomically consume one daily attempt. Returns the 1-based attempt number,
+   * or undefined when the limit is already reached.
+   */
+  consumeChallengeAttempt(
+    challengeId: string,
+    playerId: string,
+    limit: number,
+    now: number,
+  ): Promise<number | undefined>
   putSession(session: SessionRecord): Promise<void>
   getSession(sessionId: string): Promise<SessionRecord | undefined>
   findSessionByRefresh(hash: string): Promise<SessionRecord | undefined>
@@ -115,11 +139,16 @@ function beats(candidate: Score, other: Score, scoreType: Score["type"]): boolea
   return scoreType === "lower" ? candidate.value < other.value : candidate.value > other.value
 }
 
+function attemptKey(challengeId: string, playerId: string): string {
+  return `${challengeId}|${playerId}`
+}
+
 export class MemoryStore implements ArcadeStore {
   private readonly runs = new Map<string, RunRecord>()
   private readonly boards = new Map<string, Map<string, BoardEntry>>()
   private readonly players = new Map<string, PlayerRecord>()
   private readonly providers = new Map<string, string>()
+  private readonly challengeAttempts = new Map<string, number>()
   private readonly sessions = new Map<string, SessionRecord>()
   private readonly accessTokens = new Map<string, AccessTokenRecord>()
   private readonly flows = new Map<string, AuthFlow>()
@@ -206,6 +235,24 @@ export class MemoryStore implements ArcadeStore {
 
   async getPlayer(playerId: string): Promise<PlayerRecord | undefined> {
     return this.players.get(playerId)
+  }
+
+  async getChallengeAttempts(challengeId: string, playerId: string): Promise<number> {
+    return this.challengeAttempts.get(attemptKey(challengeId, playerId)) ?? 0
+  }
+
+  async consumeChallengeAttempt(
+    challengeId: string,
+    playerId: string,
+    limit: number,
+    _now: number,
+  ): Promise<number | undefined> {
+    const key = attemptKey(challengeId, playerId)
+    const used = this.challengeAttempts.get(key) ?? 0
+    if (used >= limit) return undefined
+    const next = used + 1
+    this.challengeAttempts.set(key, next)
+    return next
   }
 
   async putSession(session: SessionRecord): Promise<void> {
@@ -296,6 +343,9 @@ export class MemoryStore implements ArcadeStore {
       if (token.playerId === playerId) this.accessTokens.delete(hash)
     }
     for (const board of this.boards.values()) board.delete(playerId)
+    for (const [key] of this.challengeAttempts) {
+      if (key.endsWith(`|${playerId}`)) this.challengeAttempts.delete(key)
+    }
     for (const [id, run] of this.runs) {
       if (run.playerId === playerId) this.runs.delete(id)
     }

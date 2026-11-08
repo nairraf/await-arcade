@@ -5,7 +5,7 @@ export const meta: GameMeta = {
   title: "Mineflag",
   description: "Clear the field without detonating the mines. Safe first click, flood reveal, chording, and keyboard play.",
   author: "Await Arcade",
-  version: "1.0.0",
+  version: "1.1.0",
   engines: { arcade: "^0.1.0" },
   kind: "turn",
   modes: [
@@ -13,7 +13,7 @@ export const meta: GameMeta = {
     { id: "intermediate", title: "Intermediate", description: "16 × 16, 40 mines", difficulty: 2 },
     { id: "expert", title: "Expert", description: "30 × 16, 99 mines", difficulty: 3 },
   ],
-  score: { type: "lower", min: 0, max: 3_600_000 },
+  score: { type: "lower", min: 0, max: 100_000, unit: "moves" },
   leaderboard: "replay",
   status: "stable",
   controls: [
