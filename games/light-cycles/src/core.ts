@@ -54,26 +54,75 @@ function occupied(state: CycleState, index: number): boolean {
   return state.bikes.some((bike) => bike.trail.has(index))
 }
 
+function blockedCells(state: CycleState): Set<number> {
+  const blocked = new Set<number>()
+  for (const bike of state.bikes) {
+    for (const index of bike.trail) blocked.add(index)
+  }
+  return blocked
+}
+
+/**
+ * Count the free cells reachable from a candidate cell. This is the AI's
+ * lookahead: it prefers open space over a move that survives one tick but
+ * seals the rider into a pocket.
+ */
+function freeSpace(state: CycleState, start: number, blocked: Set<number>): number {
+  if (blocked.has(start)) return 0
+
+  const seen = new Set<number>([start])
+  const stack = [start]
+  let count = 0
+
+  while (stack.length > 0) {
+    const index = stack.pop()!
+    count += 1
+    const x = index % state.width
+    const y = Math.floor(index / state.width)
+
+    for (const [dx, dy] of DIRECTIONS) {
+      const nx = x + dx
+      const ny = y + dy
+      if (nx < 0 || ny < 0 || nx >= state.width || ny >= state.height) continue
+
+      const next = ny * state.width + nx
+      if (seen.has(next) || blocked.has(next)) continue
+      seen.add(next)
+      stack.push(next)
+    }
+  }
+
+  return count
+}
+
 function aiTurn(state: CycleState, player: 0 | 1): Turn {
   const bike = state.bikes[player]
   if (!bike || !bike.alive) return 0
 
+  const target = state.bikes[player === 0 ? 1 : 0]
+  const blocked = blockedCells(state)
   const rng = createRng((state.seed ^ Math.imul(state.ticks + 1, 0x9e3779b1)) >>> 0)
-  const options: Turn[] = [-1, 0, 1]
-  const shuffled = rng.shuffle(options)
+  const candidates: Array<{ turn: Turn; score: number }> = []
 
-  for (const turn of shuffled) {
+  for (const turn of [-1, 0, 1] as const) {
     const direction = turnDirection(bike.dir, turn)
     const delta = DIRECTIONS[direction]!
     const x = bike.x + delta[0]
     const y = bike.y + delta[1]
 
     if (x < 0 || y < 0 || x >= state.width || y >= state.height) continue
-    if (occupied(state, y * state.width + x)) continue
-    return turn
+    const index = y * state.width + x
+    if (blocked.has(index)) continue
+
+    const space = freeSpace(state, index, blocked)
+    const distance = target ? Math.abs(x - target.x) + Math.abs(y - target.y) : 0
+    // Survival dominates; distance and jitter only break near-ties.
+    candidates.push({ turn, score: space * 8 - distance + rng.next() * 3 })
   }
 
-  return 0
+  if (candidates.length === 0) return 0
+  candidates.sort((left, right) => right.score - left.score)
+  return candidates[0]!.turn
 }
 
 export const core: GameCore<CycleState, CycleInput> = {

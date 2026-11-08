@@ -37,9 +37,19 @@ const css = `
   grid-template-columns: repeat(var(--ms-cols, 9), minmax(0, 1fr));
   gap: 2px;
   width: 100%;
+  min-width: calc(var(--ms-cols, 9) * 24px);
   max-width: calc(var(--ms-cols, 9) * 30px);
+  margin: 0 auto;
   user-select: none;
   touch-action: manipulation;
+}
+
+.ms-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
 }
 
 .ms-cell {
@@ -52,7 +62,8 @@ const css = `
   border: 1px solid transparent;
   border-radius: 3px;
   font: inherit;
-  font-size: clamp(8px, 1.4vw, 13px);
+  font-size: clamp(10px, 1.5vw, 14px);
+  font-variant-numeric: tabular-nums;
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
@@ -60,7 +71,7 @@ const css = `
 }
 
 .ms-hidden {
-  border-color: var(--arcade-line, rgba(148, 163, 184, 0.18));
+  border-color: color-mix(in srgb, var(--arcade-fg, #e6edf3) 24%, transparent);
   background: linear-gradient(160deg, var(--arcade-panel-2, #1d2937), var(--arcade-panel, #111923));
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--arcade-fg, #e6edf3) 8%, transparent);
 }
@@ -74,8 +85,9 @@ const css = `
 }
 
 .ms-open {
-  border-color: var(--arcade-line, rgba(148, 163, 184, 0.18));
-  background: var(--arcade-bg, #0a0f16);
+  border-color: color-mix(in srgb, var(--arcade-fg, #e6edf3) 18%, transparent);
+  background: color-mix(in srgb, var(--arcade-panel-2, #101923) 55%, var(--arcade-bg, #06090d));
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
   cursor: default;
 }
 
@@ -99,7 +111,7 @@ const css = `
 .ms-n5 { color: #fbbf24; }
 .ms-n6 { color: #22d3ee; }
 .ms-n7 { color: #f472b6; }
-.ms-n8 { color: #cbd5e1; }
+.ms-n8 { color: #f1f5f9; }
 
 .arcade[data-theme="light"] .ms-n1 { color: #1d4ed8; }
 .arcade[data-theme="light"] .ms-n2 { color: #15803d; }
@@ -123,6 +135,7 @@ const css = `
 .arcade[data-theme="light"] .ms-open {
   border-color: rgba(60, 50, 35, 0.14);
   background: #fffdf7;
+  text-shadow: none;
 }
 
 .arcade[data-theme="light"] .ms-stat {
@@ -153,6 +166,7 @@ const css = `
   .arcade[data-theme="auto"] .ms-open {
     border-color: rgba(60, 50, 35, 0.14);
     background: #fffdf7;
+    text-shadow: none;
   }
 
   .arcade[data-theme="auto"] .ms-stat {
@@ -183,7 +197,9 @@ export function view(ctx: ViewContext<MineState, MineInput>): GameView<MineState
   bar.append(minesOut, flagsOut)
 
   const board = el("div", "ms-board")
-  wrap.append(bar, board)
+  const scroll = el("div", "ms-scroll")
+  scroll.append(board)
+  wrap.append(bar, scroll)
   ctx.container.append(wrap)
 
   let width = 0

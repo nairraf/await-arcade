@@ -22,6 +22,13 @@ describe("neon cycles core", () => {
     expect(result.score.value).toBeGreaterThan(0)
   })
 
+  it("keeps the AI alive when the player does nothing", () => {
+    const result = playRealtime(core, meta, { seed: 123, mode: solo, ticks: 4000, inputs: [] })
+
+    expect(result.state.phase).toBe("lost")
+    expect(result.state.bikes[1]!.alive).toBe(true)
+  })
+
   it("grows the trail as the bikes move", () => {
     const result = playRealtime(core, meta, { seed: 1, mode: solo, ticks: 5, inputs: [] })
 
