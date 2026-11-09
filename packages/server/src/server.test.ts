@@ -358,12 +358,11 @@ describe("daily challenge", () => {
       expect(detail.attempt).toBe(1)
       expect(typeof detail.elapsedMs).toBe("number")
       const expectedRankKey = [
-        "01",
-        String(detail.elapsedMs).padStart(10, "0"),
         String(moves).padStart(6, "0"),
+        String(detail.elapsedMs).padStart(10, "0"),
       ].join("|")
       expect(detail.rankKey).toBe(expectedRankKey)
-      expect(acceptedBody.score.value).toBe(Number(detail.elapsedMs))
+      expect(acceptedBody.score.value).toBe(moves)
 
       const board = (await fetch(
         `${root}/v1/challenges/${encodeURIComponent(info.challengeId)}/board`,
@@ -372,7 +371,7 @@ describe("daily challenge", () => {
       }
       expect(board.entries).toHaveLength(1)
       expect(board.entries[0]?.playerId).toBe("daily-anchor")
-      expect(board.entries[0]?.score.value).toBe(Number(detail.elapsedMs))
+      expect(board.entries[0]?.score.value).toBe(moves)
       expect(board.entries[0]?.rankKey).toBe(expectedRankKey)
     } finally {
       await local.close()

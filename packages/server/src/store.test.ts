@@ -34,7 +34,7 @@ describe("MemoryStore.rank", () => {
     expect(await store.rank("board", "fast", "lower")).toBe(1)
   })
 
-  it("orders and ranks daily entries by attempt, time, then moves", async () => {
+  it("orders and ranks daily entries by moves, then time", async () => {
     const store = new MemoryStore()
     const daily = (playerId: string, rankKey: string): BoardEntry => ({
       ...entry(playerId, 1, "lower"),
@@ -42,20 +42,20 @@ describe("MemoryStore.rank", () => {
     })
 
     await store.transaction(async (tx) => {
-      await tx.putEntry("daily", daily("second-try", "02|0000000500|000100"))
-      await tx.putEntry("daily", daily("slow", "01|0000001000|000200"))
-      await tx.putEntry("daily", daily("more-moves", "01|0000000800|000300"))
-      await tx.putEntry("daily", daily("fewer-moves", "01|0000000800|000200"))
+      await tx.putEntry("daily", daily("second-try", "000100|0000000500"))
+      await tx.putEntry("daily", daily("slow", "000200|0000001000"))
+      await tx.putEntry("daily", daily("more-moves", "000300|0000000800"))
+      await tx.putEntry("daily", daily("fewer-moves", "000200|0000000800"))
     })
 
     const top = await store.top("daily", 10, "lower", "rankKey")
     expect(top.map((item) => item.playerId)).toEqual([
-      "fewer-moves",
-      "more-moves",
-      "slow",
       "second-try",
+      "fewer-moves",
+      "slow",
+      "more-moves",
     ])
-    expect(await store.rank("daily", "second-try", "lower", undefined, "rankKey")).toBe(4)
+    expect(await store.rank("daily", "second-try", "lower", undefined, "rankKey")).toBe(1)
   })
 
   it("returns undefined for a player with no entry", async () => {

@@ -610,13 +610,12 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           const elapsedMs = Math.max(0, Date.now() - run.createdAt)
           const attempt = run.attempt ?? 1
           dailyRankKey = [
-            String(attempt).padStart(2, "0"),
-            String(elapsedMs).padStart(10, "0"),
             String(moves).padStart(6, "0"),
+            String(elapsedMs).padStart(10, "0"),
           ].join("|")
           dailyScore = {
             ...score,
-            value: elapsedMs,
+            value: moves,
             type: "lower",
             detail: {
               ...(score.detail ?? {}),
