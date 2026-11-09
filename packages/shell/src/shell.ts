@@ -15,7 +15,7 @@ import type {
 } from "@await-arcade/contract"
 import { createRunner, el, ensureStyle, type GameRunner } from "@await-arcade/framework"
 import { LocalHost } from "./host"
-import { formatDuration, formatScore, isBetter, scoreLabel } from "./format"
+import { formatDailyScore, formatDuration, formatScore, isBetter, scoreLabel } from "./format"
 import { styles } from "./styles"
 
 export interface ArcadeOptions {
@@ -145,6 +145,7 @@ function renderBoardRow(
   meta: GameMeta,
   currentId?: string,
   extraClass = "",
+  format: (score: Score, meta: GameMeta) => string = formatScore,
 ): HTMLElement {
   const isYou = Boolean(currentId && item.playerId === currentId)
   const row = el(
@@ -157,7 +158,7 @@ function renderBoardRow(
   row.append(
     el("span", "arcade-board-rank", `#${index + 1}`),
     player,
-    el("span", "arcade-board-score", formatScore(item.score, meta)),
+    el("span", "arcade-board-score", format(item.score, meta)),
   )
   return row
 }
@@ -574,6 +575,11 @@ export function createArcade(options: ArcadeOptions): Arcade {
         `${mode.title} · one fixed seed for everyone · best of three`,
       ),
     )
+    if (entry.meta.id === "mineflag") {
+      body.append(
+        el("div", "arcade-mode-hint", "Daily rank: moves, server time, attempts."),
+      )
+    }
 
     const remaining = Math.max(0, challenge.attemptsLeft)
     const meta = el("div", "arcade-daily-meta")
@@ -988,6 +994,15 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
     controls.append(play, refresh)
 
+    const scoringHint =
+      daily && entry.meta.id === "mineflag"
+        ? el(
+            "div",
+            "arcade-mode-hint",
+            "Daily rank: moves (30s each) + server time + 2 min per extra attempt.",
+          )
+        : undefined
+
     const you = el("div", "arcade-boards-you")
     const youLabel = el("div", "arcade-boards-you-label", "YOUR RANK")
     const youRank = el("div", "arcade-boards-you-rank", "—")
@@ -997,7 +1012,15 @@ export function createArcade(options: ArcadeOptions): Arcade {
     const list = el("div", "arcade-board-list arcade-boards-list")
     list.append(el("div", "arcade-empty", "Loading…"))
 
-    section.append(head, tabs, controls, ...(modeHint ? [modeHint] : []), you, list)
+    section.append(
+      head,
+      tabs,
+      controls,
+      ...(modeHint ? [modeHint] : []),
+      ...(scoringHint ? [scoringHint] : []),
+      you,
+      list,
+    )
     main.append(section)
 
     try {
@@ -1033,7 +1056,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
         if (dailyIndex >= 0) {
           const entryAt = entries[dailyIndex]!
           youRank.textContent = `#${dailyIndex + 1}`
-          youScore.textContent = `${scoreLabel(entry.meta)}: ${formatScore(entryAt.score, entry.meta)}`
+          youScore.textContent = formatDailyScore(entryAt.score, entry.meta)
         } else if (auth && !auth.signedIn) {
           youRank.textContent = "—"
           youScore.textContent = "Sign in with GitHub to play the daily."
@@ -1089,7 +1112,16 @@ export function createArcade(options: ArcadeOptions): Arcade {
       }
 
       entries.forEach((item, index) => {
-        list.append(renderBoardRow(item, index, entry.meta, playerId, "arcade-boards-row"))
+        list.append(
+          renderBoardRow(
+            item,
+            index,
+            entry.meta,
+            playerId,
+            "arcade-boards-row",
+            daily ? formatDailyScore : formatScore,
+          ),
+        )
       })
     } catch (error) {
       if (epoch !== boardsEpoch || section.parentNode !== main) return
@@ -1311,8 +1343,8 @@ export function createArcade(options: ArcadeOptions): Arcade {
     )
     const bestCell = hudCell(bestLabel, best ? formatScore(best, entry.meta) : "—")
     const time = hudCell(
-      entry.meta.kind === "realtime" ? "Elapsed" : "Status",
-      entry.meta.kind === "realtime" ? "0.0s" : "Playing",
+      entry.meta.kind === "realtime" || entry.meta.id === "mineflag" ? "Elapsed" : "Status",
+      entry.meta.kind === "realtime" || entry.meta.id === "mineflag" ? "0.0s" : "Playing",
     )
     const hud = el("div", "arcade-hud")
     hud.append(score.root, bestCell.root, time.root)
@@ -1331,6 +1363,23 @@ export function createArcade(options: ArcadeOptions): Arcade {
         })
         .catch(() => {
           // Offline; keep the cached best.
+        })
+    }
+
+    if (daily && host.dailyBoard) {
+      void host
+        .dailyBoard(daily.challengeId)
+        .then((entries) => {
+          if (generation !== playGeneration) return
+          const id = authState?.playerId
+          const mine = id ? entries.find((item) => item.playerId === id) : undefined
+          if (!mine) return
+          const text = formatDailyScore(mine.score, entry.meta)
+          bestCell.value.textContent = text
+          cabinetBest.textContent = `${bestLabel}: ${text}`
+        })
+        .catch(() => {
+          // Offline or no previous daily run.
         })
     }
 
@@ -1406,6 +1455,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     let runner!: GameRunner<any, any>
     let lastTicks = 0
     let boardPending = false
+    let elapsedTimer: ReturnType<typeof setInterval> | undefined
 
     const showPaused = (): void => {
       showOverlay(() =>
@@ -1466,6 +1516,10 @@ export function createArcade(options: ArcadeOptions): Arcade {
     document.addEventListener("visibilitychange", onVisibility)
 
     const cleanup = (): void => {
+      if (elapsedTimer) {
+        clearInterval(elapsedTimer)
+        elapsedTimer = undefined
+      }
       document.removeEventListener("keydown", onKey)
       document.removeEventListener("visibilitychange", onVisibility)
     }
@@ -1480,7 +1534,9 @@ export function createArcade(options: ArcadeOptions): Arcade {
       if (boardButton) boardButton.disabled = true
 
       const improved = daily
-        ? submit.best !== undefined && submit.best.value === result.score.value
+        ? submit.best !== undefined &&
+          submit.score !== undefined &&
+          submit.best.value === submit.score.value
         : submit.best !== undefined && isBetter(submit.best, previousBest)
       const kicker = daily
         ? `DAILY ATTEMPT ${session.attempt ?? 1}/3`
@@ -1507,9 +1563,25 @@ export function createArcade(options: ArcadeOptions): Arcade {
       } else detailParts.push(submit.reason ?? "Submission failed.")
 
       if (submit.rank !== undefined) detailParts.push(`Rank #${submit.rank}`)
+      if (daily && submit.score) {
+        const detail = submit.score.detail ?? {}
+        const elapsed = typeof detail.elapsedMs === "number" ? detail.elapsedMs : undefined
+        const moves = typeof detail.moves === "number" ? detail.moves : undefined
+        const attempt = typeof detail.attempt === "number" ? detail.attempt : (session.attempt ?? 1)
+        if (elapsed !== undefined && moves !== undefined) {
+          detailParts.push(
+            `Server ${formatDuration(elapsed)} · ${moves} moves · attempt ${attempt}.`,
+          )
+        }
+      } else if (!daily && entry.meta.id === "mineflag") {
+        detailParts.push(`Time ${formatDuration(result.replay.durationMs)}.`)
+      }
       if (submit.best) {
-        bestCell.value.textContent = formatScore(submit.best, entry.meta)
-        cabinetBest.textContent = `${bestLabel}: ${formatScore(submit.best, entry.meta)}`
+        const bestText = daily
+          ? formatDailyScore(submit.best, entry.meta)
+          : formatScore(submit.best, entry.meta)
+        bestCell.value.textContent = bestText
+        cabinetBest.textContent = `${bestLabel}: ${bestText}`
       }
 
       const download = button("Download replay", false, () => {
@@ -1573,12 +1645,23 @@ export function createArcade(options: ArcadeOptions): Arcade {
         lastTicks = ticks
         const preview = entry.core.score(state, { elapsedMs, ticks })
         score.value.textContent = formatScore(preview, entry.meta)
-        if (entry.meta.kind === "realtime") time.value.textContent = formatDuration(elapsedMs)
-        else time.value.textContent = entry.core.phase(state) === "playing" ? "Playing" : "Finished"
+        if (entry.meta.kind === "realtime" || entry.meta.id === "mineflag") {
+          time.value.textContent = formatDuration(elapsedMs)
+        } else {
+          time.value.textContent = entry.core.phase(state) === "playing" ? "Playing" : "Finished"
+        }
       },
       onEnd(result) {
         runInProgress = false
-        if (entry.meta.kind === "turn") time.value.textContent = result.score.won ? "Won" : "Lost"
+        if (elapsedTimer) {
+          clearInterval(elapsedTimer)
+          elapsedTimer = undefined
+        }
+        if (entry.meta.id === "mineflag") {
+          time.value.textContent = formatDuration(result.replay.durationMs)
+        } else if (entry.meta.kind === "turn") {
+          time.value.textContent = result.score.won ? "Won" : "Lost"
+        }
         const previousBest = isDaily || !isRankedMode ? undefined : host.best(entry.meta.id, mode.id)
         void host
           .submit(result)
@@ -1667,7 +1750,16 @@ export function createArcade(options: ArcadeOptions): Arcade {
         } else {
           const list = el("div", "arcade-board-list")
           entries.forEach((item, index) => {
-            list.append(renderBoardRow(item, index, entry.meta, currentId))
+            list.append(
+              renderBoardRow(
+                item,
+                index,
+                entry.meta,
+                currentId,
+                "",
+                activeDaily ? formatDailyScore : formatScore,
+              ),
+            )
           })
           card.append(list)
         }
@@ -1699,6 +1791,14 @@ export function createArcade(options: ArcadeOptions): Arcade {
       } finally {
         boardPending = false
       }
+    }
+
+    if (entry.meta.id === "mineflag") {
+      elapsedTimer = setInterval(() => {
+        if (runner && entry.core.phase(runner.state()) === "playing") {
+          time.value.textContent = formatDuration(runner.elapsedMs())
+        }
+      }, 1000)
     }
 
     active = { runner, cleanup }

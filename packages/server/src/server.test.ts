@@ -341,19 +341,34 @@ describe("daily challenge", () => {
       expect(accepted.status).toBe(200)
       const acceptedBody = (await accepted.json()) as {
         ok: boolean
-        score: { ranked: boolean; won: boolean }
+        score: {
+          ranked: boolean
+          won: boolean
+          value: number
+          detail?: Record<string, number | string | boolean>
+        }
       }
       expect(acceptedBody.ok).toBe(true)
       expect(acceptedBody.score.won).toBe(true)
       expect(acceptedBody.score.ranked).toBe(true)
 
+      const moves = onAnchor.replay.inputs.length
+      const detail = acceptedBody.score.detail ?? {}
+      expect(detail.moves).toBe(moves)
+      expect(detail.attempt).toBe(1)
+      expect(typeof detail.elapsedMs).toBe("number")
+      expect(acceptedBody.score.value).toBe(
+        moves * 30_000 + Number(detail.elapsedMs),
+      )
+
       const board = (await fetch(
         `${root}/v1/challenges/${encodeURIComponent(info.challengeId)}/board`,
       ).then((response) => response.json())) as {
-        entries: Array<{ playerId: string }>
+        entries: Array<{ playerId: string; score: { value: number } }>
       }
       expect(board.entries).toHaveLength(1)
       expect(board.entries[0]?.playerId).toBe("daily-anchor")
+      expect(board.entries[0]?.score.value).toBe(acceptedBody.score.value)
     } finally {
       await local.close()
     }

@@ -168,6 +168,8 @@ export interface RunResult<I = unknown> {
 
 export interface SubmitResult {
   readonly ok: boolean
+  /** The verified run's score. Daily Mineflag returns the weighted daily score here. */
+  readonly score?: Score
   readonly best?: Score
   readonly rank?: number
   readonly reason?: string

@@ -50,6 +50,8 @@ export interface ArcadeServer {
 
 const MAX_BODY = 2_500_000
 const RUN_TTL_MS = 24 * 60 * 60 * 1000
+const DAILY_MINE_MOVE_WEIGHT_MS = 30_000
+const DAILY_MINE_ATTEMPT_PENALTY_MS = 120_000
 
 function winner(a: Score, b: Score): boolean {
   return a.type === "lower" ? a.value < b.value : a.value > b.value
@@ -603,6 +605,26 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
         }
 
         const score = verified.score
+        let dailyScore = score
+        if (run.gameId === "mineflag" && run.challengeId) {
+          const moves = verified.ticks ?? score.value
+          const elapsedMs = Math.max(0, Date.now() - run.createdAt)
+          const attempt = run.attempt ?? 1
+          dailyScore = {
+            ...score,
+            value:
+              moves * DAILY_MINE_MOVE_WEIGHT_MS +
+              elapsedMs +
+              (attempt - 1) * DAILY_MINE_ATTEMPT_PENALTY_MS,
+            type: "lower",
+            detail: {
+              ...(score.detail ?? {}),
+              moves,
+              elapsedMs,
+              attempt,
+            },
+          }
+        }
         const key = run.challengeId ?? boardKey(run.gameId, run.modeId)
 
         const outcome = await store.transaction(async (tx) => {
@@ -612,8 +634,8 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           if (!player) return { missingPlayer: true as const }
 
           const previous = await tx.getEntry(key, run.playerId)
-          const beatPrevious = !previous || winner(score, previous.score)
-          const best = beatPrevious ? score : previous.score
+          const beatPrevious = !previous || winner(dailyScore, previous.score)
+          const best = beatPrevious ? dailyScore : previous.score
 
           if (beatPrevious) {
             await tx.putEntry(key, {
@@ -647,7 +669,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
 
         json(res, 200, {
           ok: true,
-          score,
+          score: dailyScore,
           ...(outcome.best ? { best: outcome.best } : {}),
           ...(rank !== undefined ? { rank } : {}),
           ...(run.challengeId ? { challengeId: run.challengeId } : {}),

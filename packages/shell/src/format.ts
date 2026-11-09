@@ -26,6 +26,18 @@ export function scoreLabel(meta: GameMeta): string {
   return "High score"
 }
 
+/** Compact daily Mineflag display: moves, server time, attempt. */
+export function formatDailyScore(score: Score, meta: GameMeta): string {
+  const moves = score.detail?.moves
+  const elapsed = score.detail?.elapsedMs
+  const attempt = score.detail?.attempt
+  if (typeof moves === "number" && typeof elapsed === "number") {
+    const tryLabel = typeof attempt === "number" ? ` · try ${attempt}` : ""
+    return `${moves} mv · ${formatDuration(elapsed)}${tryLabel}`
+  }
+  return formatScore(score, meta)
+}
+
 /** Positive when `candidate` beats `previous`. */
 export function compareScores(candidate: Score, previous: Score): number {
   return candidate.type === "lower"
