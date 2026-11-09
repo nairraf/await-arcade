@@ -504,6 +504,10 @@ export function createArcade(options: ArcadeOptions): Arcade {
             host.toast("Enter an arcade name.")
             return
           }
+          if (name === state.displayName) {
+            host.toast("That is already your arcade name.")
+            return
+          }
           saveName.disabled = true
           void host
             .updateName!(name)
@@ -557,7 +561,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
           el(
             "div",
             "arcade-overlay-detail",
-            "Shown on leaderboards instead of your GitHub name.",
+            "Shown on leaderboards instead of your GitHub name. Two changes per UTC day.",
           ),
           nameStatus,
         )

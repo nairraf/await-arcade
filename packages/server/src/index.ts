@@ -382,6 +382,10 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           }, false)
           return
         }
+        if (identity.player.displayName === name) {
+          json(res, 200, { player: auth!.me(identity.player) }, false)
+          return
+        }
         const owner = await store.findPlayerByName(
           nameKey(name),
           identity.player.playerId,
@@ -390,7 +394,13 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           json(res, 409, { error: "That arcade name is taken." }, false)
           return
         }
-        const player = await auth!.updateDisplayName(identity.player, name)
+        const player = await auth!.updateDisplayName(identity.player, name, 2)
+        if (player === "limited") {
+          json(res, 429, {
+            error: "You can change your arcade name twice per UTC day.",
+          }, false)
+          return
+        }
         json(res, 200, { player }, false)
         return
       }

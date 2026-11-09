@@ -201,23 +201,42 @@ export class FirestoreStore implements ArcadeStore {
   async updatePlayerName(
     playerId: string,
     displayName: string,
-  ): Promise<PlayerRecord | undefined> {
+    options: { readonly dailyLimit?: number; readonly now?: number } = {},
+  ): Promise<PlayerRecord | "limited" | undefined> {
     const ref = this.playerDoc(playerId)
-    const at = Date.now()
+    const at = options.now ?? Date.now()
+    const day = new Date(at).toISOString().slice(0, 10)
     const key = nameKey(displayName)
     const updated = await this.db.runTransaction(async (transaction) => {
       const snapshot = await transaction.get(ref)
       if (!snapshot.exists) return undefined
-      const player = {
-        ...(snapshot.data() as PlayerRecord),
+      const player = snapshot.data() as PlayerRecord
+      const used = player.renameDay === day ? (player.renameCount ?? 0) : 0
+      if (options.dailyLimit !== undefined && used >= options.dailyLimit) {
+        return "limited" as const
+      }
+      const next = {
+        ...player,
         displayName,
         nameKey: key,
+        renameDay: day,
+        renameCount: used + 1,
         updatedAt: at,
       }
-      transaction.set(ref, { displayName, nameKey: key, updatedAt: at }, { merge: true })
-      return player
+      transaction.set(
+        ref,
+        {
+          displayName,
+          nameKey: key,
+          renameDay: day,
+          renameCount: used + 1,
+          updatedAt: at,
+        },
+        { merge: true },
+      )
+      return next
     })
-    if (!updated) return undefined
+    if (updated === "limited" || !updated) return updated
 
     // Board rows are denormalized for display; keep existing entries in sync.
     const boards = await this.db.collection("boards").get()

@@ -220,6 +220,26 @@ describe("GitHub device flow", () => {
     })
     expect(conflict.status).toBe(409)
 
+    const secondRename = await fetch(`${base}/v1/me`, {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${tokens.accessToken}`,
+      },
+      body: JSON.stringify({ displayName: "Sir Mines II" }),
+    })
+    expect(secondRename.status).toBe(200)
+
+    const thirdRename = await fetch(`${base}/v1/me`, {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${tokens.accessToken}`,
+      },
+      body: JSON.stringify({ displayName: "Sir Mines III" }),
+    })
+    expect(thirdRename.status).toBe(429)
+
     githubUser = { id: 42, login: "octocat", name: "The Octocat" }
   })
 

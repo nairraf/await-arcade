@@ -30,6 +30,9 @@ export interface PlayerRecord {
   displayName: string
   /** Case-folded lookup key for display-name uniqueness. */
   nameKey?: string
+  /** UTC day and count for the rename limit. */
+  renameDay?: string
+  renameCount?: number
   readonly createdAt: number
   updatedAt: number
   readonly githubLogin?: string
@@ -117,7 +120,11 @@ export interface ArcadeStore {
   /** Find another player whose normalized display name matches. */
   findPlayerByName(nameKey: string, exceptPlayerId?: string): Promise<PlayerRecord | undefined>
   /** Change the public arcade name and propagate it to existing board rows. */
-  updatePlayerName(playerId: string, displayName: string): Promise<PlayerRecord | undefined>
+  updatePlayerName(
+    playerId: string,
+    displayName: string,
+    options?: { readonly dailyLimit?: number; readonly now?: number },
+  ): Promise<PlayerRecord | "limited" | undefined>
   /** Daily attempts already consumed by this player. */
   getChallengeAttempts(challengeId: string, playerId: string): Promise<number>
   /**
@@ -288,12 +295,20 @@ export class MemoryStore implements ArcadeStore {
   async updatePlayerName(
     playerId: string,
     displayName: string,
-  ): Promise<PlayerRecord | undefined> {
+    options: { readonly dailyLimit?: number; readonly now?: number } = {},
+  ): Promise<PlayerRecord | "limited" | undefined> {
     const player = this.players.get(playerId)
     if (!player) return undefined
+    const now = options.now ?? Date.now()
+    const day = new Date(now).toISOString().slice(0, 10)
+    const used = player.renameDay === day ? (player.renameCount ?? 0) : 0
+    if (options.dailyLimit !== undefined && used >= options.dailyLimit) return "limited"
+
     player.displayName = displayName
     player.nameKey = nameKey(displayName)
-    player.updatedAt = Date.now()
+    player.renameDay = day
+    player.renameCount = used + 1
+    player.updatedAt = now
     for (const board of this.boards.values()) {
       const entry = board.get(playerId)
       if (entry) board.set(playerId, { ...entry, displayName })

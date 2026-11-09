@@ -275,8 +275,16 @@ export class AuthService {
     await this.store.deletePlayerData(player.playerId, player.providerId, boardIds)
   }
 
-  async updateDisplayName(player: PlayerRecord, displayName: string): Promise<PublicPlayer> {
-    const updated = await this.store.updatePlayerName(player.playerId, displayName)
+  async updateDisplayName(
+    player: PlayerRecord,
+    displayName: string,
+    dailyLimit = 2,
+  ): Promise<PublicPlayer | "limited"> {
+    const updated = await this.store.updatePlayerName(player.playerId, displayName, {
+      dailyLimit,
+      now: this.now(),
+    })
+    if (updated === "limited") return "limited"
     return this.publicPlayer(updated ?? player)
   }
 
