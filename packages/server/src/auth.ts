@@ -1,6 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto"
 import type { GitHubClient } from "./github"
-import type { AccessTokenRecord, ArcadeStore, AuthFlow, PlayerRecord, SessionRecord } from "./store"
+import { nameKey, type AccessTokenRecord, type ArcadeStore, type AuthFlow, type PlayerRecord, type SessionRecord } from "./store"
 
 export interface PublicPlayer {
   readonly playerId: string
@@ -186,10 +186,12 @@ export class AuthService {
 
       const githubUser = await this.github.user(result.accessToken)
       const now = this.now()
+      const displayName = githubUser.name?.trim() || githubUser.login
       const candidate: PlayerRecord = {
         playerId: randomUUID(),
         providerId: `github:${githubUser.id}`,
-        displayName: githubUser.name?.trim() || githubUser.login,
+        displayName,
+        nameKey: nameKey(displayName),
         createdAt: now,
         updatedAt: now,
         githubLogin: githubUser.login,

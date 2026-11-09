@@ -102,6 +102,7 @@ app.api("/api/auth/poll", (data) => session.authPoll(data.flowId), "POST")
 app.api("/api/auth/signout", () => session.authSignOut(), "POST")
 app.api("/api/auth/delete", () => session.deleteAccount(), "POST")
 app.api("/api/auth/name", (data) => session.updateName(data.displayName), "POST")
+app.api("/api/auth/name-available", (data) => session.nameAvailable(data.displayName), "POST")
 
 await app.run()
 console.log("[await-arcade] sidecar running")

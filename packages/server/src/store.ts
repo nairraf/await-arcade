@@ -28,10 +28,17 @@ export interface PlayerRecord {
   readonly playerId: string
   readonly providerId: string
   displayName: string
+  /** Case-folded lookup key for display-name uniqueness. */
+  nameKey?: string
   readonly createdAt: number
   updatedAt: number
   readonly githubLogin?: string
   readonly avatarUrl?: string
+}
+
+/** Normalize a display name for case-insensitive uniqueness checks. */
+export function nameKey(value: string): string {
+  return value.normalize("NFKC").trim().toLocaleLowerCase("en-US")
 }
 
 export interface SessionRecord {
@@ -107,6 +114,8 @@ export interface ArcadeStore {
   ): Promise<number | undefined>
   ensurePlayer(providerId: string, player: PlayerRecord): Promise<PlayerRecord>
   getPlayer(playerId: string): Promise<PlayerRecord | undefined>
+  /** Find another player whose normalized display name matches. */
+  findPlayerByName(nameKey: string, exceptPlayerId?: string): Promise<PlayerRecord | undefined>
   /** Change the public arcade name and propagate it to existing board rows. */
   updatePlayerName(playerId: string, displayName: string): Promise<PlayerRecord | undefined>
   /** Daily attempts already consumed by this player. */
@@ -243,10 +252,14 @@ export class MemoryStore implements ArcadeStore {
   }
 
   async ensurePlayer(providerId: string, player: PlayerRecord): Promise<PlayerRecord> {
+    if (!player.nameKey) player.nameKey = nameKey(player.displayName)
     const existingId = this.providers.get(providerId)
     if (existingId) {
       const existing = this.players.get(existingId)
-      if (existing) return existing
+      if (existing) {
+        if (!existing.nameKey) existing.nameKey = nameKey(existing.displayName)
+        return existing
+      }
       this.players.set(player.playerId, player)
       this.providers.set(providerId, player.playerId)
       return player
@@ -260,6 +273,18 @@ export class MemoryStore implements ArcadeStore {
     return this.players.get(playerId)
   }
 
+  async findPlayerByName(
+    key: string,
+    exceptPlayerId?: string,
+  ): Promise<PlayerRecord | undefined> {
+    for (const player of this.players.values()) {
+      if (player.playerId !== exceptPlayerId && nameKey(player.displayName) === key) {
+        return player
+      }
+    }
+    return undefined
+  }
+
   async updatePlayerName(
     playerId: string,
     displayName: string,
@@ -267,6 +292,7 @@ export class MemoryStore implements ArcadeStore {
     const player = this.players.get(playerId)
     if (!player) return undefined
     player.displayName = displayName
+    player.nameKey = nameKey(displayName)
     player.updatedAt = Date.now()
     for (const board of this.boards.values()) {
       const entry = board.get(playerId)

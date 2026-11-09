@@ -131,6 +131,10 @@ export function createArcadeClient(options) {
     })
   }
 
+  async function nameAvailable(displayName) {
+    return request(`/v1/names/${encodeURIComponent(displayName)}`)
+  }
+
   async function status() {
     return { mode: "online", playerId }
   }
@@ -150,6 +154,7 @@ export function createArcadeClient(options) {
     authSignOut,
     me,
     updateMe,
+    nameAvailable,
     deleteMe,
     status,
   }

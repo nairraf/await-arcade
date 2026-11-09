@@ -192,6 +192,34 @@ describe("GitHub device flow", () => {
     })
     expect(invalid.status).toBe(400)
 
+    const selfName = (await get(
+      `/v1/names/${encodeURIComponent("sIr MiNeS")}`,
+      tokens.accessToken,
+    ).then((r) => r.json())) as { available: boolean }
+    expect(selfName.available).toBe(true)
+
+    const publicName = (await get(
+      `/v1/names/${encodeURIComponent("sir mines")}`,
+    ).then((r) => r.json())) as { available: boolean }
+    expect(publicName.available).toBe(false)
+
+    const freeName = (await get(
+      `/v1/names/${encodeURIComponent("Free Name")}`,
+    ).then((r) => r.json())) as { available: boolean }
+    expect(freeName.available).toBe(true)
+
+    githubUser = { id: 124, login: "rename-two", name: "Rename Two" }
+    const second = await signIn()
+    const conflict = await fetch(`${base}/v1/me`, {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${second.accessToken}`,
+      },
+      body: JSON.stringify({ displayName: "sir mines" }),
+    })
+    expect(conflict.status).toBe(409)
+
     githubUser = { id: 42, login: "octocat", name: "The Octocat" }
   })
 

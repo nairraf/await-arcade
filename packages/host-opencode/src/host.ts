@@ -116,4 +116,13 @@ export class OpenCodeHost extends LocalHost {
   async updateName(displayName: string): Promise<AuthState> {
     return (await this.client.rpc(Api).updateName({ displayName })) as AuthState
   }
+
+  async nameAvailable(
+    displayName: string,
+  ): Promise<{ name?: string; available: boolean }> {
+    return (await this.client.rpc(Api).nameAvailable({ displayName })) as {
+      name?: string
+      available: boolean
+    }
+  }
 }

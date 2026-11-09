@@ -658,6 +658,20 @@ export const styles = `
   gap: 8px;
 }
 
+.arcade-name-status {
+  min-height: 14px;
+  font-size: 10px;
+  color: var(--arcade-muted);
+}
+
+.arcade-name-status[data-state="ok"] {
+  color: var(--arcade-success);
+}
+
+.arcade-name-status[data-state="bad"] {
+  color: var(--arcade-danger);
+}
+
 .arcade-hud {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

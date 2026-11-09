@@ -1,14 +1,15 @@
 import { Firestore } from "@google-cloud/firestore"
-import type {
-  AccessTokenRecord,
-  ArcadeStore,
-  AuthFlow,
-  BoardEntry,
-  PlayerRecord,
-  RotateSessionInput,
-  RunRecord,
-  SessionRecord,
-  StoreTx,
+import {
+  nameKey,
+  type AccessTokenRecord,
+  type ArcadeStore,
+  type AuthFlow,
+  type BoardEntry,
+  type PlayerRecord,
+  type RotateSessionInput,
+  type RunRecord,
+  type SessionRecord,
+  type StoreTx,
 } from "./store"
 
 export interface FirestoreStoreOptions {
@@ -147,23 +148,32 @@ export class FirestoreStore implements ArcadeStore {
 
   async ensurePlayer(providerId: string, player: PlayerRecord): Promise<PlayerRecord> {
     const providerRef = this.db.collection("providers").doc(providerId)
+    const record = player.nameKey
+      ? player
+      : { ...player, nameKey: nameKey(player.displayName) }
 
     return this.db.runTransaction(async (transaction) => {
       const provider = await transaction.get(providerRef)
       if (provider.exists) {
         const playerRef = this.playerDoc(String(provider.get("playerId")))
         const existing = await transaction.get(playerRef)
-        if (existing.exists) return existing.data() as PlayerRecord
+        if (existing.exists) {
+          const found = existing.data() as PlayerRecord
+          if (found.nameKey) return found
+          const key = nameKey(found.displayName)
+          transaction.set(playerRef, { nameKey: key }, { merge: true })
+          return { ...found, nameKey: key }
+        }
 
         // Repair a provider link whose player document is missing.
-        transaction.set(this.playerDoc(player.playerId), player)
-        transaction.set(providerRef, { playerId: player.playerId, createdAt: player.createdAt })
-        return player
+        transaction.set(this.playerDoc(record.playerId), record)
+        transaction.set(providerRef, { playerId: record.playerId, createdAt: record.createdAt })
+        return record
       }
 
-      transaction.set(this.playerDoc(player.playerId), player)
-      transaction.set(providerRef, { playerId: player.playerId, createdAt: player.createdAt })
-      return player
+      transaction.set(this.playerDoc(record.playerId), record)
+      transaction.set(providerRef, { playerId: record.playerId, createdAt: record.createdAt })
+      return record
     })
   }
 
@@ -172,17 +182,39 @@ export class FirestoreStore implements ArcadeStore {
     return snapshot.exists ? (snapshot.data() as PlayerRecord) : undefined
   }
 
+  async findPlayerByName(
+    key: string,
+    exceptPlayerId?: string,
+  ): Promise<PlayerRecord | undefined> {
+    const snapshot = await this.db
+      .collection("players")
+      .where("nameKey", "==", key)
+      .limit(2)
+      .get()
+    for (const doc of snapshot.docs) {
+      const player = doc.data() as PlayerRecord
+      if (player.playerId !== exceptPlayerId) return player
+    }
+    return undefined
+  }
+
   async updatePlayerName(
     playerId: string,
     displayName: string,
   ): Promise<PlayerRecord | undefined> {
     const ref = this.playerDoc(playerId)
     const at = Date.now()
-    const updated =await this.db.runTransaction(async (transaction) => {
+    const key = nameKey(displayName)
+    const updated = await this.db.runTransaction(async (transaction) => {
       const snapshot = await transaction.get(ref)
       if (!snapshot.exists) return undefined
-      const player = { ...(snapshot.data() as PlayerRecord), displayName, updatedAt: at }
-      transaction.set(ref, { displayName, updatedAt: at }, { merge: true })
+      const player = {
+        ...(snapshot.data() as PlayerRecord),
+        displayName,
+        nameKey: key,
+        updatedAt: at,
+      }
+      transaction.set(ref, { displayName, nameKey: key, updatedAt: at }, { merge: true })
       return player
     })
     if (!updated) return undefined

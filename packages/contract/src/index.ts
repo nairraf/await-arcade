@@ -355,6 +355,8 @@ export interface GameHost {
   deleteAccount?(): Promise<AuthState>
   /** Change the public arcade name shown on leaderboards. */
   updateName?(displayName: string): Promise<AuthState>
+  /** Check whether an arcade name is free (case-insensitive). */
+  nameAvailable?(displayName: string): Promise<{ readonly name?: string; readonly available: boolean }>
   readonly storage: GameStorage
   readonly audio: AudioBus
   toast(message: string): void

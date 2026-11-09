@@ -320,5 +320,9 @@ export function createHostSession(options) {
       writeAuth(auth)
       return status()
     },
+    async nameAvailable(displayName) {
+      await ensureAuth()
+      return client.nameAvailable(displayName)
+    },
   }
 }

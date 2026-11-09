@@ -54,6 +54,7 @@ export default {
       authSignOut: () => session.authSignOut(),
       deleteAccount: () => session.deleteAccount(),
       updateName: (input) => session.updateName(input.displayName),
+      nameAvailable: (input) => session.nameAvailable(input.displayName),
     })
   },
 }

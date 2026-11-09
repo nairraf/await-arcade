@@ -56,6 +56,7 @@ export interface ArcadeClient {
   status(): Promise<{ readonly mode: "online"; readonly playerId: string }>
   me(): Promise<{ readonly player: PlayerProfile }>
   updateMe(displayName: string): Promise<{ readonly player: PlayerProfile }>
+  nameAvailable(displayName: string): Promise<{ readonly name: string; readonly available: boolean }>
   deleteMe(): Promise<void>
 }
 

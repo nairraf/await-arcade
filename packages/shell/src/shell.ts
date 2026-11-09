@@ -152,7 +152,7 @@ function renderBoardRow(
     "div",
     `arcade-board-row${extraClass ? ` ${extraClass}` : ""}${isYou ? " arcade-board-row-you" : ""}`,
   )
-  const name = isYou ? "You" : (item.displayName || item.playerId.slice(0, 8))
+  const name = item.displayName || (isYou ? "You" : item.playerId.slice(0, 8))
   const player = el("span", "arcade-board-player", name)
   player.title = isYou ? "You" : (item.displayName ? `${item.displayName} (${item.playerId})` : item.playerId)
   row.append(
@@ -518,6 +518,37 @@ export function createArcade(options: ArcadeOptions): Arcade {
             })
         })
 
+        const nameStatus = el("div", "arcade-name-status", "")
+        let nameTimer: ReturnType<typeof setTimeout> | undefined
+        const checkName = (): void => {
+          if (!host.nameAvailable) return
+          const name = nameInput.value.trim()
+          if (nameTimer) clearTimeout(nameTimer)
+          if (!name) {
+            saveName.disabled = true
+            nameStatus.textContent = "Enter an arcade name."
+            delete nameStatus.dataset.state
+            return
+          }
+          nameTimer = setTimeout(() => {
+            void host
+              .nameAvailable!(name)
+              .then((result) => {
+                if (!nameInput.isConnected) return
+                saveName.disabled = !result.available
+                nameStatus.textContent = result.available ? "Available" : "Taken"
+                nameStatus.dataset.state = result.available ? "ok" : "bad"
+              })
+              .catch((error: unknown) => {
+                if (!nameInput.isConnected) return
+                saveName.disabled = false
+                nameStatus.textContent = errorMessage(error)
+                delete nameStatus.dataset.state
+              })
+          }, 300)
+        }
+        nameInput.addEventListener("input", checkName)
+
         const nameRow = el("div", "arcade-name-row")
         nameRow.append(nameInput, saveName)
         children.push(
@@ -528,7 +559,9 @@ export function createArcade(options: ArcadeOptions): Arcade {
             "arcade-overlay-detail",
             "Shown on leaderboards instead of your GitHub name.",
           ),
+          nameStatus,
         )
+        checkName()
       }
 
       children.push(
@@ -1124,7 +1157,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
       if (daily) {
         youLabel.textContent = auth?.signedIn
-          ? `YOUR DAILY · @${auth.githubLogin ?? auth.displayName ?? "player"}`
+          ? `YOUR DAILY · ${auth.displayName ?? `@${auth.githubLogin ?? "player"}`}`
           : "YOUR DAILY"
         if (dailyIndex >= 0) {
           const entryAt = entries[dailyIndex]!
@@ -1138,7 +1171,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
           youScore.textContent = `No daily run yet. ${freshDaily?.attemptsLeft ?? daily.attemptsLeft} of 3 attempts left.`
         }
       } else if (auth?.signedIn) {
-        youLabel.textContent = `YOUR RANK · @${auth.githubLogin ?? auth.displayName ?? "player"}`
+        youLabel.textContent = `YOUR RANK · ${auth.displayName ?? `@${auth.githubLogin ?? "player"}`}`
       }
 
       if (!daily) {

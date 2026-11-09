@@ -121,4 +121,13 @@ export class SidecarHost extends LocalHost {
   async updateName(displayName: string): Promise<AuthState> {
     return this.call<AuthState>("/api/auth/name", { displayName })
   }
+
+  async nameAvailable(
+    displayName: string,
+  ): Promise<{ name?: string; available: boolean }> {
+    return this.call<{ name?: string; available: boolean }>(
+      "/api/auth/name-available",
+      { displayName },
+    )
+  }
 }

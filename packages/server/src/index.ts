@@ -15,6 +15,7 @@ import { githubClientFromEnv, type GitHubClient } from "./github"
 import { verifiers } from "./registry.generated"
 import {
   MemoryStore,
+  nameKey,
   type AccessTokenRecord,
   type ArcadeStore,
   type PlayerRecord,
@@ -28,6 +29,7 @@ export interface RateLimitsConfig {
   readonly refreshesPer10Min?: number
   readonly pollsPerMin?: number
   readonly startsPer10Min?: number
+  readonly namesPerMin?: number
 }
 
 export interface ArcadeServerOptions {
@@ -200,6 +202,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
   const allowAuthStart = createRateLimiter(10 * 60_000, rl.startsPer10Min ?? 10)
   const allowAuthPoll = createRateLimiter(60_000, rl.pollsPerMin ?? 30)
   const allowAuthRefresh = createRateLimiter(10 * 60_000, rl.refreshesPer10Min ?? 60)
+  const allowNameLookup = createRateLimiter(60_000, rl.namesPerMin ?? 60)
   const allowRunsIp = createRateLimiter(60_000, rl.runsPerMin ?? 30)
   const allowRunsPlayer = createRateLimiter(60_000, rl.runsPerMin ?? 30)
   const allowSubmitIp = createRateLimiter(60_000, rl.submitsPerMin ?? 20)
@@ -240,6 +243,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           playerId: player,
           providerId: `guest:${player}`,
           displayName: player,
+          nameKey: nameKey(player),
           createdAt: at,
           updatedAt: at,
         })
@@ -332,6 +336,30 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
         return
       }
 
+      if (
+        req.method === "GET" &&
+        parts.length === 3 &&
+        parts[0] === "v1" &&
+        parts[1] === "names"
+      ) {
+        const requested = decodeSegment(parts[2])
+        const name = cleanDisplayName(requested)
+        if (!name) {
+          json(res, 400, { error: "invalid displayName" })
+          return
+        }
+        if (!allowNameLookup(clientIp(req, trustProxy))) {
+          throw new AuthError(429, "too many name lookups")
+        }
+        const identity = await authenticate(req)
+        const owner = await store.findPlayerByName(nameKey(name))
+        json(res, 200, {
+          name,
+          available: !owner || owner.playerId === identity?.player.playerId,
+        }, false)
+        return
+      }
+
       if (req.method === "DELETE" && url.pathname === "/v1/me") {
         const identity = await authenticate(req)
         if (!identity) throw new AuthError(401, "sign in required")
@@ -352,6 +380,14 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           json(res, 400, {
             error: "displayName must be 1-24 letters, numbers, spaces, or ._-'",
           }, false)
+          return
+        }
+        const owner = await store.findPlayerByName(
+          nameKey(name),
+          identity.player.playerId,
+        )
+        if (owner) {
+          json(res, 409, { error: "That arcade name is taken." }, false)
           return
         }
         const player = await auth!.updateDisplayName(identity.player, name)
