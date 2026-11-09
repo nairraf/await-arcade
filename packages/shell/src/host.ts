@@ -38,15 +38,28 @@ export function normaliseBoard(value: unknown): BoardEntry[] {
     const raw = score as Record<string, unknown>
     if (typeof raw.value !== "number" || (raw.type !== "higher" && raw.type !== "lower")) continue
 
+    let detail: Record<string, number | string | boolean> | undefined
+    if (typeof raw.detail === "object" && raw.detail !== null && !Array.isArray(raw.detail)) {
+      const candidate: Record<string, number | string | boolean> = {}
+      for (const [key, value] of Object.entries(raw.detail as Record<string, unknown>)) {
+        if (typeof value === "number" || typeof value === "string" || typeof value === "boolean") {
+          candidate[key] = value
+        }
+      }
+      detail = candidate
+    }
+
     entries.push({
       playerId: record.playerId,
       achievedAt: typeof record.achievedAt === "number" ? record.achievedAt : 0,
       ...(typeof record.displayName === "string" ? { displayName: record.displayName } : {}),
+      ...(typeof record.rankKey === "string" ? { rankKey: record.rankKey } : {}),
       score: {
         value: raw.value,
         type: raw.type,
         won: raw.won === true,
         ranked: raw.ranked !== false,
+        ...(detail ? { detail } : {}),
       },
     })
     if (entries.length >= 50) break

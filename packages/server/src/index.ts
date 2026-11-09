@@ -50,8 +50,6 @@ export interface ArcadeServer {
 
 const MAX_BODY = 2_500_000
 const RUN_TTL_MS = 24 * 60 * 60 * 1000
-const DAILY_MINE_MOVE_TIEBREAK = 1_000_000
-const DAILY_MINE_ATTEMPT_PENALTY_MS = 120_000
 
 function winner(a: Score, b: Score): boolean {
   return a.type === "lower" ? a.value < b.value : a.value > b.value
@@ -606,21 +604,26 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
 
         const score = verified.score
         let dailyScore = score
+        let dailyRankKey: string | undefined
         if (run.gameId === "mineflag" && run.challengeId) {
           const moves = verified.ticks ?? score.value
           const elapsedMs = Math.max(0, Date.now() - run.createdAt)
           const attempt = run.attempt ?? 1
-          const effectiveMs = elapsedMs + (attempt - 1) * DAILY_MINE_ATTEMPT_PENALTY_MS
+          dailyRankKey = [
+            String(attempt).padStart(2, "0"),
+            String(elapsedMs).padStart(10, "0"),
+            String(moves).padStart(6, "0"),
+          ].join("|")
           dailyScore = {
             ...score,
-            value: effectiveMs * DAILY_MINE_MOVE_TIEBREAK + moves,
+            value: elapsedMs,
             type: "lower",
             detail: {
               ...(score.detail ?? {}),
               moves,
               elapsedMs,
-              effectiveMs,
               attempt,
+              rankKey: dailyRankKey,
             },
           }
         }
@@ -633,8 +636,13 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           if (!player) return { missingPlayer: true as const }
 
           const previous = await tx.getEntry(key, run.playerId)
-          const beatPrevious = !previous || winner(dailyScore, previous.score)
+          const beatPrevious =
+            !previous ||
+            (dailyRankKey && previous.rankKey
+              ? dailyRankKey < previous.rankKey
+              : winner(dailyScore, previous.score))
           const best = beatPrevious ? dailyScore : previous.score
+          const bestRankKey = beatPrevious ? dailyRankKey : previous.rankKey
 
           if (beatPrevious) {
             await tx.putEntry(key, {
@@ -642,6 +650,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
               displayName: player.displayName,
               score: best,
               achievedAt: Date.now(),
+              ...(bestRankKey ? { rankKey: bestRankKey } : {}),
             })
           } else if (previous && previous.displayName !== player.displayName) {
             await tx.putEntry(key, {
@@ -664,7 +673,13 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           return
         }
 
-        const rank = await store.rank(key, run.playerId, entry.meta.score.type)
+        const rank = await store.rank(
+          key,
+          run.playerId,
+          entry.meta.score.type,
+          undefined,
+          run.challengeId ? "rankKey" : "score",
+        )
 
         json(res, 200, {
           ok: true,
@@ -699,6 +714,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           challenge.challengeId,
           50,
           entry.meta.score.type,
+          "rankKey",
         )
         json(res, 200, { ...challenge, period: "daily", entries })
         return

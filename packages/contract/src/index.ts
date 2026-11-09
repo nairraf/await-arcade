@@ -257,6 +257,8 @@ export interface BoardEntry {
   readonly score: Score
   readonly achievedAt: number
   readonly displayName?: string
+  /** Hidden ascending sort key for daily boards: attempt|time|moves. */
+  readonly rankKey?: string
 }
 
 /** The required first input for an anchored daily (Mineflag). */

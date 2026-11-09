@@ -92,12 +92,19 @@ export class FirestoreStore implements ArcadeStore {
     })
   }
 
-  async top(boardId: string, limit: number, scoreType: "higher" | "lower"): Promise<BoardEntry[]> {
+  async top(
+    boardId: string,
+    limit: number,
+    scoreType: "higher" | "lower",
+    rankBy: "score" | "rankKey" = "score",
+  ): Promise<BoardEntry[]> {
+    const field = rankBy === "rankKey" ? "rankKey" : "score.value"
+    const direction = rankBy === "rankKey" ? "asc" : scoreType === "lower" ? "asc" : "desc"
     const snapshot = await this.db
       .collection("boards")
       .doc(boardId)
       .collection("entries")
-      .orderBy("score.value", scoreType === "lower" ? "asc" : "desc")
+      .orderBy(field, direction)
       .limit(limit)
       .get()
 
@@ -114,15 +121,20 @@ export class FirestoreStore implements ArcadeStore {
     playerId: string,
     scoreType: "higher" | "lower",
     entry?: BoardEntry,
+    rankBy: "score" | "rankKey" = "score",
   ): Promise<number | undefined> {
     const mine = entry ?? (await this.getEntry(boardId, playerId))
     if (!mine) return undefined
+
+    const field = rankBy === "rankKey" ? "rankKey" : "score.value"
+    const value = rankBy === "rankKey" ? mine.rankKey : mine.score.value
+    if (value === undefined) return undefined
 
     const snapshot = await this.db
       .collection("boards")
       .doc(boardId)
       .collection("entries")
-      .where("score.value", scoreType === "lower" ? "<" : ">", mine.score.value)
+      .where(field, rankBy === "rankKey" || scoreType === "lower" ? "<" : ">", value)
       .count()
       .get()
 

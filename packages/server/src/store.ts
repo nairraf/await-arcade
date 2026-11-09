@@ -87,7 +87,12 @@ export interface ArcadeStore {
   createRun(run: RunRecord): Promise<void>
   getRun(runId: string): Promise<RunRecord | undefined>
   transaction<T>(fn: (tx: StoreTx) => Promise<T>): Promise<T>
-  top(boardId: string, limit: number, scoreType: Score["type"]): Promise<BoardEntry[]>
+  top(
+    boardId: string,
+    limit: number,
+    scoreType: Score["type"],
+    rankBy?: "score" | "rankKey",
+  ): Promise<BoardEntry[]>
   getEntry(boardId: string, playerId: string): Promise<BoardEntry | undefined>
   /**
    * 1-based competition rank, or undefined when the player has no entry.
@@ -98,6 +103,7 @@ export interface ArcadeStore {
     playerId: string,
     scoreType: Score["type"],
     entry?: BoardEntry,
+    rankBy?: "score" | "rankKey",
   ): Promise<number | undefined>
   ensurePlayer(providerId: string, player: PlayerRecord): Promise<PlayerRecord>
   getPlayer(playerId: string): Promise<PlayerRecord | undefined>
@@ -190,13 +196,22 @@ export class MemoryStore implements ArcadeStore {
     return fn(tx)
   }
 
-  async top(boardId: string, limit: number, scoreType: Score["type"]): Promise<BoardEntry[]> {
+  async top(
+    boardId: string,
+    limit: number,
+    scoreType: Score["type"],
+    rankBy: "score" | "rankKey" = "score",
+  ): Promise<BoardEntry[]> {
     const entries = [...(this.boards.get(boardId)?.values() ?? [])]
-    entries.sort((left, right) =>
-      scoreType === "lower"
-        ? left.score.value - right.score.value
-        : right.score.value - left.score.value,
-    )
+    if (rankBy === "rankKey") {
+      entries.sort((left, right) => (left.rankKey ?? "").localeCompare(right.rankKey ?? ""))
+    } else {
+      entries.sort((left, right) =>
+        scoreType === "lower"
+          ? left.score.value - right.score.value
+          : right.score.value - left.score.value,
+      )
+    }
     return entries.slice(0, limit)
   }
 
@@ -209,12 +224,18 @@ export class MemoryStore implements ArcadeStore {
     playerId: string,
     scoreType: Score["type"],
     entry?: BoardEntry,
+    rankBy: "score" | "rankKey" = "score",
   ): Promise<number | undefined> {
     const mine = entry ?? (await this.getEntry(boardId, playerId))
     if (!mine) return undefined
     let better = 0
     for (const item of this.boards.get(boardId)?.values() ?? []) {
-      if (item.playerId !== playerId && beats(item.score, mine.score, scoreType)) better += 1
+      if (item.playerId === playerId) continue
+      if (rankBy === "rankKey") {
+        if (mine.rankKey && item.rankKey && item.rankKey < mine.rankKey) better += 1
+      } else if (beats(item.score, mine.score, scoreType)) {
+        better += 1
+      }
     }
     return better + 1
   }

@@ -577,7 +577,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     )
     if (entry.meta.id === "mineflag") {
       body.append(
-        el("div", "arcade-mode-hint", "Daily rank: server time, attempts, moves."),
+        el("div", "arcade-mode-hint", "Daily rank: attempts, server time, moves."),
       )
     }
 
@@ -999,7 +999,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
         ? el(
             "div",
             "arcade-mode-hint",
-            "Daily rank: server time + 2 min per extra attempt; ties by moves.",
+            "Daily rank: attempts, then server time, then moves.",
           )
         : undefined
 
@@ -1533,10 +1533,10 @@ export function createArcade(options: ArcadeOptions): Arcade {
       pause.textContent = "Pause"
       if (boardButton) boardButton.disabled = true
 
+      const currentKey = submit.score?.detail?.rankKey
+      const bestKey = submit.best?.detail?.rankKey
       const improved = daily
-        ? submit.best !== undefined &&
-          submit.score !== undefined &&
-          submit.best.value === submit.score.value
+        ? typeof currentKey === "string" && currentKey === bestKey
         : submit.best !== undefined && isBetter(submit.best, previousBest)
       const kicker = daily
         ? `DAILY ATTEMPT ${session.attempt ?? 1}/3`
@@ -1570,7 +1570,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
         const attempt = typeof detail.attempt === "number" ? detail.attempt : (session.attempt ?? 1)
         if (elapsed !== undefined && moves !== undefined) {
           detailParts.push(
-            `Server ${formatDuration(elapsed)} · ${moves} moves · attempt ${attempt}.`,
+            `Attempt ${attempt} · server ${formatDuration(elapsed)} · ${moves} moves.`,
           )
         }
       } else if (!daily && entry.meta.id === "mineflag") {
