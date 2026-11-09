@@ -15,6 +15,18 @@ interface GameView<S> {
   destroy(): void
 }
 
+interface Mode {
+  id: string
+  title: string
+  description?: string
+  difficulty?: number
+  ranked?: boolean
+  /** Group modes that share a difficulty; the shell renders a variant selector. */
+  group?: string
+  /** A GameMeta.variants id, e.g. "random" or "logic". */
+  variant?: string
+}
+
 interface GameMeta {
   id: string
   title: string
@@ -25,6 +37,7 @@ interface GameMeta {
   kind: "turn" | "realtime"
   tickRate?: number
   modes: Mode[]
+  variants?: { id: string; title: string; description: string }[]
   score: { type: "higher" | "lower"; min: number; max: number; unit?: "time" | "moves" | "points" }
   leaderboard: "replay" | "bounds" | "none"
   status: "stable" | "experimental"

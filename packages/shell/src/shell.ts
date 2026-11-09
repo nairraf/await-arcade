@@ -104,6 +104,41 @@ function hudCell(label: string, value: string): { root: HTMLElement; value: HTML
   return { root, value: valueNode }
 }
 
+interface ModeGroup {
+  readonly key: string
+  readonly title: string
+  readonly modes: readonly Mode[]
+}
+
+function modeGroups(entry: GameEntry): ModeGroup[] {
+  const groups = new Map<string, Mode[]>()
+  for (const mode of entry.meta.modes) {
+    const key = mode.group ?? mode.id
+    const list = groups.get(key) ?? []
+    list.push(mode)
+    groups.set(key, list)
+  }
+
+  const variants = entry.meta.variants ?? []
+  return [...groups].map(([key, modes]) => {
+    const primary =
+      modes.find((mode) => !mode.variant || mode.variant === variants[0]?.id) ?? modes[0]!
+    return { key, title: primary.title, modes }
+  })
+}
+
+function modeInGroup(
+  entry: GameEntry,
+  groupKey: string,
+  variantId: string,
+): Mode | undefined {
+  const variants = entry.meta.variants ?? []
+  const modes = entry.meta.modes.filter((mode) => (mode.group ?? mode.id) === groupKey)
+  return (
+    modes.find((mode) => (mode.variant ?? variants[0]?.id) === variantId) ?? modes[0]
+  )
+}
+
 function renderBoardRow(
   item: BoardEntry,
   index: number,
@@ -690,7 +725,10 @@ export function createArcade(options: ArcadeOptions): Arcade {
       body.append(el("p", "arcade-card-desc", entry.meta.description))
 
       const metaRow = el("div", "arcade-card-meta")
-      metaRow.append(el("span", "arcade-chip", `${entry.meta.modes.length} mode${entry.meta.modes.length === 1 ? "" : "s"}`))
+      const modeCount = entry.meta.variants?.length
+        ? `${new Set(entry.meta.modes.map((mode) => mode.group ?? mode.id)).size} difficulties`
+        : `${entry.meta.modes.length} mode${entry.meta.modes.length === 1 ? "" : "s"}`
+      metaRow.append(el("span", "arcade-chip", modeCount))
       metaRow.append(el("span", "arcade-chip arcade-chip-mode", defaultMode.title))
       const bestChip = el(
         "span",
@@ -848,25 +886,85 @@ export function createArcade(options: ArcadeOptions): Arcade {
       gameSelect.append(option)
     }
     gameSelect.value = entry.meta.id
-
-    const modeSelect = el("select", "arcade-select")
-    modeSelect.setAttribute("aria-label", "Mode")
-    for (const candidate of availableModes) {
-      const option = el("option", "", candidate.title)
-      option.value = candidate.id
-      modeSelect.append(option)
-    }
-    modeSelect.value = mode.id
-
+    gameSelect.disabled = Boolean(daily)
     gameSelect.addEventListener("change", () => {
       const next = games.find((candidate) => candidate.meta.id === gameSelect.value)
       const nextRanked = next?.meta.modes.filter((candidate) => candidate.ranked !== false)
       const nextModeId = (nextRanked && nextRanked.length > 0 ? nextRanked[0] : next?.meta.modes[0])?.id
       void showBoards(gameSelect.value, nextModeId)
     })
-    modeSelect.addEventListener("change", () => {
-      void showBoards(entry.meta.id, modeSelect.value)
-    })
+
+    const variants = entry.meta.variants ?? []
+    let modeHint: HTMLElement | undefined
+
+    if (variants.length > 0) {
+      const groups = new Map<string, Mode[]>()
+      for (const candidate of availableModes) {
+        const key = candidate.group ?? candidate.id
+        const list = groups.get(key) ?? []
+        list.push(candidate)
+        groups.set(key, list)
+      }
+      const currentGroup = mode.group ?? mode.id
+      const currentVariant = mode.variant ?? variants[0]!.id
+
+      const groupSelect = el("select", "arcade-select")
+      groupSelect.setAttribute("aria-label", "Difficulty")
+      for (const [key, list] of groups) {
+        const primary =
+          list.find((candidate) => candidate.variant === variants[0]?.id) ?? list[0]!
+        const option = el("option", "", primary.title)
+        option.value = key
+        groupSelect.append(option)
+      }
+      groupSelect.value = currentGroup
+      groupSelect.disabled = Boolean(daily)
+
+      const variantSelect = el("select", "arcade-select")
+      variantSelect.setAttribute("aria-label", "Board type")
+      for (const variant of variants) {
+        const option = el("option", "", variant.title)
+        option.value = variant.id
+        variantSelect.append(option)
+      }
+      variantSelect.value = currentVariant
+      variantSelect.disabled = Boolean(daily)
+
+      const choose = (groupKey: string, variantId: string): void => {
+        const list = groups.get(groupKey) ?? []
+        const next =
+          list.find((candidate) => (candidate.variant ?? variants[0]!.id) === variantId) ??
+          list[0]
+        if (next) void showBoards(entry.meta.id, next.id, daily)
+      }
+      groupSelect.addEventListener("change", () => {
+        choose(groupSelect.value, variantSelect.value)
+      })
+      variantSelect.addEventListener("change", () => {
+        choose(groupSelect.value, variantSelect.value)
+      })
+
+      modeHint = el(
+        "div",
+        "arcade-mode-hint",
+        variants.find((variant) => variant.id === currentVariant)?.description ?? "",
+      )
+      controls.append(gameSelect, groupSelect, variantSelect)
+    } else {
+      const modeSelect = el("select", "arcade-select")
+      modeSelect.setAttribute("aria-label", "Mode")
+      for (const candidate of availableModes) {
+        const option = el("option", "", candidate.title)
+        option.value = candidate.id
+        modeSelect.append(option)
+      }
+      modeSelect.value = mode.id
+      modeSelect.disabled = Boolean(daily)
+      modeSelect.addEventListener("change", () => {
+        void showBoards(entry.meta.id, modeSelect.value)
+      })
+      controls.append(gameSelect, modeSelect)
+    }
 
     const play = el(
       "button",
@@ -888,7 +986,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
       void showBoards(entry.meta.id, mode.id, daily)
     })
 
-    controls.append(gameSelect, modeSelect, play, refresh)
+    controls.append(play, refresh)
 
     const you = el("div", "arcade-boards-you")
     const youLabel = el("div", "arcade-boards-you-label", "YOUR RANK")
@@ -899,7 +997,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     const list = el("div", "arcade-board-list arcade-boards-list")
     list.append(el("div", "arcade-empty", "Loading…"))
 
-    section.append(head, tabs, controls, you, list)
+    section.append(head, tabs, controls, ...(modeHint ? [modeHint] : []), you, list)
     main.append(section)
 
     try {
@@ -1111,19 +1209,66 @@ export function createArcade(options: ArcadeOptions): Arcade {
     titleWrap.append(el("p", "", entry.meta.description))
 
     const actions = el("div", "arcade-game-actions")
-    const modeSelect = el("select", "arcade-select")
-    modeSelect.setAttribute("aria-label", "Mode")
-    for (const item of entry.meta.modes) {
-      const option = el("option", "", item.title)
-      option.value = item.id
-      modeSelect.append(option)
+    const variants = entry.meta.variants ?? []
+    let modeHint: HTMLElement | undefined
+    const chooseMode = (modeId: string): void => {
+      rememberMode(entry, modeId)
+      playGame(entry, modeId)
     }
-    modeSelect.value = mode.id
-    modeSelect.disabled = Boolean(daily)
-    modeSelect.addEventListener("change", () => {
-      rememberMode(entry, modeSelect.value)
-      playGame(entry, modeSelect.value)
-    })
+
+    if (variants.length > 0) {
+      const groups = modeGroups(entry)
+      const currentGroup = mode.group ?? mode.id
+      const currentVariant = mode.variant ?? variants[0]!.id
+
+      const groupSelect = el("select", "arcade-select")
+      groupSelect.setAttribute("aria-label", "Difficulty")
+      for (const group of groups) {
+        const option = el("option", "", group.title)
+        option.value = group.key
+        groupSelect.append(option)
+      }
+      groupSelect.value = currentGroup
+      groupSelect.disabled = Boolean(daily)
+
+      const variantSelect = el("select", "arcade-select")
+      variantSelect.setAttribute("aria-label", "Board type")
+      for (const variant of variants) {
+        const option = el("option", "", variant.title)
+        option.value = variant.id
+        variantSelect.append(option)
+      }
+      variantSelect.value = currentVariant
+      variantSelect.disabled = Boolean(daily)
+
+      groupSelect.addEventListener("change", () => {
+        const next = modeInGroup(entry, groupSelect.value, variantSelect.value)
+        if (next) chooseMode(next.id)
+      })
+      variantSelect.addEventListener("change", () => {
+        const next = modeInGroup(entry, groupSelect.value, variantSelect.value)
+        if (next) chooseMode(next.id)
+      })
+
+      modeHint = el(
+        "div",
+        "arcade-mode-hint",
+        variants.find((variant) => variant.id === currentVariant)?.description ?? "",
+      )
+      actions.append(groupSelect, variantSelect)
+    } else {
+      const modeSelect = el("select", "arcade-select")
+      modeSelect.setAttribute("aria-label", "Mode")
+      for (const item of entry.meta.modes) {
+        const option = el("option", "", item.title)
+        option.value = item.id
+        modeSelect.append(option)
+      }
+      modeSelect.value = mode.id
+      modeSelect.disabled = Boolean(daily)
+      modeSelect.addEventListener("change", () => chooseMode(modeSelect.value))
+      actions.append(modeSelect)
+    }
 
     const pause = el("button", "arcade-btn", "Pause")
     pause.type = "button"
@@ -1142,7 +1287,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
       void playGame(entry, mode.id, daily)
     }
 
-    actions.append(modeSelect, pause, restart)
+    actions.append(pause, restart)
     let boardButton: HTMLButtonElement | undefined
     if (isRankedMode && (host.board || (isDaily && host.dailyBoard))) {
       boardButton = el("button", "arcade-btn", "Board")
@@ -1201,7 +1346,15 @@ export function createArcade(options: ArcadeOptions): Arcade {
     const overlay = el("div", "arcade-overlay")
     overlay.hidden = true
 
-    section.append(cabinet, head, hud, surface, controls, overlay)
+    section.append(
+      cabinet,
+      head,
+      ...(modeHint ? [modeHint] : []),
+      hud,
+      surface,
+      controls,
+      overlay,
+    )
     main.append(section)
 
     let overlayEpoch = 0

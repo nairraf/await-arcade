@@ -26,6 +26,17 @@ export interface Mode {
   readonly difficulty?: number
   /** Whether runs in this mode are eligible for ranked leaderboards. Defaults to true. */
   readonly ranked?: boolean
+  /** Groups modes that share a difficulty; the shell renders a variant selector. */
+  readonly group?: string
+  /** Variant id from GameMeta.variants, e.g. "random" or "logic". */
+  readonly variant?: string
+}
+
+export interface GameVariant {
+  readonly id: string
+  readonly title: string
+  /** One-line hint shown under the cabinet controls. */
+  readonly description: string
 }
 
 export interface ControlHint {
@@ -92,6 +103,8 @@ export interface GameMeta {
   /** Required for realtime games. The runner steps exactly at this rate. */
   readonly tickRate?: number
   readonly modes: readonly Mode[]
+  /** Optional secondary selector such as Random/Logic. Mode.variant picks one. */
+  readonly variants?: readonly GameVariant[]
   readonly score: {
     readonly type: ScoreType
     readonly min: number

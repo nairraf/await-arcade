@@ -605,6 +605,12 @@ export const styles = `
   max-width: 64ch;
 }
 
+.arcade-mode-hint {
+  color: var(--arcade-muted);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
 .arcade-game-actions {
   display: flex;
   align-items: center;
