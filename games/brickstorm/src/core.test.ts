@@ -147,28 +147,37 @@ describe("Brickstorm core", () => {
     expect(state.phase).toBe("lost")
   })
 
-  it("wins when the last brick breaks", () => {
+  it("advances to a new layout when the last brick breaks", () => {
     const state = setup()
     state.bricks = state.bricks.map((_, index) => index === 0)
     state.kinds = state.kinds.map(() => "normal")
     state.armor = state.armor.map(() => 0)
     hitBrick(state, 0)
 
-    expect(state.phase).toBe("won")
-    expect(core.score(state, { elapsedMs: 1_000, ticks: 60 }).ranked).toBe(true)
+    expect(state.phase).toBe("playing")
+    core.step(state, [], DT)
+
+    expect(state.level).toBe(2)
+    expect(state.phase).toBe("playing")
+    expect(state.bricks.filter(Boolean).length).toBeGreaterThan(0)
+    expect(state.bricks.filter(Boolean).length).toBeLessThan(48)
+    expect(state.armor.filter((value) => value === 3).length).toBeGreaterThanOrEqual(3)
+    expect(speedFactor(state)).toBeGreaterThan(1)
+    expect(state.ballLive).toBe(false)
+    expect(state.serveUntilTick).toBeGreaterThan(state.ticks)
   })
 
-  it("wins a tracked run and stays within the score bound", () => {
+  it("plays an endless run that ends and verifies", () => {
     const inputs: Array<{ tick: number; input: { target: number } }> = []
     let state = core.create(5, mode)
 
-    for (let tick = 0; tick < 36_000 && state.phase === "playing"; tick += 1) {
-      const input = { target: state.ballX }
+    for (let tick = 0; tick < 1_000 && state.phase === "playing"; tick += 1) {
+      const input = { target: 10 }
       inputs.push({ tick, input })
       state = core.step(state, [input], DT)
     }
 
-    expect(state.phase).toBe("won")
+    expect(state.phase).toBe("lost")
     expect(state.score).toBeLessThanOrEqual(meta.score.max)
 
     const result = playRealtime(core, meta, {
@@ -179,6 +188,34 @@ describe("Brickstorm core", () => {
     })
     expect(result.verified.ok).toBe(true)
     expect(result.verified.score?.value).toBe(state.score)
+  })
+
+  it("verifies a replay that crosses into level 2", () => {
+    const inputs: Array<{ tick: number; input: { target: number } }> = []
+    let state = core.create(5, mode)
+
+    for (let tick = 0; tick < 20_000 && state.phase === "playing" && state.level === 1; tick += 1) {
+      const input = { target: state.ballX }
+      inputs.push({ tick, input })
+      state = core.step(state, [input], DT)
+    }
+    expect(state.level).toBeGreaterThanOrEqual(2)
+
+    while (state.phase === "playing" && inputs.length < 40_000) {
+      const input = { target: 10 }
+      inputs.push({ tick: inputs.length, input })
+      state = core.step(state, [input], DT)
+    }
+
+    expect(state.phase).toBe("lost")
+    const result = playRealtime(core, meta, {
+      seed: 5,
+      mode,
+      ticks: inputs.length,
+      inputs,
+    })
+    expect(result.state.level).toBeGreaterThanOrEqual(2)
+    expect(result.verified.ok).toBe(true)
   })
 
   it("verifies a realtime run that ends", () => {

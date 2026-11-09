@@ -24,6 +24,10 @@ export interface BrickstormState {
   hits: number
   saves: number
   blasts: number
+  level: number
+  levelBricks: number
+  levelHits: number
+  levelSaves: number
   ticks: number
   serveUntilTick: number
   ballLive: boolean
@@ -51,6 +55,9 @@ const SAVE_TICKS = 5 * 60
 const MAX_RELOCATIONS = 3
 const MAX_SPEED_LEVEL = 3
 const SPEED_STEP = 0.12
+const LEVEL_SPEED_STEP = 0.1
+const MAX_SPEED_FACTOR = 2.2
+const MAX_GOLD = 12
 
 export const BRICK_COLS = 8
 export const BRICK_ROWS = 6
@@ -87,26 +94,129 @@ function pointsForRow(row: number): number {
   return (BRICK_ROWS - row) * 10
 }
 
-function pickCells(seed: number, rows: readonly number[], count: number): number[] {
-  const candidates: number[] = []
-  for (const row of rows) {
-    for (let column = 0; column < BRICK_COLS; column += 1) {
-      candidates.push(row * BRICK_COLS + column)
-    }
-  }
-  return createRng(seed).shuffle(candidates).slice(0, count)
+function rowOf(index: number): number {
+  return Math.floor(index / BRICK_COLS)
 }
 
-function pickGold(seed: number, rows: readonly number[], kinds: readonly BrickKind[]): number | undefined {
-  const candidates: number[] = []
-  for (const row of rows) {
+type LayoutId = "classic" | "ring" | "triangle" | "ellipse" | "diamond"
+
+const LAYOUT_SEQUENCE: readonly LayoutId[] = [
+  "classic",
+  "ring",
+  "triangle",
+  "ellipse",
+  "diamond",
+]
+
+function layoutForLevel(level: number): LayoutId {
+  return LAYOUT_SEQUENCE[(Math.max(1, level) - 1) % LAYOUT_SEQUENCE.length]!
+}
+
+function layoutMask(layout: LayoutId): boolean[] {
+  const mask: boolean[] = Array(BRICK_COLS * BRICK_ROWS).fill(false)
+  let count = 0
+
+  for (let row = 0; row < BRICK_ROWS; row += 1) {
     for (let column = 0; column < BRICK_COLS; column += 1) {
-      const index = row * BRICK_COLS + column
-      if (kinds[index] === "normal") candidates.push(index)
+      let on = true
+      const dx = (column - (BRICK_COLS - 1) / 2) / (BRICK_COLS / 2)
+      const dy = (row - (BRICK_ROWS - 1) / 2) / (BRICK_ROWS / 2)
+      const radius = Math.hypot(dx, dy)
+      const diamond = Math.abs(dx) + Math.abs(dy)
+
+      if (layout === "ring") {
+        on = row === 0 || row === BRICK_ROWS - 1 || column === 0 || column === BRICK_COLS - 1
+      } else if (layout === "triangle") {
+        on = Math.abs(column - (BRICK_COLS - 1) / 2) <= row + 0.5
+      } else if (layout === "ellipse") {
+        on = radius >= 0.5 && radius <= 1.06
+      } else if (layout === "diamond") {
+        on = diamond >= 0.45 && diamond <= 1.08
+      }
+
+      if (!on) continue
+      mask[row * BRICK_COLS + column] = true
+      count += 1
     }
   }
-  if (candidates.length === 0) return undefined
-  return createRng(seed).pick(candidates)
+
+  // Very small levels are not fun; fall back to the full wall.
+  if (count < 20) return Array(BRICK_COLS * BRICK_ROWS).fill(true)
+  return mask
+}
+
+function pickFrom(seed: number, candidates: readonly number[], count: number): number[] {
+  if (candidates.length === 0 || count <= 0) return []
+  return createRng(seed).shuffle([...candidates]).slice(0, count)
+}
+
+function takeOne(seed: number, candidates: readonly number[], used: Set<number>): number | undefined {
+  const pool = candidates.filter((index) => !used.has(index))
+  if (pool.length === 0) return undefined
+  return createRng(seed).pick(pool)
+}
+
+function buildLevel(state: BrickstormState): void {
+  const layout = layoutForLevel(state.level)
+  const mask = layoutMask(layout)
+  const cells = mask.flatMap((on, index) => (on ? [index] : []))
+  const kinds: BrickKind[] = Array(BRICK_COLS * BRICK_ROWS).fill("normal")
+  const armor: number[] = Array(BRICK_COLS * BRICK_ROWS).fill(0)
+  const seed = (state.seed ^ Math.imul(state.level, 0x9e3779b1)) >>> 0
+  const used = new Set<number>()
+
+  const middle = cells.filter((index) => {
+    const row = rowOf(index)
+    return row === 2 || row === 3
+  })
+  const top = cells.filter((index) => rowOf(index) < 2)
+  const bottom = cells.filter((index) => rowOf(index) >= 4)
+
+  const save = takeOne(seed ^ 0x51ed270b, middle.length > 0 ? middle : cells, used)
+  if (save !== undefined) {
+    kinds[save] = "save"
+    used.add(save)
+  }
+
+  const topExplosive = takeOne(seed ^ 0x1b873593, top.length > 0 ? top : cells, used)
+  if (topExplosive !== undefined) {
+    kinds[topExplosive] = "explosive"
+    used.add(topExplosive)
+  }
+
+  const bottomExplosive = takeOne(seed ^ 0x85ebca6b, bottom.length > 0 ? bottom : cells, used)
+  if (bottomExplosive !== undefined) {
+    kinds[bottomExplosive] = "explosive"
+    used.add(bottomExplosive)
+  }
+
+  const goldCount = Math.min(MAX_GOLD, 3 + (state.level - 1) * 2)
+  const goldPool = cells.filter((index) => kinds[index] === "normal")
+  for (const gold of pickFrom(seed ^ 0x27d4eb2f, goldPool, goldCount)) {
+    armor[gold] = 3
+  }
+
+  state.bricks = mask
+  state.kinds = kinds
+  state.armor = armor
+  state.levelBricks = cells.length
+  state.levelHits = 0
+  state.levelSaves = 0
+  state.speedLevel = 0
+  state.saveUntilTick = 0
+  state.relocated = 0
+  state.ballLive = false
+  state.serveUntilTick = state.ticks + READY_TICKS
+  state.ballX = state.paddleX
+  state.ballY = state.paddleY - BALL
+  state.vx = 0
+  state.vy = 0
+}
+
+function advanceLevel(state: BrickstormState): void {
+  state.score += state.level * 100
+  state.level += 1
+  buildLevel(state)
 }
 
 function launchBall(state: BrickstormState): void {
@@ -126,11 +236,17 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 export function speedFactor(state: BrickstormState): number {
-  return 1 + SPEED_STEP * state.speedLevel
+  return Math.min(
+    MAX_SPEED_FACTOR,
+    1 + SPEED_STEP * state.speedLevel + LEVEL_SPEED_STEP * (state.level - 1),
+  )
 }
 
 function updateSpeed(state: BrickstormState, scale: boolean): void {
-  const next = Math.min(MAX_SPEED_LEVEL, Math.floor(state.hits / 12) + state.saves)
+  const next = Math.min(
+    MAX_SPEED_LEVEL,
+    Math.floor(state.levelHits / 12) + state.levelSaves,
+  )
   if (next === state.speedLevel) return
 
   const prevFactor = speedFactor(state)
@@ -180,9 +296,11 @@ function destroyBrick(state: BrickstormState, index: number, trigger: boolean): 
   state.kinds[index] = "normal"
   state.score += pointsForRow(row)
   state.hits += 1
+  state.levelHits += 1
 
   if (kind === "save" && trigger) {
     state.saves += 1
+    state.levelSaves += 1
     state.saveUntilTick = Math.max(state.saveUntilTick, state.ticks + SAVE_TICKS)
 
     // Relocate the save brick to an empty middle-band cell, unless it was the
@@ -287,28 +405,10 @@ function moveBall(state: BrickstormState, dt: number): void {
     state.vy = -state.vy
     break
   }
-
-  if (state.bricks.every((alive) => !alive)) state.phase = "won"
 }
 
 export const core: GameCore<BrickstormState, BrickstormInput> = {
   create(seed) {
-    const kinds: BrickKind[] = Array(BRICK_COLS * BRICK_ROWS).fill("normal")
-    const [saveCell] = pickCells(seed ^ 0x51ed270b, [2, 3], 1)
-    const [topExplosive] = pickCells(seed ^ 0x1b873593, [0, 1], 1)
-    const [bottomExplosive] = pickCells(seed ^ 0x85ebca6b, [4, 5], 1)
-    if (saveCell !== undefined) kinds[saveCell] = "save"
-    if (topExplosive !== undefined) kinds[topExplosive] = "explosive"
-    if (bottomExplosive !== undefined) kinds[bottomExplosive] = "explosive"
-
-    const armor: number[] = Array(BRICK_COLS * BRICK_ROWS).fill(0)
-    const goldTop = pickGold(seed ^ 0x27d4eb2f, [0, 1], kinds)
-    const goldMiddle = pickGold(seed ^ 0x165667b1, [2, 3], kinds)
-    const goldBottom = pickGold(seed ^ 0x9e3779b1, [4, 5], kinds)
-    for (const gold of [goldTop, goldMiddle, goldBottom]) {
-      if (gold !== undefined) armor[gold] = 3
-    }
-
     const state: BrickstormState = {
       width: WIDTH,
       height: HEIGHT,
@@ -323,13 +423,17 @@ export const core: GameCore<BrickstormState, BrickstormInput> = {
       left: false,
       right: false,
       targetX: undefined,
-      bricks: Array(BRICK_COLS * BRICK_ROWS).fill(true),
-      kinds,
-      armor,
+      bricks: [],
+      kinds: [],
+      armor: [],
       score: 0,
       hits: 0,
       saves: 0,
       blasts: 0,
+      level: 1,
+      levelBricks: 0,
+      levelHits: 0,
+      levelSaves: 0,
       ticks: 0,
       serveUntilTick: READY_TICKS,
       ballLive: false,
@@ -338,6 +442,7 @@ export const core: GameCore<BrickstormState, BrickstormInput> = {
       relocated: 0,
       phase: "playing",
     }
+    buildLevel(state)
     return state
   },
 
@@ -368,6 +473,12 @@ export const core: GameCore<BrickstormState, BrickstormInput> = {
       return state
     }
 
+    // The wall is cleared: rebuild it at the next level and keep the run alive.
+    if (!state.bricks.some(Boolean)) {
+      advanceLevel(state)
+      return state
+    }
+
     movePaddle(state, dt)
 
     if (!state.ballLive) {
@@ -392,11 +503,13 @@ export const core: GameCore<BrickstormState, BrickstormInput> = {
     return {
       value: state.score,
       type: "higher",
-      won: state.phase === "won",
+      won: false,
       ranked: state.phase !== "playing",
       detail: {
-        bricks: state.hits,
-        maxBricks: BRICK_COLS * BRICK_ROWS,
+        level: state.level,
+        bricks: state.levelHits,
+        maxBricks: state.levelBricks + state.relocated,
+        totalBricks: state.hits,
         saves: state.saves,
         blasts: state.blasts,
         speed: speedFactor(state),
@@ -427,6 +540,10 @@ export const core: GameCore<BrickstormState, BrickstormInput> = {
       n: state.hits,
       sv: state.saves,
       bl: state.blasts,
+      lv: state.level,
+      lb: state.levelBricks,
+      lh: state.levelHits,
+      ls: state.levelSaves,
       sp: state.speedLevel,
       c: state.ticks,
       u: state.saveUntilTick,

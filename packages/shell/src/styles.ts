@@ -193,6 +193,13 @@ export const styles = `
   background: color-mix(in srgb, var(--arcade-accent) 8%, transparent);
 }
 
+.arcade-chip-mode {
+  border-color: var(--arcade-line-strong);
+  color: var(--arcade-fg);
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
 .arcade-main {
   flex: 1;
   min-height: 0;

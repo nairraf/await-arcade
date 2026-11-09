@@ -1,7 +1,7 @@
 {
   "version": 1,
   "gameId": "brickstorm",
-  "gameVersion": "1.0.1",
+  "gameVersion": "1.1.0",
   "frameworkVersion": "0.1.0",
   "modeId": "classic",
   "seed": 77,
@@ -22,5 +22,5 @@
       }
     }
   ],
-  "stateHash": "ce675a38"
+  "stateHash": "8e6017b8"
 }

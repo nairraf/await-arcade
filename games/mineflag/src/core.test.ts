@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { playTurn } from "@await-arcade/framework"
-import { core, type MineInput, type MineState } from "./core"
+import { core, logicSolvable, type MineInput, type MineState } from "./core"
 import { meta } from "./meta"
 
 const mode = meta.modes[0]!
@@ -60,6 +60,68 @@ describe("mineflag core", () => {
 
     expect(result.state.phase).toBe("won")
     expect(result.score.ranked).toBe(true)
+    expect(result.verified.ok).toBe(true)
+    expect(result.verified.score?.value).toBe(result.replay.inputs.length)
+  })
+
+  it("generates no-guess boards for every logic mode", () => {
+    for (const mode of meta.modes.filter((item) => item.id.endsWith("-logic"))) {
+      for (let seed = 1; seed <= 10; seed += 1) {
+        const state = core.create(seed, mode)
+        const x = Math.floor(state.width / 2)
+        const y = Math.floor(state.height / 2)
+        core.step(state, [{ type: "reveal", x, y }], 0)
+
+        expect(state.minesPlaced).toBe(true)
+        expect(state.logicFallback).toBe(false)
+        expect(logicSolvable(state)).toBe(true)
+      }
+    }
+  })
+
+  it("does not claim a guess board is solvable", () => {
+    const mode = meta.modes.find((item) => item.id === "beginner-logic")!
+    const state = core.create(1, mode)
+    state.minesPlaced = true
+    ;(state as unknown as { mineCount: number }).mineCount = 1
+    state.cells = state.cells.map(() => ({
+      mine: false,
+      revealed: true,
+      flagged: false,
+      adjacent: 0,
+    }))
+    for (const at of [0, 1, 2]) state.cells[at]!.revealed = false
+    state.cells[0]!.mine = true
+    state.cells[10]!.adjacent = 1
+
+    expect(logicSolvable(state)).toBe(false)
+  })
+
+  it("keeps logic boards solvable from a corner click", () => {
+    const mode = meta.modes.find((item) => item.id === "beginner-logic")!
+    for (let seed = 1; seed <= 5; seed += 1) {
+      const state = core.create(seed, mode)
+      core.step(state, [{ type: "reveal", x: 0, y: 0 }], 0)
+      expect(logicSolvable(state)).toBe(true)
+    }
+  })
+
+  it("verifies a winning replay on a logic board", () => {
+    const mode = meta.modes.find((item) => item.id === "beginner-logic")!
+    const seed = 42
+    const first: MineInput = { type: "reveal", x: 4, y: 4 }
+    const state = core.step(core.create(seed, mode), [first], 0)
+    const inputs: MineInput[] = [first]
+
+    for (let y = 0; y < state.height; y += 1) {
+      for (let x = 0; x < state.width; x += 1) {
+        const cell = state.cells[y * state.width + x]!
+        if (!cell.mine && !cell.revealed) inputs.push({ type: "reveal", x, y })
+      }
+    }
+
+    const result = playTurn(core, meta, { seed, mode, inputs })
+    expect(result.state.phase).toBe("won")
     expect(result.verified.ok).toBe(true)
     expect(result.verified.score?.value).toBe(result.replay.inputs.length)
   })

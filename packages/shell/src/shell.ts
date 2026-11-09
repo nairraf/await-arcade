@@ -147,6 +147,14 @@ export function createArcade(options: ArcadeOptions): Arcade {
     options.host ??
     new LocalHost({ prefix: "await-arcade", toastRoot: root })
 
+  const modeFor = (entry: GameEntry): Mode => {
+    const stored = host.storage.get<string>(`mode.${entry.meta.id}`)
+    return entry.meta.modes.find((mode) => mode.id === stored) ?? entry.meta.modes[0]!
+  }
+  const rememberMode = (entry: GameEntry, modeId: string): void => {
+    host.storage.set(`mode.${entry.meta.id}`, modeId)
+  }
+
   if ("setToastRoot" in host && typeof (host as { setToastRoot?: unknown }).setToastRoot === "function") {
     ;(host as { setToastRoot(node: HTMLElement): void }).setToastRoot(root)
   }
@@ -654,7 +662,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     const grid = el("div", "arcade-grid")
 
     for (const entry of games) {
-      const defaultMode = entry.meta.modes[0]
+      const defaultMode = modeFor(entry)
       if (!defaultMode) continue
 
       const best = host.best(entry.meta.id, defaultMode.id)
@@ -683,6 +691,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
       const metaRow = el("div", "arcade-card-meta")
       metaRow.append(el("span", "arcade-chip", `${entry.meta.modes.length} mode${entry.meta.modes.length === 1 ? "" : "s"}`))
+      metaRow.append(el("span", "arcade-chip arcade-chip-mode", defaultMode.title))
       const bestChip = el(
         "span",
         "arcade-chip",
@@ -867,7 +876,10 @@ export function createArcade(options: ArcadeOptions): Arcade {
     play.type = "button"
     play.addEventListener("click", () => {
       if (daily) void playGame(entry, mode.id, daily)
-      else playGame(entry, mode.id)
+      else {
+        rememberMode(entry, mode.id)
+        playGame(entry, mode.id)
+      }
     })
 
     const refresh = el("button", "arcade-btn", "Refresh")
@@ -1108,7 +1120,10 @@ export function createArcade(options: ArcadeOptions): Arcade {
     }
     modeSelect.value = mode.id
     modeSelect.disabled = Boolean(daily)
-    modeSelect.addEventListener("change", () => playGame(entry, modeSelect.value))
+    modeSelect.addEventListener("change", () => {
+      rememberMode(entry, modeSelect.value)
+      playGame(entry, modeSelect.value)
+    })
 
     const pause = el("button", "arcade-btn", "Pause")
     pause.type = "button"

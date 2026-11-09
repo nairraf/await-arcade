@@ -5,13 +5,14 @@ Await Arcade is a tiny cross-host arcade for OpenCode Desktop and Antigravity.
 Four cabinets ship in the scaffold:
 
 - **Mineflag** — turn-based, safe first click, flood reveal, chording,
-  keyboard play, replay-verified fewest-moves ranking.
-- **Neon Cycles** — realtime grid light cycles, solo vs AI or local duel, a
-  canvas reference implementation.
+  keyboard play, three difficulties in random or no-guess logic boards,
+  replay-verified fewest-moves ranking.
+- **Neon Cycles** — endless grid light cycles against a sharper AI each level,
+  plus local duel; a canvas reference implementation.
 - **Mergegrid** — seeded tile merging, keyboard/swipe/on-screen pad, a DOM
   reference implementation with score-attack ranking.
-- **Brickstorm** — realtime brick-busting with three bands, save bricks, and
-  explosive supers.
+- **Brickstorm** — endless brick levels with varied layouts, rising speed, and
+  more gold armor per wall.
 
 The point is the framework: the shell is the product, games are content. Adding
 a cabinet should be one folder plus `npm run aa -- sync`.
@@ -135,7 +136,7 @@ to `~/.gemini/config/config.json`, with a matching project file. Open the
 
 ## Verified in this scaffold
 
-- `npm run check` passes: workspace typecheck, OpenCode host typecheck, 54 tests,
+- `npm run check` passes: workspace typecheck, OpenCode host typecheck, 71 tests,
   core determinism scan, and all four replay fixtures.
 - `npm run build` builds the browser demo.
 - `npm run build:hosts` builds `gui-experimental.cjs` and the Antigravity

@@ -48,7 +48,7 @@ export interface ArcadeServer {
   close(): Promise<void>
 }
 
-const MAX_BODY = 256_000
+const MAX_BODY = 2_500_000
 const RUN_TTL_MS = 24 * 60 * 60 * 1000
 
 function winner(a: Score, b: Score): boolean {

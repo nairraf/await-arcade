@@ -4,9 +4,9 @@ export const meta: GameMeta = {
   id: "brickstorm",
   title: "Brickstorm",
   description:
-    "Three brick bands, a glowing save brick, and explosive supers that take their neighbours with them. Keep the ball alive and clear the wall.",
+    "Endless brick levels: each cleared wall rebuilds with more gold armor and a faster ball. Keep one run alive and climb the level ladder.",
   author: "Await Arcade",
-  version: "1.0.1",
+  version: "1.1.0",
   engines: { arcade: "^0.1.0" },
   kind: "realtime",
   tickRate: 60,
@@ -14,11 +14,11 @@ export const meta: GameMeta = {
     {
       id: "classic",
       title: "Classic",
-      description: "3 bands, 48 bricks, save and explosive bricks",
+      description: "Endless walls, rising speed, and more gold per level",
       difficulty: 1,
     },
   ],
-  score: { type: "higher", min: 0, max: 2_000 },
+  score: { type: "higher", min: 0, max: 250_000 },
   leaderboard: "replay",
   status: "experimental",
   controls: [
@@ -29,5 +29,6 @@ export const meta: GameMeta = {
   glyph: " [##]\n--##--\n [##]",
   theme: { accent: "#fb923c", accent2: "#f43f5e", mode: "neon" },
   maxDurationMs: 600_000,
+  maxInputs: 40_000,
   tags: ["action", "classic", "arcade"],
 }

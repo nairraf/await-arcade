@@ -190,15 +190,16 @@ That rewards breadth, not grinding one cabinet.
 ## Daily challenge
 
 One **featured game per day**. A server-side schedule picks the game/mode; a
-deterministic rotation is the fallback. The rotation walks every installed
-game/mode pair sorted by id; `AWAIT_ARCADE_DAILY_FEATURED=game:mode` overrides it
-for a manual pick.
+deterministic rotation is the fallback. The rotation walks every installed ranked
+game/mode pair sorted by id (unranked modes such as local duel are excluded);
+`AWAIT_ARCADE_DAILY_FEATURED=game:mode` overrides it for a manual pick.
 
 `seed = HMAC(secret, gameId + ":" + YYYY-MM-DD)`. Mineflag also gets a fixed
 **anchor** (the first-click cell) so the same seed produces the same board for
 everyone; the first replay input must be that anchor. The server derives the
 anchor from the core's board dimensions (board centre instead of a hardcoded
-mode table).
+mode table). Logic variants generate boards until the no-guess solver clears
+them, including from the daily anchor.
 
 - **Secret:** `AWAIT_ARCADE_DAILY_SECRET` sets the HMAC key. The built-in fallback
   is public and dev-only; set a real value for production. The seed is not a

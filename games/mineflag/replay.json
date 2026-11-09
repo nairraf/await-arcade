@@ -1,7 +1,7 @@
 {
   "version": 1,
   "gameId": "mineflag",
-  "gameVersion": "1.1.0",
+  "gameVersion": "1.2.0",
   "frameworkVersion": "0.1.0",
   "modeId": "beginner",
   "seed": 42,
@@ -457,5 +457,5 @@
       }
     }
   ],
-  "stateHash": "e599c3b9"
+  "stateHash": "6ed4285e"
 }

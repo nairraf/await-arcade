@@ -16,6 +16,7 @@ const BAND_COLORS = [
 export function view(ctx: ViewContext<BrickstormState, BrickstormInput>): GameView<BrickstormState> {
   const canvas = ctx.ctx2d
   if (!canvas) throw new Error("Brickstorm needs a canvas surface")
+  const tickRate = ctx.meta.tickRate ?? 60
 
   const pointerTarget = (event: PointerEvent): number | undefined => {
     const surface = ctx.container.querySelector("canvas")
@@ -25,9 +26,33 @@ export function view(ctx: ViewContext<BrickstormState, BrickstormInput>): GameVi
     return ((event.clientX - rect.left) / rect.width) * ctx.size().width
   }
 
+  // Pointer moves are coalesced to one target per frame. The runner records
+  // every dispatch, so without this a 60 Hz mouse would produce tens of
+  // thousands of inputs and eventually exceed the replay body/input limits.
+  let pendingTarget: number | undefined
+  let scheduled = false
+  const flushPointer = (): void => {
+    scheduled = false
+    if (pendingTarget === undefined) return
+    const target = pendingTarget
+    pendingTarget = undefined
+    ctx.dispatch({ target })
+  }
+  const schedulePointer = (): void => {
+    if (scheduled) return
+    scheduled = true
+    if (typeof globalThis.requestAnimationFrame === "function") {
+      globalThis.requestAnimationFrame(flushPointer)
+    } else {
+      globalThis.setTimeout(flushPointer, 16)
+    }
+  }
+
   const onPointerMove = (event: PointerEvent): void => {
     const target = pointerTarget(event)
-    if (target !== undefined) ctx.dispatch({ target })
+    if (target === undefined) return
+    pendingTarget = target
+    schedulePointer()
   }
 
   const onPointerDown = (event: PointerEvent): void => {
@@ -145,14 +170,22 @@ export function view(ctx: ViewContext<BrickstormState, BrickstormInput>): GameVi
     canvas.fillStyle = "rgba(226, 232, 240, 0.8)"
     canvas.font = "9px ui-monospace, Menlo, monospace"
     canvas.fillText(`SCORE ${state.score}`, 12, 16)
-    canvas.fillText(`BRICKS ${state.hits}/48`, width - 78, 16)
+    canvas.fillText(`LEVEL ${state.level}`, width / 2 - 22, 16)
+    canvas.fillText(`BRICKS ${state.hits}`, width - 78, 16)
 
     if (!state.ballLive) {
-      const remaining = Math.max(1, Math.ceil((state.serveUntilTick - state.ticks) / 60))
+      const remaining = Math.max(1, Math.ceil((state.serveUntilTick - state.ticks) / tickRate))
+      canvas.fillStyle = "rgba(5, 8, 12, 0.78)"
+      canvas.fillRect(0, height * 0.63, width, 46)
       canvas.fillStyle = "#fb923c"
       canvas.font = "bold 18px ui-monospace, Menlo, monospace"
       canvas.textAlign = "center"
-      canvas.fillText(`READY: ${remaining}`, width / 2, height * 0.44)
+      if (state.level > 1) {
+        canvas.font = "bold 22px ui-monospace, Menlo, monospace"
+        canvas.fillText(`LEVEL ${state.level}`, width / 2, height * 0.7)
+        canvas.font = "bold 16px ui-monospace, Menlo, monospace"
+      }
+      canvas.fillText(`READY: ${remaining}`, width / 2, height * 0.78)
       canvas.textAlign = "left"
     }
 
@@ -166,10 +199,10 @@ export function view(ctx: ViewContext<BrickstormState, BrickstormInput>): GameVi
       canvas.stroke()
 
       canvas.fillStyle = "#67e8f9"
-      canvas.fillText(`SAVE ${(remaining / 60).toFixed(1)}s`, width - 64, height - 8)
+      canvas.fillText(`SAVE ${(remaining / tickRate).toFixed(1)}s`, width - 64, height - 8)
     }
 
-    if (state.speedLevel > 0) {
+    if (state.speedLevel > 0 || state.level > 1) {
       canvas.fillStyle = "#fb923c"
       canvas.fillText(`SPEED x${speedFactor(state).toFixed(2)}`, 12, height - 8)
     }

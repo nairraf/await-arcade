@@ -74,6 +74,39 @@ describe("neon cycles core", () => {
     expect(result.verified.ok).toBe(true)
   })
 
+  it("levels up when the AI dies and keeps the run alive", () => {
+    const state = core.create(1, solo)
+    state.levelReadyUntilTick = 0
+    state.bikes[1]!.alive = false
+
+    core.step(state, [], 1000 / 12)
+
+    expect(state.phase).toBe("playing")
+    expect(state.level).toBe(2)
+    expect(state.bikes.every((bike) => bike.alive)).toBe(true)
+    expect(state.levelReadyUntilTick).toBeGreaterThan(state.ticks)
+  })
+
+  it("moves two cells per tick at level 3", () => {
+    const state = core.create(1, solo)
+    state.level = 3
+    state.levelReadyUntilTick = 0
+    const before = state.bikes[0]!.x
+
+    core.step(state, [], 1000 / 12)
+
+    expect(state.bikes[0]!.x).toBe(before + 2)
+    expect(state.bikes[0]!.trail.size).toBe(3)
+  })
+
+  it("adds a level bonus to the score", () => {
+    const state = core.create(1, solo)
+    state.level = 2
+    state.ticks = 100
+
+    expect(core.score(state, { elapsedMs: 0, ticks: 100 }).value).toBe(220)
+  })
+
   it("grows the trail as the bikes move", () => {
     const result = playRealtime(core, meta, { seed: 1, mode: solo, ticks: 5, inputs: [] })
 

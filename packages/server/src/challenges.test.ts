@@ -41,6 +41,26 @@ describe("daily challenge schedule", () => {
     expect(challenge.anchor).toEqual({ type: "reveal", x: 4, y: 4 })
   })
 
+  it("never features an unranked mode", () => {
+    for (let offset = 0; offset < 30; offset += 1) {
+      const day = new Date(Date.UTC(2026, 10, 8 + offset)).toISOString().slice(0, 10)
+      const challenge = dailyChallenge(verifiers, config, day)!
+      const mode = verifiers[challenge.gameId]!.meta.modes.find(
+        (candidate) => candidate.id === challenge.modeId,
+      )!
+      expect(mode.ranked).not.toBe(false)
+    }
+  })
+
+  it("includes Mineflag logic modes in the rotation", () => {
+    const seen = new Set<string>()
+    for (let offset = 0; offset < 40; offset += 1) {
+      const day = new Date(Date.UTC(2026, 10, 8 + offset)).toISOString().slice(0, 10)
+      seen.add(dailyChallenge(verifiers, config, day)!.modeId)
+    }
+    expect([...seen].some((modeId) => modeId.endsWith("-logic"))).toBe(true)
+  })
+
   it("rejects malformed ids, dates, and game/mode pairs", () => {
     expect(challengeById(verifiers, config, "nope")).toBeUndefined()
     expect(

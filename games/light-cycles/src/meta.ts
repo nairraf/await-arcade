@@ -3,14 +3,14 @@ import type { GameMeta } from "@await-arcade/contract"
 export const meta: GameMeta = {
   id: "light-cycles",
   title: "Neon Cycles",
-  description: "Grid light cycles. Cut off the other rider, or survive the grid for as long as you can.",
+  description: "Endless grid light cycles. Cut off the AI, level up, and face a sharper rider each round.",
   author: "Await Arcade",
-  version: "1.2.0",
+  version: "1.3.0",
   engines: { arcade: "^0.1.0" },
   kind: "realtime",
   tickRate: 12,
   modes: [
-    { id: "solo", title: "Solo vs AI", description: "One rider, one very rude computer", difficulty: 1 },
+    { id: "solo", title: "Solo vs AI", description: "Endless AI levels; one life, sharper rider each round", difficulty: 1 },
     { id: "duel", title: "Local Duel", description: "Two riders, one keyboard", difficulty: 2, ranked: false },
   ],
   score: { type: "higher", min: 0, max: 100_000 },
