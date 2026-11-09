@@ -77,7 +77,13 @@ export class OpenCodeHost extends LocalHost {
   }
 
   async startDaily(challengeId: string): Promise<DailyStart> {
-    return (await this.client.rpc(Api).dailyStart({ challengeId })) as DailyStart
+    const result = (await this.client.rpc(Api).dailyStart({ challengeId })) as
+      | (DailyStart & { readonly ok?: true })
+      | { readonly ok: false; readonly error?: string }
+    if (result.ok === false) {
+      throw new Error(result.error ?? "The daily challenge is unavailable.")
+    }
+    return result
   }
 
   async dailyBoard(challengeId: string): Promise<readonly BoardEntry[]> {

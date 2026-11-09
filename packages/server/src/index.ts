@@ -191,7 +191,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
 
   const allowAuthStart = createRateLimiter(10 * 60_000, rl.startsPer10Min ?? 10)
   const allowAuthPoll = createRateLimiter(60_000, rl.pollsPerMin ?? 30)
-  const allowAuthRefresh = createRateLimiter(10 * 60_000, rl.refreshesPer10Min ?? 20)
+  const allowAuthRefresh = createRateLimiter(10 * 60_000, rl.refreshesPer10Min ?? 60)
   const allowRunsIp = createRateLimiter(60_000, rl.runsPerMin ?? 30)
   const allowRunsPlayer = createRateLimiter(60_000, rl.runsPerMin ?? 30)
   const allowSubmitIp = createRateLimiter(60_000, rl.submitsPerMin ?? 20)

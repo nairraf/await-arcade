@@ -81,7 +81,14 @@ export class SidecarHost extends LocalHost {
   }
 
   async startDaily(challengeId: string): Promise<DailyStart> {
-    return this.call<DailyStart>("/api/daily-start", { challengeId })
+    const result = await this.call<DailyStart & { ok?: boolean; error?: string }>(
+      "/api/daily-start",
+      { challengeId },
+    )
+    if (result.ok === false) {
+      throw new Error(result.error ?? "The daily challenge is unavailable.")
+    }
+    return result
   }
 
   async dailyBoard(challengeId: string): Promise<readonly BoardEntry[]> {

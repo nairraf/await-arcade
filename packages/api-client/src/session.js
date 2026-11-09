@@ -89,6 +89,7 @@ export function createHostSession(options) {
   let auth = readAuth()
   let accessToken
   let accessExpiresAt = 0
+  let refreshBlockedUntil = 0
 
   const client = createArcadeClient({
     baseUrl,
@@ -152,8 +153,15 @@ export function createHostSession(options) {
       writeAuth(auth)
       accessToken = result.accessToken
       accessExpiresAt = result.expiresAt
+      refreshBlockedUntil = 0
       return true
     } catch (error) {
+      if (error?.status === 429) {
+        // The verifier is throttling refreshes. Back off instead of retrying on
+        // every RPC call and exhausting the window further.
+        refreshBlockedUntil = Date.now() + 30_000
+        return false
+      }
       if (error?.status === 401) {
         const rejected = auth.refreshToken
         for (const delay of [250, 500, 1_000, 2_000]) {
@@ -170,6 +178,8 @@ export function createHostSession(options) {
         }
         auth = undefined
         accessToken = undefined
+      } else if (error?.status === undefined || error.status >= 500) {
+        refreshBlockedUntil = Date.now() + 5_000
       }
       return false
     }
@@ -178,6 +188,7 @@ export function createHostSession(options) {
   let refreshing
   async function ensureAuth() {
     if (accessToken && accessExpiresAt > Date.now() + 60_000) return true
+    if (Date.now() < refreshBlockedUntil) return false
     if (!auth?.refreshToken) return false
     if (!refreshing) {
       refreshing = refresh().finally(() => {

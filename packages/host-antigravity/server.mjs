@@ -76,7 +76,16 @@ app.api("/api/best", (data) => session.best(data.gameId, data.modeId), "POST")
 app.api("/api/board", (data) => session.board(data.gameId, data.modeId), "POST")
 app.api("/api/player-best", (data) => session.playerBest(data.gameId, data.modeId), "POST")
 app.api("/api/daily", () => session.daily(), "POST")
-app.api("/api/daily-start", (data) => session.dailyStart(data.challengeId), "POST")
+app.api("/api/daily-start", async (data) => {
+  try {
+    return await session.dailyStart(data.challengeId)
+  } catch (error) {
+    if (String(error?.message ?? "").includes("sign-in")) {
+      return { ok: false, error: "Sign in again to play the daily." }
+    }
+    throw error
+  }
+}, "POST")
 app.api("/api/daily-board", (data) => session.dailyBoard(data.challengeId), "POST")
 app.api(
   "/api/status",

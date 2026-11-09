@@ -1150,7 +1150,9 @@ export function createArcade(options: ArcadeOptions): Arcade {
     } catch (error) {
       if (generation !== playGeneration) return
       if (daily) {
-        host.toast(errorMessage(error))
+        const message = errorMessage(error)
+        host.toast(message)
+        if (/sign in again/i.test(message) && host.authState) openAuth()
         showLauncher()
         return
       }

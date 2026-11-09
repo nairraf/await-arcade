@@ -36,7 +36,16 @@ export default {
       board: (input) => session.board(input.gameId, input.modeId),
       playerBest: (input) => session.playerBest(input.gameId, input.modeId),
       daily: () => session.daily(),
-      dailyStart: (input) => session.dailyStart(input.challengeId),
+      dailyStart: async (input) => {
+        try {
+          return await session.dailyStart(input.challengeId)
+        } catch (error) {
+          if (String(error?.message ?? "").includes("sign-in")) {
+            return { ok: false, error: "Sign in again to play the daily." }
+          }
+          throw error
+        }
+      },
       dailyBoard: (input) => session.dailyBoard(input.challengeId),
       status: () => session.status(),
       authStatus: () => session.status(),
