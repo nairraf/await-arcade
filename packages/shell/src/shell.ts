@@ -577,7 +577,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     )
     if (entry.meta.id === "mineflag") {
       body.append(
-        el("div", "arcade-mode-hint", "Daily rank: moves, server time, attempts."),
+        el("div", "arcade-mode-hint", "Daily rank: server time, attempts, moves."),
       )
     }
 
@@ -999,7 +999,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
         ? el(
             "div",
             "arcade-mode-hint",
-            "Daily rank: moves (30s each) + server time + 2 min per extra attempt.",
+            "Daily rank: server time + 2 min per extra attempt; ties by moves.",
           )
         : undefined
 

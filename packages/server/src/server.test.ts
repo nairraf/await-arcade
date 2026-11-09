@@ -357,9 +357,9 @@ describe("daily challenge", () => {
       expect(detail.moves).toBe(moves)
       expect(detail.attempt).toBe(1)
       expect(typeof detail.elapsedMs).toBe("number")
-      expect(acceptedBody.score.value).toBe(
-        moves * 30_000 + Number(detail.elapsedMs),
-      )
+      const effectiveMs =
+        Number(detail.elapsedMs) + (Number(detail.attempt) - 1) * 120_000
+      expect(acceptedBody.score.value).toBe(effectiveMs * 1_000_000 + moves)
 
       const board = (await fetch(
         `${root}/v1/challenges/${encodeURIComponent(info.challengeId)}/board`,

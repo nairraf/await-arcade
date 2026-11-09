@@ -50,7 +50,7 @@ export interface ArcadeServer {
 
 const MAX_BODY = 2_500_000
 const RUN_TTL_MS = 24 * 60 * 60 * 1000
-const DAILY_MINE_MOVE_WEIGHT_MS = 30_000
+const DAILY_MINE_MOVE_TIEBREAK = 1_000_000
 const DAILY_MINE_ATTEMPT_PENALTY_MS = 120_000
 
 function winner(a: Score, b: Score): boolean {
@@ -610,17 +610,16 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           const moves = verified.ticks ?? score.value
           const elapsedMs = Math.max(0, Date.now() - run.createdAt)
           const attempt = run.attempt ?? 1
+          const effectiveMs = elapsedMs + (attempt - 1) * DAILY_MINE_ATTEMPT_PENALTY_MS
           dailyScore = {
             ...score,
-            value:
-              moves * DAILY_MINE_MOVE_WEIGHT_MS +
-              elapsedMs +
-              (attempt - 1) * DAILY_MINE_ATTEMPT_PENALTY_MS,
+            value: effectiveMs * DAILY_MINE_MOVE_TIEBREAK + moves,
             type: "lower",
             detail: {
               ...(score.detail ?? {}),
               moves,
               elapsedMs,
+              effectiveMs,
               attempt,
             },
           }

@@ -33,7 +33,7 @@ export function formatDailyScore(score: Score, meta: GameMeta): string {
   const attempt = score.detail?.attempt
   if (typeof moves === "number" && typeof elapsed === "number") {
     const tryLabel = typeof attempt === "number" ? ` · try ${attempt}` : ""
-    return `${moves} mv · ${formatDuration(elapsed)}${tryLabel}`
+    return `${formatDuration(elapsed)} · ${moves} mv${tryLabel}`
   }
   return formatScore(score, meta)
 }

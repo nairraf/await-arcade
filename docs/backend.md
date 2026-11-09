@@ -214,11 +214,13 @@ them, including from the daily anchor.
 - **Best of 3** is the player's daily board entry. A worse later attempt never
   lowers it.
 - **Mineflag daily score:** a shared board makes the optimal move count
-  identical, so the daily entry is a server-side weighted score:
-  `moves × 30s + server elapsed + (attempt − 1) × 2min` (lower wins). The board
-  displays moves, server time, and attempt; the all-time Mineflag board still
-  ranks moves only. Server elapsed is measured from run issuance to submit, so
-  it cannot be forged by the replay.
+  identical, so the daily entry is sorted by server elapsed plus a penalty for
+  extra attempts (`serverElapsed + (attempt − 1) × 2min`), then by moves
+  ascending. The stored key is
+  `(serverElapsed + attemptPenalty) × 1,000,000 + moves` so the existing board
+  sort keeps the intended order. The board displays server time, moves, and
+  attempt; the all-time Mineflag board still ranks moves only. Server elapsed is
+  measured from run issuance to submit, so it cannot be forged by the replay.
 - **Ranked only.** A run that the core marks unranked (for example, an
   unfinished Mineflag board) no longer writes a board entry, so a fast loss
   cannot beat a completed time.
