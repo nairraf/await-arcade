@@ -634,6 +634,30 @@ export const styles = `
   cursor: pointer;
 }
 
+.arcade-input {
+  min-width: 0;
+  flex: 1;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid var(--arcade-line-strong);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--arcade-fg) 6%, transparent);
+  color: var(--arcade-fg);
+  font: inherit;
+  font-size: 12px;
+}
+
+.arcade-input:focus {
+  outline: none;
+  border-color: var(--arcade-accent);
+}
+
+.arcade-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .arcade-hud {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

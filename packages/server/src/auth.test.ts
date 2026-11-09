@@ -151,6 +151,50 @@ describe("GitHub device flow", () => {
     expect(afterSignOut.status).toBe(401)
   })
 
+  it("updates the arcade name and existing board rows", async () => {
+    githubUser = { id: 123, login: "rename-me", name: "Rename Me" }
+    const tokens = await signIn()
+    await playOne(tokens.accessToken, tokens.player.playerId)
+
+    const renamed = await fetch(`${base}/v1/me`, {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${tokens.accessToken}`,
+      },
+      body: JSON.stringify({ displayName: "Sir Mines" }),
+    })
+    expect(renamed.status).toBe(200)
+    const renamedBody = (await renamed.json()) as {
+      player: { displayName: string }
+    }
+    expect(renamedBody.player.displayName).toBe("Sir Mines")
+
+    const me = (await get("/v1/me", tokens.accessToken).then((r) => r.json())) as {
+      player: { displayName: string }
+    }
+    expect(me.player.displayName).toBe("Sir Mines")
+
+    const board = (await get("/v1/boards/light-cycles/solo").then((r) => r.json())) as {
+      entries: Array<{ playerId: string; displayName?: string }>
+    }
+    expect(
+      board.entries.find((entry) => entry.playerId === tokens.player.playerId)?.displayName,
+    ).toBe("Sir Mines")
+
+    const invalid = await fetch(`${base}/v1/me`, {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${tokens.accessToken}`,
+      },
+      body: JSON.stringify({ displayName: "<script>" }),
+    })
+    expect(invalid.status).toBe(400)
+
+    githubUser = { id: 42, login: "octocat", name: "The Octocat" }
+  })
+
   it("deletes the player, sessions, and board entry", async () => {
     githubUser = { id: 99, login: "deleteme", name: "Delete Me" }
     const tokens = await signIn()

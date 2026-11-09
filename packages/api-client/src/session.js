@@ -311,5 +311,14 @@ export function createHostSession(options) {
       await writeQueue([])
       return status()
     },
+    async updateName(displayName) {
+      await requireAuth()
+      if (!auth) throw new Error("sign-in required")
+      const result = await client.updateMe(displayName)
+      if (!result?.player?.displayName) throw new Error("name update failed")
+      auth = { ...auth, displayName: result.player.displayName }
+      writeAuth(auth)
+      return status()
+    },
   }
 }

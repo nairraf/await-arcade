@@ -273,6 +273,11 @@ export class AuthService {
     await this.store.deletePlayerData(player.playerId, player.providerId, boardIds)
   }
 
+  async updateDisplayName(player: PlayerRecord, displayName: string): Promise<PublicPlayer> {
+    const updated = await this.store.updatePlayerName(player.playerId, displayName)
+    return this.publicPlayer(updated ?? player)
+  }
+
   me(player: PlayerRecord): PublicPlayer {
     return this.publicPlayer(player)
   }

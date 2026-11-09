@@ -112,4 +112,8 @@ export class OpenCodeHost extends LocalHost {
   async deleteAccount(): Promise<AuthState> {
     return (await this.client.rpc(Api).deleteAccount({})) as AuthState
   }
+
+  async updateName(displayName: string): Promise<AuthState> {
+    return (await this.client.rpc(Api).updateName({ displayName })) as AuthState
+  }
 }

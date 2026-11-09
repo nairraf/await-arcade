@@ -113,6 +113,14 @@ function playerId(value: unknown): string | undefined {
   return candidate && PLAYER_ID.test(candidate) ? candidate : undefined
 }
 
+const DISPLAY_NAME = /^[\p{L}\p{N} '._-]{1,24}$/u
+
+function cleanDisplayName(value: unknown): string | undefined {
+  const candidate = text(value)?.trim()
+  if (!candidate || candidate.length > 24 || !DISPLAY_NAME.test(candidate)) return undefined
+  return candidate
+}
+
 function record(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {}
 }
@@ -332,6 +340,22 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
         )
         await auth!.deleteAccount(identity.player, boardIds)
         noContent(res, false)
+        return
+      }
+
+      if (req.method === "PATCH" && url.pathname === "/v1/me") {
+        const identity = await authenticate(req)
+        if (!identity) throw new AuthError(401, "sign in required")
+        const body = record(await readBody(req))
+        const name = cleanDisplayName(body.displayName)
+        if (!name) {
+          json(res, 400, {
+            error: "displayName must be 1-24 letters, numbers, spaces, or ._-'",
+          }, false)
+          return
+        }
+        const player = await auth!.updateDisplayName(identity.player, name)
+        json(res, 200, { player }, false)
         return
       }
 

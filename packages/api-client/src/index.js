@@ -124,6 +124,13 @@ export function createArcadeClient(options) {
     return request("/v1/me", { method: "DELETE" })
   }
 
+  async function updateMe(displayName) {
+    return request("/v1/me", {
+      method: "PATCH",
+      body: JSON.stringify({ displayName }),
+    })
+  }
+
   async function status() {
     return { mode: "online", playerId }
   }
@@ -142,6 +149,7 @@ export function createArcadeClient(options) {
     authRefresh,
     authSignOut,
     me,
+    updateMe,
     deleteMe,
     status,
   }

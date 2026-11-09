@@ -107,6 +107,8 @@ export interface ArcadeStore {
   ): Promise<number | undefined>
   ensurePlayer(providerId: string, player: PlayerRecord): Promise<PlayerRecord>
   getPlayer(playerId: string): Promise<PlayerRecord | undefined>
+  /** Change the public arcade name and propagate it to existing board rows. */
+  updatePlayerName(playerId: string, displayName: string): Promise<PlayerRecord | undefined>
   /** Daily attempts already consumed by this player. */
   getChallengeAttempts(challengeId: string, playerId: string): Promise<number>
   /**
@@ -256,6 +258,21 @@ export class MemoryStore implements ArcadeStore {
 
   async getPlayer(playerId: string): Promise<PlayerRecord | undefined> {
     return this.players.get(playerId)
+  }
+
+  async updatePlayerName(
+    playerId: string,
+    displayName: string,
+  ): Promise<PlayerRecord | undefined> {
+    const player = this.players.get(playerId)
+    if (!player) return undefined
+    player.displayName = displayName
+    player.updatedAt = Date.now()
+    for (const board of this.boards.values()) {
+      const entry = board.get(playerId)
+      if (entry) board.set(playerId, { ...entry, displayName })
+    }
+    return player
   }
 
   async getChallengeAttempts(challengeId: string, playerId: string): Promise<number> {

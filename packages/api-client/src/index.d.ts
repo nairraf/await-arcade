@@ -27,6 +27,13 @@ export interface Board {
   readonly period?: string
 }
 
+export interface PlayerProfile {
+  readonly playerId: string
+  readonly displayName: string
+  readonly githubLogin?: string
+  readonly avatarUrl?: string
+}
+
 export interface DailyBoard extends Board {
   readonly challengeId: string
   readonly gameId: string
@@ -47,6 +54,9 @@ export interface ArcadeClient {
   dailyStart(challengeId: string): Promise<DailyStart>
   dailyBoard(challengeId: string): Promise<DailyBoard>
   status(): Promise<{ readonly mode: "online"; readonly playerId: string }>
+  me(): Promise<{ readonly player: PlayerProfile }>
+  updateMe(displayName: string): Promise<{ readonly player: PlayerProfile }>
+  deleteMe(): Promise<void>
 }
 
 export interface HostSessionOptions {

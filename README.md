@@ -136,7 +136,7 @@ to `~/.gemini/config/config.json`, with a matching project file. Open the
 
 ## Verified in this scaffold
 
-- `npm run check` passes: workspace typecheck, OpenCode host typecheck, 72 tests,
+- `npm run check` passes: workspace typecheck, OpenCode host typecheck, 73 tests,
   core determinism scan, and all four replay fixtures.
 - `npm run build` builds the browser demo.
 - `npm run build:hosts` builds `gui-experimental.cjs` and the Antigravity

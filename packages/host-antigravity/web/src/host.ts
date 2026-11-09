@@ -117,4 +117,8 @@ export class SidecarHost extends LocalHost {
   async deleteAccount(): Promise<AuthState> {
     return this.call<AuthState>("/api/auth/delete", {})
   }
+
+  async updateName(displayName: string): Promise<AuthState> {
+    return this.call<AuthState>("/api/auth/name", { displayName })
+  }
 }

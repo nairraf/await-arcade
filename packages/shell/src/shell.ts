@@ -237,7 +237,21 @@ export function createArcade(options: ArcadeOptions): Arcade {
   )
 
   const topMeta = el("div", "arcade-top-meta")
-  topMeta.append(el("span", "arcade-badge", host.name === "local" ? "LOCAL" : host.name.toUpperCase()))
+
+  const homeButton = el("button", "arcade-btn arcade-btn-ghost", "Home")
+  homeButton.type = "button"
+  homeButton.hidden = true
+  homeButton.title = "Back to the lobby"
+  homeButton.addEventListener("click", () => {
+    if (
+      runInProgress &&
+      typeof globalThis.confirm === "function" &&
+      !globalThis.confirm("Leave this run? The replay will not be submitted.")
+    ) {
+      return
+    }
+    showLauncher()
+  })
 
   const authButton = el("button", "arcade-btn arcade-btn-ghost", "Sign in")
   authButton.type = "button"
@@ -276,14 +290,23 @@ export function createArcade(options: ArcadeOptions): Arcade {
     void showBoards()
   })
 
-  topMeta.append(authButton, boardsButton, theme, sound)
+  topMeta.append(homeButton, authButton, boardsButton, theme, sound)
   top.append(brand, topMeta)
 
   const main = el("main", "arcade-main")
   const online = host.board !== undefined
+  const hostLabel =
+    host.name === "local"
+      ? "Local"
+      : host.name === "opencode"
+        ? "OpenCode"
+        : host.name === "antigravity"
+          ? "Antigravity"
+          : host.name
   const foot = el("footer", "arcade-foot")
   foot.append(
     el("span", "", `Await Arcade v0.1 · ${online ? "online leaderboards" : "local scores"}`),
+    el("span", "arcade-foot-host", `Host: ${hostLabel}`),
     el("span", "", "Replay-verified runs"),
   )
 
@@ -296,7 +319,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     authState = state
     authButton.hidden = false
     authButton.textContent = state.signedIn
-      ? `@${state.githubLogin ?? state.displayName ?? "player"}`
+      ? (state.displayName ?? `@${state.githubLogin ?? "player"}`)
       : "Sign in"
     authButton.title = state.signedIn
       ? `Signed in as ${state.displayName ?? state.githubLogin ?? "player"}`
@@ -455,7 +478,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     }
 
     const renderSignedIn = (state: AuthState): void => {
-      card.replaceChildren(
+      const children: HTMLElement[] = [
         el("div", "arcade-overlay-kicker", "ACCOUNT"),
         el("h2", "arcade-overlay-title", state.displayName ?? "Signed in"),
         el(
@@ -463,6 +486,52 @@ export function createArcade(options: ArcadeOptions): Arcade {
           "arcade-overlay-detail",
           `GitHub @${state.githubLogin ?? "player"}${state.queued ? ` · ${state.queued} queued` : ""}`,
         ),
+      ]
+
+      if (host.updateName) {
+        const nameInput = el("input", "arcade-input")
+        nameInput.type = "text"
+        nameInput.maxLength = 24
+        nameInput.autocomplete = "off"
+        nameInput.placeholder = "Arcade name"
+        nameInput.setAttribute("aria-label", "Arcade name")
+        nameInput.value = state.displayName ?? ""
+        nameInput.spellcheck = false
+
+        const saveName = authAction("Save name", false, () => {
+          const name = nameInput.value.trim()
+          if (!name) {
+            host.toast("Enter an arcade name.")
+            return
+          }
+          saveName.disabled = true
+          void host
+            .updateName!(name)
+            .then((next) => {
+              applyAuth(next)
+              host.toast("Arcade name updated")
+              renderSignedIn(next)
+            })
+            .catch((error: unknown) => {
+              saveName.disabled = false
+              host.toast(errorMessage(error))
+            })
+        })
+
+        const nameRow = el("div", "arcade-name-row")
+        nameRow.append(nameInput, saveName)
+        children.push(
+          el("div", "arcade-overlay-kicker", "ARCADE NAME"),
+          nameRow,
+          el(
+            "div",
+            "arcade-overlay-detail",
+            "Shown on leaderboards instead of your GitHub name.",
+          ),
+        )
+      }
+
+      children.push(
         actionRow(
           authAction("Sign out", false, () => {
             void host
@@ -506,6 +575,8 @@ export function createArcade(options: ArcadeOptions): Arcade {
           authAction("Close", true, close),
         ),
       )
+
+      card.replaceChildren(...children)
     }
 
     if (authState?.signedIn) {
@@ -680,6 +751,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
   const showLauncher = (): void => {
     playGeneration += 1
     const generation = playGeneration
+    homeButton.hidden = true
     clearDailyUi()
     destroyActive()
     main.replaceChildren()
@@ -800,6 +872,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
   ): Promise<void> => {
     const loadBoard = host.board?.bind(host)
     if (!loadBoard) return
+    homeButton.hidden = false
 
     playGeneration += 1
     clearDailyUi()
@@ -1142,6 +1215,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     daily?: DailyChallenge,
   ): Promise<void> => {
     const generation = ++playGeneration
+    homeButton.hidden = false
     clearDailyUi()
     destroyActive()
     main.replaceChildren()
@@ -1225,7 +1299,8 @@ export function createArcade(options: ArcadeOptions): Arcade {
     )
 
     const head = el("header", "arcade-game-head")
-    const back = el("button", "arcade-btn arcade-btn-ghost", "← Await Arcade")
+    const back = el("button", "arcade-btn arcade-btn-ghost", "← Lobby")
+    back.title = "Back to the lobby"
     back.type = "button"
     back.addEventListener("click", () => {
       if (

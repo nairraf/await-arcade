@@ -123,6 +123,17 @@ export const Api = define({
       input: { type: "object", properties: {}, additionalProperties: false },
       output: { type: "object", additionalProperties: true },
     },
+    updateName: {
+      input: {
+        type: "object",
+        properties: {
+          displayName: { type: "string" },
+        },
+        required: ["displayName"],
+        additionalProperties: false,
+      },
+      output: { type: "object", additionalProperties: true },
+    },
   },
   // Core reads `definition.events` unconditionally.
   events: {},

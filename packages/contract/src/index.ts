@@ -353,6 +353,8 @@ export interface GameHost {
   authPoll?(flowId: string): Promise<AuthPoll>
   signOut?(): Promise<AuthState>
   deleteAccount?(): Promise<AuthState>
+  /** Change the public arcade name shown on leaderboards. */
+  updateName?(displayName: string): Promise<AuthState>
   readonly storage: GameStorage
   readonly audio: AudioBus
   toast(message: string): void

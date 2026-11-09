@@ -53,6 +53,7 @@ export default {
       authPoll: (input) => session.authPoll(input.flowId),
       authSignOut: () => session.authSignOut(),
       deleteAccount: () => session.deleteAccount(),
+      updateName: (input) => session.updateName(input.displayName),
     })
   },
 }

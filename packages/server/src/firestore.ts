@@ -172,6 +172,33 @@ export class FirestoreStore implements ArcadeStore {
     return snapshot.exists ? (snapshot.data() as PlayerRecord) : undefined
   }
 
+  async updatePlayerName(
+    playerId: string,
+    displayName: string,
+  ): Promise<PlayerRecord | undefined> {
+    const ref = this.playerDoc(playerId)
+    const at = Date.now()
+    const updated =await this.db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(ref)
+      if (!snapshot.exists) return undefined
+      const player = { ...(snapshot.data() as PlayerRecord), displayName, updatedAt: at }
+      transaction.set(ref, { displayName, updatedAt: at }, { merge: true })
+      return player
+    })
+    if (!updated) return undefined
+
+    // Board rows are denormalized for display; keep existing entries in sync.
+    const boards = await this.db.collection("boards").get()
+    const writer = this.db.bulkWriter()
+    for (const board of boards.docs) {
+      const entryRef = board.ref.collection("entries").doc(playerId)
+      const entry = await entryRef.get()
+      if (entry.exists) writer.set(entryRef, { displayName }, { merge: true })
+    }
+    await writer.close()
+    return updated
+  }
+
   async getChallengeAttempts(challengeId: string, playerId: string): Promise<number> {
     const snapshot = await this.attemptDoc(challengeId, playerId).get()
     return snapshot.exists ? Number(snapshot.get("attempts") ?? 0) : 0
