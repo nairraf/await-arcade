@@ -11,9 +11,10 @@ import {
   type RunRecord,
   type SessionRecord,
   type StoreTx,
+  type XpSummary,
 } from "./store"
 import type { XpRecord } from "./xp"
-import { competitionRanks } from "./xp"
+import { competitionRanks, levelFor } from "./xp"
 
 export interface FirestoreStoreOptions {
   readonly projectId?: string
@@ -22,7 +23,14 @@ export interface FirestoreStoreOptions {
 
 export class FirestoreStore implements ArcadeStore {
   private readonly db: Firestore
-  private xpRankCache?: { readonly at: number; readonly ranks: ReadonlyMap<string, number> }
+  private xpSummaryCache:
+    | {
+        readonly at: number
+        readonly summaries: ReadonlyMap<string, XpSummary>
+      }
+    | undefined
+  private xpSummaryPending: Promise<ReadonlyMap<string, XpSummary>> | undefined
+  private xpCacheGeneration = 0
 
   constructor(options: FirestoreStoreOptions = {}) {
     const config: { projectId?: string; databaseId?: string } = {}
@@ -65,7 +73,8 @@ export class FirestoreStore implements ArcadeStore {
   }
 
   async transaction<T>(fn: (tx: StoreTx) => Promise<T>): Promise<T> {
-    return this.db.runTransaction(async (transaction) => {
+    let xpChanged = false
+    const result = await this.db.runTransaction(async (transaction) => {
       const runDoc = (runId: string) => this.runDoc(runId)
       const entryDoc = (boardId: string, playerId: string) => this.entryDoc(boardId, playerId)
       const boardDoc = (boardId: string) => this.boardDoc(boardId)
@@ -133,6 +142,7 @@ export class FirestoreStore implements ArcadeStore {
             { xp: nextTotal, xpUpdatedAt: input.now, updatedAt: input.now },
             { merge: true },
           )
+          if (delta > 0) xpChanged = true
           return { total: nextTotal, awarded: delta, dailyBest: input.xp }
         },
         async getPlayer(playerId) {
@@ -143,6 +153,12 @@ export class FirestoreStore implements ArcadeStore {
 
       return fn(tx)
     })
+    if (xpChanged) {
+      this.xpCacheGeneration += 1
+      this.xpSummaryCache = undefined
+      this.xpSummaryPending = undefined
+    }
+    return result
   }
 
   async top(
@@ -330,30 +346,58 @@ export class FirestoreStore implements ArcadeStore {
     return snapshot.data().count + 1
   }
 
-  async getXpRanks(playerIds?: readonly string[]): Promise<ReadonlyMap<string, number>> {
+  private async loadXpSummaries(): Promise<ReadonlyMap<string, XpSummary>> {
+    const snapshot = await this.db.collection("players").select("xp").get()
+    const players = snapshot.docs.map((doc) => ({
+      playerId: doc.id,
+      xp: Number(doc.get("xp") ?? 0),
+    }))
+    const ranks = competitionRanks(players)
+    const summaries = new Map<string, XpSummary>()
+    for (const player of players) {
+      if (player.xp <= 0) continue
+      const rank = ranks.get(player.playerId)
+      if (rank === undefined) continue
+      summaries.set(player.playerId, {
+        rank,
+        level: levelFor(player.xp).level,
+      })
+    }
+    return summaries
+  }
+
+  async getXpSummaries(playerIds?: readonly string[]): Promise<ReadonlyMap<string, XpSummary>> {
     // One small projection of the players collection, cached in-process for
-    // 30s. Clients/CDN may also cache the board response for 30s.
-    const now = Date.now()
-    if (!this.xpRankCache || now - this.xpRankCache.at > 30_000) {
-      const snapshot = await this.db.collection("players").select("xp").get()
-      this.xpRankCache = {
-        at: now,
-        ranks: competitionRanks(
-          snapshot.docs.map((doc) => ({
-            playerId: doc.id,
-            xp: Number(doc.get("xp") ?? 0),
-          })),
-        ),
+    // 30s. Concurrent readers share the same in-flight scan; writes that award
+    // XP invalidate it so the player's own pill updates immediately.
+    if (!this.xpSummaryCache || Date.now() - this.xpSummaryCache.at > 30_000) {
+      if (!this.xpSummaryPending) {
+        const generation = this.xpCacheGeneration
+        const pending = this.loadXpSummaries().then((summaries) => {
+          if (generation === this.xpCacheGeneration) {
+            this.xpSummaryCache = { at: Date.now(), summaries }
+          }
+          return summaries
+        })
+        this.xpSummaryPending = pending
+        const clear = (): void => {
+          if (this.xpSummaryPending === pending) this.xpSummaryPending = undefined
+        }
+        void pending.then(clear, clear)
       }
+      const pending = this.xpSummaryPending
+      if (pending) await pending
     }
-    if (!playerIds) return this.xpRankCache.ranks
+
+    const summaries = this.xpSummaryCache?.summaries ?? new Map<string, XpSummary>()
+    if (!playerIds) return summaries
     const wanted = new Set(playerIds)
-    const ranks = new Map<string, number>()
+    const filtered = new Map<string, XpSummary>()
     for (const playerId of wanted) {
-      const rank = this.xpRankCache.ranks.get(playerId)
-      if (rank !== undefined) ranks.set(playerId, rank)
+      const summary = summaries.get(playerId)
+      if (summary) filtered.set(playerId, summary)
     }
-    return ranks
+    return filtered
   }
 
   async getChallengeAttempts(challengeId: string, playerId: string): Promise<number> {

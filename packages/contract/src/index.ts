@@ -267,6 +267,8 @@ export interface BoardEntry {
   readonly ghostId?: string
   /** Competition rank by total arcade XP, enriched when a board is read. */
   readonly xpRank?: number
+  /** Arcade XP level, enriched when a board is read. */
+  readonly xpLevel?: number
 }
 
 export interface GhostRun {
@@ -393,6 +395,7 @@ export interface GameHost {
     readonly rank?: number
     readonly playerId?: string
     readonly xpRank?: number
+    readonly xpLevel?: number
   }>
   /** Today's featured challenge, when the host supports the daily ladder. */
   daily?(): Promise<DailyChallenge>

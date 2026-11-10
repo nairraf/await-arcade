@@ -66,11 +66,14 @@ export function createArcadeClient(options) {
     const value = await request(
       `/v1/boards/${encodeURIComponent(gameId)}/${encodeURIComponent(modeId)}/player/${who}`,
     )
+    const positiveInt = (input) =>
+      typeof input === "number" && Number.isInteger(input) && input > 0 ? input : undefined
     return {
       score: value.entry?.score,
       rank: value.rank,
       playerId: value.playerId,
-      xpRank: value.entry?.xpRank,
+      xpRank: positiveInt(value.entry?.xpRank),
+      xpLevel: positiveInt(value.entry?.xpLevel),
     }
   }
 

@@ -68,9 +68,10 @@ describe("MemoryStore.rank", () => {
     const now = Date.now()
     for (const [playerId, xp] of [
       ["low", 20],
-      ["high", 200],
+      ["high", 300],
       ["tie-a", 60],
       ["tie-b", 60],
+      ["zero", 0],
     ] as const) {
       await store.ensurePlayer(`github:${playerId}`, {
         playerId,
@@ -82,11 +83,14 @@ describe("MemoryStore.rank", () => {
       })
     }
 
-    const ranks = await store.getXpRanks(["high", "tie-a", "low", "nobody"])
-    expect(ranks.get("high")).toBe(1)
-    expect(ranks.get("tie-a")).toBe(2)
-    expect(ranks.get("low")).toBe(4)
-    expect(ranks.has("nobody")).toBe(false)
+    const summaries = await store.getXpSummaries(["high", "tie-a", "low", "zero", "nobody"])
+    expect(summaries.get("high")?.rank).toBe(1)
+    expect(summaries.get("high")?.level).toBe(2)
+    expect(summaries.get("tie-a")?.rank).toBe(2)
+    expect(summaries.get("tie-a")?.level).toBe(1)
+    expect(summaries.get("low")?.rank).toBe(4)
+    expect(summaries.has("zero")).toBe(false)
+    expect(summaries.has("nobody")).toBe(false)
   })
 
   it("stores ghosts and removes them when the player is deleted", async () => {

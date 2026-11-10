@@ -82,6 +82,7 @@ export class SidecarHost extends LocalHost {
       rank?: number
       playerId?: string
       xpRank?: number
+      xpLevel?: number
     }>("/api/player-best", { gameId, modeId })
   }
 

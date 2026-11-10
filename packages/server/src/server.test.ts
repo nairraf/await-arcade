@@ -60,11 +60,12 @@ describe("verifier server", () => {
     const boardResponse = await fetch(`${base}/v1/boards/light-cycles/solo`)
     expect(boardResponse.headers.get("cache-control")).toContain("max-age=30")
     const board = (await boardResponse.json()) as {
-      entries: Array<{ playerId: string; xpRank?: number }>
+      entries: Array<{ playerId: string; xpRank?: number; xpLevel?: number }>
     }
 
     expect(board.entries[0]?.playerId).toBe("tester")
     expect(board.entries[0]?.xpRank).toBeGreaterThan(0)
+    expect(board.entries[0]?.xpLevel).toBe(1)
   })
 
   it("returns a player's best and rank", async () => {
@@ -86,13 +87,14 @@ describe("verifier server", () => {
     const mine = (await fetch(`${base}/v1/boards/light-cycles/solo/player/solo-player`).then(
       (response) => response.json(),
     )) as {
-      entry?: { playerId: string; score: { value: number }; xpRank?: number }
+      entry?: { playerId: string; score: { value: number }; xpRank?: number; xpLevel?: number }
       rank?: number
     }
 
     expect(mine.entry?.playerId).toBe("solo-player")
     expect(mine.entry?.score.value).toBe(result.score.value)
     expect(mine.entry?.xpRank).toBeGreaterThan(0)
+    expect(mine.entry?.xpLevel).toBe(1)
     expect(mine.rank).toBeGreaterThan(0)
 
     const missing = (await fetch(`${base}/v1/boards/light-cycles/solo/player/nobody`).then(

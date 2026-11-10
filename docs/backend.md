@@ -75,7 +75,7 @@ GET  /v1/runs/:id/ghost           seed/mode/anchor for unranked ghost practice
 POST /v1/runs                     { gameId, modeId } -> { runId, seed, expiresAt }
 POST /v1/runs/:id/submit          { replay } -> { score, best?, rank?, xp?, challengeId? }
 GET  /v1/boards/:gameId/:modeId         -> { entries, period }
-GET  /v1/boards/:gameId/:modeId/player/:playerId -> { entry? (includes xpRank), rank? }
+GET  /v1/boards/:gameId/:modeId/player/:playerId -> { entry? (includes xpLevel, xpRank), rank? }
 GET  /v1/me                       identity
 GET  /v1/me/profile               arcade XP, level, medals, arcade rank
 PATCH /v1/me                      display name
@@ -83,11 +83,13 @@ DELETE /v1/me                     delete the player and all player-linked data
 ```
 
 Board GETs send `Cache-Control: public, max-age=30, s-maxage=30`; the
-player-best GET sends `private, max-age=15`. Everything else is `no-store`.
-Board entries include `xpRank`, the player's global competition rank by total
-arcade XP, enriched on read from a projection of the `players` collection.
-Players with no XP have no `xpRank` and no pill. The projection is cached
-in-process for 30 seconds; the board response is separately cacheable for 30s.
+player-best GET sends `private, max-age=15`, except `/player/me`, which is
+`no-store`. Everything else is `no-store`.
+Board entries include `xpLevel` and `xpRank`: the player's arcade XP level and
+global competition rank by total XP, enriched on read from a projection of the
+`players` collection. Rows show `LVL n · Rn`; players with no XP have no
+enrichment and no pill. The projection is cached in-process for 30 seconds; the
+board response is separately cacheable for 30s.
 
 On submit, one Firestore transaction: check the run is issued and owned, verify
 the replay, retain the best XP for that game and UTC day, compare against the
@@ -282,8 +284,9 @@ A verified high-score run can be replayed as **unranked practice**:
 | Cloud Run | 2M requests, 180k vCPU-s, 360k GB-s/mo | far below | `min-instances=0`, `max-instances=2` |
 | Egress | ~1 GB/month | well under | small JSON |
 
-Set `Cache-Control` on GETs, cache the XP-rank projection in-process for 30s,
-use `count()` for a single player's XP rank, and TTL `runs`.
+Set `Cache-Control` on GETs, cache the XP projection in-process for 30s (and
+invalidate it when XP is awarded), use `count()` for a single player's XP rank,
+and TTL `runs`.
 
 ## Deployment sketch
 

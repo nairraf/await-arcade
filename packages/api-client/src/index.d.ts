@@ -56,6 +56,7 @@ export interface ArcadeClient {
     readonly rank?: number
     readonly playerId?: string
     readonly xpRank?: number
+    readonly xpLevel?: number
   }>
   dailyToday(): Promise<DailyChallenge>
   dailyStart(challengeId: string): Promise<DailyStart>
@@ -97,6 +98,7 @@ export interface HostSession {
     readonly rank?: number
     readonly playerId?: string
     readonly xpRank?: number
+    readonly xpLevel?: number
   }>
   daily(): Promise<DailyChallenge>
   dailyStart(challengeId: string): Promise<DailyStart>

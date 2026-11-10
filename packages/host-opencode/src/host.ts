@@ -77,6 +77,7 @@ export class OpenCodeHost extends LocalHost {
       rank?: number
       playerId?: string
       xpRank?: number
+      xpLevel?: number
     }
   }
 

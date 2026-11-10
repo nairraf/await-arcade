@@ -232,8 +232,16 @@ function profileNode(
 
 const RANK_MEDALS = ["gold", "silver", "bronze"] as const
 
-function xpRankNote(rank?: number): string {
-  return rank === undefined ? "" : ` · XP #${rank}`
+function xpSummaryText(level?: number, rank?: number): string {
+  const parts: string[] = []
+  if (level !== undefined) parts.push(`LVL ${level}`)
+  if (rank !== undefined) parts.push(`R${rank}`)
+  return parts.join(" · ")
+}
+
+function xpSummaryNote(level?: number, rank?: number): string {
+  const text = xpSummaryText(level, rank)
+  return text ? ` · ${text}` : ""
 }
 
 /** Render a rank as a top-three medal badge, or a plain #N for the rest. */
@@ -280,13 +288,16 @@ function renderBoardRow(
   const player = el("div", "arcade-board-player")
   const nameNode = el("span", "arcade-board-name", name)
   player.append(nameNode)
-  if (item.xpRank !== undefined) {
+  if (item.xpLevel !== undefined || item.xpRank !== undefined) {
     const xp = el(
       "span",
-      `arcade-board-xp${item.xpRank <= 3 ? " arcade-board-xp-top" : ""}`,
-      `XP #${item.xpRank}`,
+      `arcade-board-xp${item.xpRank !== undefined && item.xpRank <= 3 ? " arcade-board-xp-top" : ""}`,
+      xpSummaryText(item.xpLevel, item.xpRank),
     )
-    xp.title = `Arcade XP rank #${item.xpRank}`
+    const titleParts: string[] = []
+    if (item.xpLevel !== undefined) titleParts.push(`Level ${item.xpLevel}`)
+    if (item.xpRank !== undefined) titleParts.push(`Arcade rank #${item.xpRank}`)
+    xp.title = titleParts.join(" · ")
     player.append(xp)
   }
   player.title = isYou ? "You" : (item.displayName ? `${item.displayName} (${item.playerId})` : item.playerId)
@@ -1338,7 +1349,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
         if (dailyIndex >= 0) {
           const entryAt = entries[dailyIndex]!
           applyRank(youRank, dailyIndex + 1)
-          youScore.textContent = `${formatDailyScore(entryAt.score, entry.meta)}${xpRankNote(entryAt.xpRank)}`
+          youScore.textContent = `${formatDailyScore(entryAt.score, entry.meta)}${xpSummaryNote(entryAt.xpLevel, entryAt.xpRank)}`
         } else if (auth && !auth.signedIn) {
           applyRank(youRank)
           youScore.textContent = "Sign in with GitHub to play the daily."
@@ -1357,7 +1368,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
         } else if (mine?.rank !== undefined) {
           applyRank(youRank, mine.rank)
           youScore.textContent = mine.score
-            ? `${scoreLabel(entry.meta)}: ${formatScore(mine.score, entry.meta)}${xpRankNote(mine.xpRank)}`
+            ? `${scoreLabel(entry.meta)}: ${formatScore(mine.score, entry.meta)}${xpSummaryNote(mine.xpLevel, mine.xpRank)}`
             : ""
         } else if (auth && !auth.signedIn) {
           applyRank(youRank)

@@ -1,6 +1,6 @@
 import type { BoardEntry, Score } from "@await-arcade/contract"
 import type { XpAward, XpAwardInput, XpRecord } from "./xp"
-import { competitionRanks } from "./xp"
+import { competitionRanks, levelFor } from "./xp"
 
 export interface RunRecord {
   readonly runId: string
@@ -32,6 +32,12 @@ export interface GhostRecord {
   readonly seed: number
   readonly anchor?: RunAnchor
   readonly createdAt: number
+}
+
+/** A player's public XP standing for board enrichment. */
+export interface XpSummary {
+  readonly rank: number
+  readonly level: number
 }
 
 export type { BoardEntry }
@@ -153,8 +159,8 @@ export interface ArcadeStore {
   getXp(playerId: string): Promise<readonly XpRecord[]>
   /** 1-based competition rank by total XP, or undefined with no XP. */
   getXpRank(playerId: string, total?: number): Promise<number | undefined>
-  /** Competition XP ranks for board enrichment, keyed by player id. */
-  getXpRanks(playerIds?: readonly string[]): Promise<ReadonlyMap<string, number>>
+  /** Competition XP rank and level for board enrichment, keyed by player id. */
+  getXpSummaries(playerIds?: readonly string[]): Promise<ReadonlyMap<string, XpSummary>>
   /** Daily attempts already consumed by this player. */
   getChallengeAttempts(challengeId: string, playerId: string): Promise<number>
   /**
@@ -351,14 +357,21 @@ export class MemoryStore implements ArcadeStore {
     return better + 1
   }
 
-  async getXpRanks(playerIds?: readonly string[]): Promise<ReadonlyMap<string, number>> {
-    return competitionRanks(
-      [...this.players.values()].map((player) => ({
-        playerId: player.playerId,
-        xp: player.xp ?? 0,
-      })),
-      playerIds ? new Set(playerIds) : undefined,
-    )
+  async getXpSummaries(playerIds?: readonly string[]): Promise<ReadonlyMap<string, XpSummary>> {
+    const players = [...this.players.values()].map((player) => ({
+      playerId: player.playerId,
+      xp: player.xp ?? 0,
+    }))
+    const wanted = playerIds ? new Set(playerIds) : undefined
+    const ranks = competitionRanks(players, wanted)
+    const summaries = new Map<string, XpSummary>()
+    for (const player of players) {
+      if (player.xp <= 0 || (wanted && !wanted.has(player.playerId))) continue
+      const rank = ranks.get(player.playerId)
+      if (rank === undefined) continue
+      summaries.set(player.playerId, { rank, level: levelFor(player.xp).level })
+    }
+    return summaries
   }
 
   async ensurePlayer(providerId: string, player: PlayerRecord): Promise<PlayerRecord> {

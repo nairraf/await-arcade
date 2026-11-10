@@ -60,6 +60,11 @@ export function normaliseBoard(value: unknown): BoardEntry[] {
       record.xpRank > 0
         ? { xpRank: record.xpRank }
         : {}),
+      ...(typeof record.xpLevel === "number" &&
+      Number.isInteger(record.xpLevel) &&
+      record.xpLevel > 0
+        ? { xpLevel: record.xpLevel }
+        : {}),
       score: {
         value: raw.value,
         type: raw.type,
