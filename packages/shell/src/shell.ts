@@ -147,15 +147,35 @@ function profileNode(
 ): HTMLElement {
   const wrap = el("div", "arcade-profile")
   const head = el("div", "arcade-profile-head")
-  head.append(
+
+  const level = el("div", "arcade-profile-level")
+  level.append(
     el("div", "arcade-overlay-kicker", `LEVEL ${profile.level} · ${profile.levelTitle}`),
     el("div", "arcade-profile-xp", `${profile.totalXp} XP`),
-    el(
-      "div",
-      "arcade-profile-rank",
-      profile.rank ? `ARCADE RANK #${profile.rank}` : "UNRANKED",
-    ),
   )
+
+  const rankBadge = el("div", "arcade-profile-rank-badge")
+  if (profile.rank) {
+    const tier =
+      profile.rank <= 3 ? (["gold", "silver", "bronze"] as const)[profile.rank - 1] : undefined
+    rankBadge.classList.add(tier ? `arcade-profile-rank-${tier}` : "arcade-profile-rank-plain")
+    rankBadge.title = `Arcade rank #${profile.rank}`
+    rankBadge.append(
+      el("span", "arcade-profile-rank-icon", tier ? "★" : "◆"),
+      el("span", "arcade-profile-rank-value", `#${profile.rank}`),
+      el("span", "arcade-profile-rank-label", "ARCADE RANK"),
+    )
+  } else {
+    rankBadge.classList.add("arcade-profile-rank-plain")
+    rankBadge.title = "No arcade rank yet"
+    rankBadge.append(
+      el("span", "arcade-profile-rank-icon", "◇"),
+      el("span", "arcade-profile-rank-value", "—"),
+      el("span", "arcade-profile-rank-label", "UNRANKED"),
+    )
+  }
+
+  head.append(level, rankBadge)
   wrap.append(head)
 
   if (profile.nextLevelXp !== undefined) {

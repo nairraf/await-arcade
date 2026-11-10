@@ -684,13 +684,20 @@ export const styles = `
 
 .arcade-profile-head {
   display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: baseline;
-  gap: 4px 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
 }
 
 .arcade-profile-head .arcade-overlay-kicker {
   margin: 0;
+}
+
+.arcade-profile-level {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .arcade-profile-xp {
@@ -700,11 +707,76 @@ export const styles = `
   font-variant-numeric: tabular-nums;
 }
 
-.arcade-profile-rank {
-  grid-column: 1 / -1;
-  font-size: 10px;
-  letter-spacing: 0.12em;
+.arcade-profile-rank-badge {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 7px;
+  justify-self: end;
+  padding: 7px 12px 7px 10px;
+  border: 1px solid color-mix(in srgb, var(--game-accent) 45%, var(--arcade-line));
+  border-radius: 12px;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--game-accent) 12%, transparent),
+    transparent
+  );
+}
+
+.arcade-profile-rank-icon {
+  grid-row: 1 / span 2;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--game-accent);
+}
+
+.arcade-profile-rank-value {
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--game-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.arcade-profile-rank-label {
+  font-size: 8px;
+  letter-spacing: 0.16em;
   color: var(--arcade-muted);
+}
+
+.arcade-profile-rank-gold {
+  border-color: color-mix(in srgb, #d79a1e 72%, transparent);
+  background: linear-gradient(145deg, rgba(255, 224, 138, 0.16), rgba(215, 154, 30, 0.05));
+  box-shadow: 0 0 26px -12px #d79a1e;
+}
+
+.arcade-profile-rank-gold .arcade-profile-rank-icon,
+.arcade-profile-rank-gold .arcade-profile-rank-value {
+  color: #ffe08a;
+}
+
+.arcade-profile-rank-silver {
+  border-color: color-mix(in srgb, #9aa6b5 72%, transparent);
+  background: linear-gradient(145deg, rgba(244, 246, 250, 0.14), rgba(154, 166, 181, 0.05));
+  box-shadow: 0 0 26px -12px #9aa6b5;
+}
+
+.arcade-profile-rank-silver .arcade-profile-rank-icon,
+.arcade-profile-rank-silver .arcade-profile-rank-value {
+  color: #f4f6fa;
+}
+
+.arcade-profile-rank-bronze {
+  border-color: color-mix(in srgb, #a85c25 72%, transparent);
+  background: linear-gradient(145deg, rgba(240, 178, 122, 0.16), rgba(168, 92, 37, 0.05));
+  box-shadow: 0 0 26px -12px #a85c25;
+}
+
+.arcade-profile-rank-bronze .arcade-profile-rank-icon,
+.arcade-profile-rank-bronze .arcade-profile-rank-value {
+  color: #f0b27a;
 }
 
 .arcade-xp-bar {
