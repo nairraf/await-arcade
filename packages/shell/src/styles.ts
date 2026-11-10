@@ -1012,7 +1012,7 @@ export const styles = `
   font-variant-numeric: tabular-nums;
 }
 
-.arcade-board-rank.arcade-rank-medal {
+.arcade-rank-medal {
   display: inline-grid;
   place-items: center;
   width: 24px;
@@ -1250,9 +1250,10 @@ export const styles = `
 }
 
 .arcade-boards-you-rank.arcade-rank-medal {
-  width: 34px;
-  height: 34px;
-  font-size: 16px;
+  width: 30px;
+  height: 30px;
+  font-size: 14px;
+  flex: none;
 }
 
 .arcade-boards-you-score {
