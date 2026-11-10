@@ -232,6 +232,10 @@ function profileNode(
 
 const RANK_MEDALS = ["gold", "silver", "bronze"] as const
 
+function xpRankNote(rank?: number): string {
+  return rank === undefined ? "" : ` · XP #${rank}`
+}
+
 /** Render a rank as a top-three medal badge, or a plain #N for the rest. */
 function applyRank(node: HTMLElement, rank?: number): void {
   node.classList.remove(
@@ -273,7 +277,18 @@ function renderBoardRow(
     `arcade-board-row${extraClass ? ` ${extraClass}` : ""}${isYou ? " arcade-board-row-you" : ""}`,
   )
   const name = item.displayName || (isYou ? "You" : item.playerId.slice(0, 8))
-  const player = el("span", "arcade-board-player", name)
+  const player = el("div", "arcade-board-player")
+  const nameNode = el("span", "arcade-board-name", name)
+  player.append(nameNode)
+  if (item.xpRank !== undefined) {
+    const xp = el(
+      "span",
+      `arcade-board-xp${item.xpRank <= 3 ? " arcade-board-xp-top" : ""}`,
+      `XP #${item.xpRank}`,
+    )
+    xp.title = `Arcade XP rank #${item.xpRank}`
+    player.append(xp)
+  }
   player.title = isYou ? "You" : (item.displayName ? `${item.displayName} (${item.playerId})` : item.playerId)
   const rank = el("span", "arcade-board-rank")
   applyRank(rank, index + 1)
@@ -1323,7 +1338,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
         if (dailyIndex >= 0) {
           const entryAt = entries[dailyIndex]!
           applyRank(youRank, dailyIndex + 1)
-          youScore.textContent = formatDailyScore(entryAt.score, entry.meta)
+          youScore.textContent = `${formatDailyScore(entryAt.score, entry.meta)}${xpRankNote(entryAt.xpRank)}`
         } else if (auth && !auth.signedIn) {
           applyRank(youRank)
           youScore.textContent = "Sign in with GitHub to play the daily."
@@ -1342,7 +1357,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
         } else if (mine?.rank !== undefined) {
           applyRank(youRank, mine.rank)
           youScore.textContent = mine.score
-            ? `${scoreLabel(entry.meta)}: ${formatScore(mine.score, entry.meta)}`
+            ? `${scoreLabel(entry.meta)}: ${formatScore(mine.score, entry.meta)}${xpRankNote(mine.xpRank)}`
             : ""
         } else if (auth && !auth.signedIn) {
           applyRank(youRank)

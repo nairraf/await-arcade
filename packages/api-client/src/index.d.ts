@@ -51,7 +51,12 @@ export interface ArcadeClient {
   playerBest(
     gameId: string,
     modeId: string,
-  ): Promise<{ readonly score?: Score; readonly rank?: number; readonly playerId?: string }>
+  ): Promise<{
+    readonly score?: Score
+    readonly rank?: number
+    readonly playerId?: string
+    readonly xpRank?: number
+  }>
   dailyToday(): Promise<DailyChallenge>
   dailyStart(challengeId: string): Promise<DailyStart>
   dailyBoard(challengeId: string): Promise<DailyBoard>
@@ -87,7 +92,12 @@ export interface HostSession {
   submit(runId: string, replay: Replay): Promise<SubmitResult>
   best(gameId: string, modeId: string): Promise<{ best: Score | undefined }>
   board(gameId: string, modeId: string): Promise<Board>
-  playerBest(gameId: string, modeId: string): Promise<{ readonly score?: Score; readonly rank?: number; readonly playerId?: string }>
+  playerBest(gameId: string, modeId: string): Promise<{
+    readonly score?: Score
+    readonly rank?: number
+    readonly playerId?: string
+    readonly xpRank?: number
+  }>
   daily(): Promise<DailyChallenge>
   dailyStart(challengeId: string): Promise<DailyStart>
   dailyBoard(challengeId: string): Promise<DailyBoard>

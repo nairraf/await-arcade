@@ -71,11 +71,18 @@ export class SidecarHost extends LocalHost {
   async playerBest(
     gameId: string,
     modeId: string,
-  ): Promise<{ score?: Score; rank?: number; playerId?: string }> {
-    return this.call<{ score?: Score; rank?: number; playerId?: string }>(
-      "/api/player-best",
-      { gameId, modeId },
-    )
+  ): Promise<{
+    score?: Score
+    rank?: number
+    playerId?: string
+    xpRank?: number
+  }> {
+    return this.call<{
+      score?: Score
+      rank?: number
+      playerId?: string
+      xpRank?: number
+    }>("/api/player-best", { gameId, modeId })
   }
 
   async daily(): Promise<DailyChallenge> {

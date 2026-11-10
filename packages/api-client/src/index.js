@@ -66,7 +66,12 @@ export function createArcadeClient(options) {
     const value = await request(
       `/v1/boards/${encodeURIComponent(gameId)}/${encodeURIComponent(modeId)}/player/${who}`,
     )
-    return { score: value.entry?.score, rank: value.rank, playerId: value.playerId }
+    return {
+      score: value.entry?.score,
+      rank: value.rank,
+      playerId: value.playerId,
+      xpRank: value.entry?.xpRank,
+    }
   }
 
   async function dailyToday() {

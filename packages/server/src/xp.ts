@@ -91,6 +91,27 @@ export function gameXp(records: readonly XpRecord[]): ArcadeGameXp[] {
     .sort((left, right) => right.xp - left.xp || left.gameId.localeCompare(right.gameId))
 }
 
+/** Competition ranking (1, 2, 2, 4) for players with positive XP. */
+export function competitionRanks(
+  players: readonly { readonly playerId: string; readonly xp: number }[],
+  wanted?: ReadonlySet<string>,
+): Map<string, number> {
+  const ranked = players
+    .filter((player) => player.xp > 0)
+    .sort((left, right) => right.xp - left.xp)
+  const ranks = new Map<string, number>()
+  let rank = 1
+  let previousXp = Number.POSITIVE_INFINITY
+  ranked.forEach((player, index) => {
+    if (player.xp !== previousXp) {
+      rank = index + 1
+      previousXp = player.xp
+    }
+    if (!wanted || wanted.has(player.playerId)) ranks.set(player.playerId, rank)
+  })
+  return ranks
+}
+
 /**
  * Derive medals from the retained daily records. This keeps medals consistent
  * with the records and avoids a separate mutable medal store.

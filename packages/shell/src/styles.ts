@@ -12,6 +12,7 @@ export const styles = `
   --arcade-accent: #22d3ee;
   --arcade-accent-2: #f472b6;
   --arcade-coin: #fbbf24;
+  --arcade-medal-ink: #17130b;
   --arcade-success: #4ade80;
   --arcade-danger: #fb7185;
   --arcade-bezel: #04070b;
@@ -49,6 +50,7 @@ export const styles = `
   --arcade-accent: #0e7490;
   --arcade-accent-2: #be185d;
   --arcade-coin: #b45309;
+  --arcade-medal-ink: #17130b;
   --arcade-success: #15803d;
   --arcade-danger: #b91c1c;
   --arcade-bezel: #c9bfae;
@@ -72,6 +74,7 @@ export const styles = `
     --arcade-accent: #0e7490;
     --arcade-accent-2: #be185d;
     --arcade-coin: #b45309;
+  --arcade-medal-ink: #17130b;
     --arcade-success: #15803d;
     --arcade-danger: #b91c1c;
     --arcade-bezel: #c9bfae;
@@ -1019,7 +1022,7 @@ export const styles = `
   height: 24px;
   border-radius: 50%;
   align-self: center;
-  color: #17130b;
+  color: var(--arcade-medal-ink);
   font-size: 11px;
   font-weight: 900;
   line-height: 1;
@@ -1045,13 +1048,37 @@ export const styles = `
 }
 
 .arcade-board-row:first-child .arcade-board-rank.arcade-rank-medal {
-  color: #17130b;
+  color: var(--arcade-medal-ink);
 }
 
 .arcade-board-player {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.arcade-board-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.arcade-board-xp {
+  flex: none;
+  padding: 1px 5px;
+  border: 1px solid color-mix(in srgb, var(--arcade-line) 80%, transparent);
+  border-radius: 999px;
+  color: var(--arcade-muted);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.arcade-board-xp-top {
+  color: var(--arcade-coin);
+  border-color: color-mix(in srgb, var(--arcade-coin) 45%, transparent);
 }
 
 .arcade-board-score {
@@ -1253,6 +1280,7 @@ export const styles = `
   width: 30px;
   height: 30px;
   font-size: 14px;
+  color: var(--arcade-medal-ink);
   flex: none;
 }
 

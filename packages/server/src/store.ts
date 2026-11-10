@@ -1,5 +1,6 @@
 import type { BoardEntry, Score } from "@await-arcade/contract"
 import type { XpAward, XpAwardInput, XpRecord } from "./xp"
+import { competitionRanks } from "./xp"
 
 export interface RunRecord {
   readonly runId: string
@@ -152,6 +153,8 @@ export interface ArcadeStore {
   getXp(playerId: string): Promise<readonly XpRecord[]>
   /** 1-based competition rank by total XP, or undefined with no XP. */
   getXpRank(playerId: string, total?: number): Promise<number | undefined>
+  /** Competition XP ranks for board enrichment, keyed by player id. */
+  getXpRanks(playerIds?: readonly string[]): Promise<ReadonlyMap<string, number>>
   /** Daily attempts already consumed by this player. */
   getChallengeAttempts(challengeId: string, playerId: string): Promise<number>
   /**
@@ -346,6 +349,16 @@ export class MemoryStore implements ArcadeStore {
       if (other.playerId !== playerId && (other.xp ?? 0) > mine) better += 1
     }
     return better + 1
+  }
+
+  async getXpRanks(playerIds?: readonly string[]): Promise<ReadonlyMap<string, number>> {
+    return competitionRanks(
+      [...this.players.values()].map((player) => ({
+        playerId: player.playerId,
+        xp: player.xp ?? 0,
+      })),
+      playerIds ? new Set(playerIds) : undefined,
+    )
   }
 
   async ensurePlayer(providerId: string, player: PlayerRecord): Promise<PlayerRecord> {

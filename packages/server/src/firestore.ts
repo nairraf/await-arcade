@@ -13,6 +13,7 @@ import {
   type StoreTx,
 } from "./store"
 import type { XpRecord } from "./xp"
+import { competitionRanks } from "./xp"
 
 export interface FirestoreStoreOptions {
   readonly projectId?: string
@@ -21,6 +22,7 @@ export interface FirestoreStoreOptions {
 
 export class FirestoreStore implements ArcadeStore {
   private readonly db: Firestore
+  private xpRankCache?: { readonly at: number; readonly ranks: ReadonlyMap<string, number> }
 
   constructor(options: FirestoreStoreOptions = {}) {
     const config: { projectId?: string; databaseId?: string } = {}
@@ -326,6 +328,32 @@ export class FirestoreStore implements ArcadeStore {
       .count()
       .get()
     return snapshot.data().count + 1
+  }
+
+  async getXpRanks(playerIds?: readonly string[]): Promise<ReadonlyMap<string, number>> {
+    // One small projection of the players collection, cached in-process for
+    // 30s. Clients/CDN may also cache the board response for 30s.
+    const now = Date.now()
+    if (!this.xpRankCache || now - this.xpRankCache.at > 30_000) {
+      const snapshot = await this.db.collection("players").select("xp").get()
+      this.xpRankCache = {
+        at: now,
+        ranks: competitionRanks(
+          snapshot.docs.map((doc) => ({
+            playerId: doc.id,
+            xp: Number(doc.get("xp") ?? 0),
+          })),
+        ),
+      }
+    }
+    if (!playerIds) return this.xpRankCache.ranks
+    const wanted = new Set(playerIds)
+    const ranks = new Map<string, number>()
+    for (const playerId of wanted) {
+      const rank = this.xpRankCache.ranks.get(playerId)
+      if (rank !== undefined) ranks.set(playerId, rank)
+    }
+    return ranks
   }
 
   async getChallengeAttempts(challengeId: string, playerId: string): Promise<number> {

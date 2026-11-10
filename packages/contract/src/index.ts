@@ -265,6 +265,8 @@ export interface BoardEntry {
   readonly rankKey?: string
   /** Run id whose seed/mode/anchor can be replayed as unranked practice. */
   readonly ghostId?: string
+  /** Competition rank by total arcade XP, enriched when a board is read. */
+  readonly xpRank?: number
 }
 
 export interface GhostRun {
@@ -386,7 +388,12 @@ export interface GameHost {
   playerBest?(
     gameId: string,
     modeId: string,
-  ): Promise<{ readonly score?: Score; readonly rank?: number; readonly playerId?: string }>
+  ): Promise<{
+    readonly score?: Score
+    readonly rank?: number
+    readonly playerId?: string
+    readonly xpRank?: number
+  }>
   /** Today's featured challenge, when the host supports the daily ladder. */
   daily?(): Promise<DailyChallenge>
   /** Start a daily attempt. Consumes one of the three attempts. */
