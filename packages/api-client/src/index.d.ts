@@ -1,7 +1,9 @@
 import type {
+  ArcadeProfile,
   BoardEntry,
   DailyChallenge,
   DailyStart,
+  GhostRun,
   Replay,
   Score,
   SubmitResult,
@@ -53,6 +55,8 @@ export interface ArcadeClient {
   dailyToday(): Promise<DailyChallenge>
   dailyStart(challengeId: string): Promise<DailyStart>
   dailyBoard(challengeId: string): Promise<DailyBoard>
+  ghost(ghostId: string): Promise<GhostRun>
+  profile(): Promise<ArcadeProfile>
   status(): Promise<{ readonly mode: "online"; readonly playerId: string }>
   me(): Promise<{ readonly player: PlayerProfile }>
   updateMe(displayName: string): Promise<{ readonly player: PlayerProfile }>
@@ -87,9 +91,13 @@ export interface HostSession {
   daily(): Promise<DailyChallenge>
   dailyStart(challengeId: string): Promise<DailyStart>
   dailyBoard(challengeId: string): Promise<DailyBoard>
+  ghost(ghostId: string): Promise<GhostRun>
+  profile(): Promise<ArcadeProfile>
   authStart(): Promise<unknown>
   authPoll(flowId: string): Promise<unknown>
   authSignOut(): Promise<Record<string, unknown>>
+  updateName(displayName: string): Promise<Record<string, unknown>>
+  nameAvailable(displayName: string): Promise<{ readonly name?: string; readonly available: boolean }>
   deleteAccount(): Promise<Record<string, unknown>>
 }
 

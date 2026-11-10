@@ -1,4 +1,5 @@
 import type { BoardEntry, Score } from "@await-arcade/contract"
+import type { XpAward, XpAwardInput, XpRecord } from "./xp"
 
 export interface RunRecord {
   readonly runId: string
@@ -22,6 +23,16 @@ export interface RunAnchor {
   readonly y: number
 }
 
+export interface GhostRecord {
+  readonly ghostId: string
+  readonly playerId: string
+  readonly gameId: string
+  readonly modeId: string
+  readonly seed: number
+  readonly anchor?: RunAnchor
+  readonly createdAt: number
+}
+
 export type { BoardEntry }
 
 export interface PlayerRecord {
@@ -35,6 +46,9 @@ export interface PlayerRecord {
   renameCount?: number
   readonly createdAt: number
   updatedAt: number
+  /** Cumulative arcade XP, kept in step with the daily XP records. */
+  xp?: number
+  xpUpdatedAt?: number
   readonly githubLogin?: string
   readonly avatarUrl?: string
 }
@@ -90,6 +104,13 @@ export interface StoreTx {
   deleteRun(runId: string): Promise<void>
   getEntry(boardId: string, playerId: string): Promise<BoardEntry | undefined>
   putEntry(boardId: string, entry: BoardEntry): Promise<void>
+  putGhost(ghost: GhostRecord): Promise<void>
+  deleteGhost(ghostId: string): Promise<void>
+  /**
+   * Retain the best XP for this player/game/UTC day and return the XP delta
+   * added to the player total.
+   */
+  recordXp(input: XpAwardInput): Promise<XpAward>
   getPlayer(playerId: string): Promise<PlayerRecord | undefined>
 }
 
@@ -125,6 +146,12 @@ export interface ArcadeStore {
     displayName: string,
     options?: { readonly dailyLimit?: number; readonly now?: number },
   ): Promise<PlayerRecord | "limited" | undefined>
+  getGhost(ghostId: string): Promise<GhostRecord | undefined>
+  deleteGhost(ghostId: string): Promise<void>
+  /** All retained daily XP records for a player. */
+  getXp(playerId: string): Promise<readonly XpRecord[]>
+  /** 1-based competition rank by total XP, or undefined with no XP. */
+  getXpRank(playerId: string, total?: number): Promise<number | undefined>
   /** Daily attempts already consumed by this player. */
   getChallengeAttempts(challengeId: string, playerId: string): Promise<number>
   /**
@@ -176,6 +203,8 @@ export class MemoryStore implements ArcadeStore {
   private readonly sessions = new Map<string, SessionRecord>()
   private readonly accessTokens = new Map<string, AccessTokenRecord>()
   private readonly flows = new Map<string, AuthFlow>()
+  private readonly ghosts = new Map<string, GhostRecord>()
+  private readonly xpRecords = new Map<string, XpRecord>()
 
   async createRun(run: RunRecord): Promise<void> {
     this.runs.set(run.runId, run)
@@ -189,6 +218,8 @@ export class MemoryStore implements ArcadeStore {
     const runs = this.runs
     const boards = this.boards
     const players = this.players
+    const ghosts = this.ghosts
+    const xpRecords = this.xpRecords
     const tx: StoreTx = {
       async getRun(runId) {
         return runs.get(runId)
@@ -206,6 +237,42 @@ export class MemoryStore implements ArcadeStore {
         const board = boards.get(boardId) ?? new Map<string, BoardEntry>()
         boards.set(boardId, board)
         board.set(entry.playerId, entry)
+      },
+      async putGhost(ghost) {
+        ghosts.set(ghost.ghostId, ghost)
+      },
+      async deleteGhost(ghostId) {
+        ghosts.delete(ghostId)
+      },
+      async recordXp(input) {
+        const key = `${input.playerId}|${input.gameId}|${input.day}`
+        const existing = xpRecords.get(key)
+        if (existing && existing.xp >= input.xp) {
+          return {
+            total: players.get(input.playerId)?.xp ?? 0,
+            awarded: 0,
+            dailyBest: existing.xp,
+          }
+        }
+        const delta = input.xp - (existing?.xp ?? 0)
+        xpRecords.set(key, {
+          playerId: input.playerId,
+          gameId: input.gameId,
+          day: input.day,
+          xp: input.xp,
+          updatedAt: input.now,
+        })
+        const player = players.get(input.playerId)
+        if (player) {
+          player.xp = (player.xp ?? 0) + delta
+          player.xpUpdatedAt = input.now
+          player.updatedAt = input.now
+        }
+        return {
+          total: player?.xp ?? delta,
+          awarded: delta,
+          dailyBest: input.xp,
+        }
       },
       async getPlayer(playerId) {
         return players.get(playerId)
@@ -254,6 +321,29 @@ export class MemoryStore implements ArcadeStore {
       } else if (beats(item.score, mine.score, scoreType)) {
         better += 1
       }
+    }
+    return better + 1
+  }
+
+  async getGhost(ghostId: string): Promise<GhostRecord | undefined> {
+    return this.ghosts.get(ghostId)
+  }
+
+  async deleteGhost(ghostId: string): Promise<void> {
+    this.ghosts.delete(ghostId)
+  }
+
+  async getXp(playerId: string): Promise<readonly XpRecord[]> {
+    return [...this.xpRecords.values()].filter((record) => record.playerId === playerId)
+  }
+
+  async getXpRank(playerId: string, total?: number): Promise<number | undefined> {
+    const player = this.players.get(playerId)
+    const mine = total ?? player?.xp
+    if (!mine) return undefined
+    let better = 0
+    for (const other of this.players.values()) {
+      if (other.playerId !== playerId && (other.xp ?? 0) > mine) better += 1
     }
     return better + 1
   }
@@ -422,6 +512,12 @@ export class MemoryStore implements ArcadeStore {
       if (token.playerId === playerId) this.accessTokens.delete(hash)
     }
     for (const board of this.boards.values()) board.delete(playerId)
+    for (const [ghostId, ghost] of this.ghosts) {
+      if (ghost.playerId === playerId) this.ghosts.delete(ghostId)
+    }
+    for (const [key, record] of this.xpRecords) {
+      if (record.playerId === playerId) this.xpRecords.delete(key)
+    }
     for (const [key] of this.challengeAttempts) {
       if (key.endsWith(`|${playerId}`)) this.challengeAttempts.delete(key)
     }

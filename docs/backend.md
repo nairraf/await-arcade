@@ -45,6 +45,8 @@ own least-privilege service account.
 | `challengeAttempts/{challengeId}__{playerId}` | composite | attempts used and update time |
 | `games/{gameId}` | gameId | catalog, modes, score type, version |
 | `runs/{runId}` | runId | issued seed/anchor, challenge, attempt, replay, verification, TTL |
+| `ghosts/{ghostId}` | runId | seed/mode/anchor for unranked practice; deleted with the player |
+| `xpDaily/{playerId}__{gameId}__{day}` | composite | best arcade XP per game per UTC day |
 | `boards/{boardId}/entries/{playerId}` | boardId | public leaderboard entry |
 | `players/{playerId}/bests/{boardId}` | boardId | personal best |
 | `seasons/{seasonId}` | seasonId | optional season metadata |
@@ -69,19 +71,24 @@ GET  /v1/games                    catalog
 GET  /v1/challenges/today         featured daily descriptor + attempts left
 POST /v1/challenges/:id/runs      issue a run token (consumes an attempt)
 GET  /v1/challenges/:id/board     daily board
-GET  /v1/runs/:id/ghost           planned: practice descriptor + replay for a verified run
+GET  /v1/runs/:id/ghost           seed/mode/anchor for unranked ghost practice
 POST /v1/runs                     { gameId, modeId } -> { runId, seed, expiresAt }
-POST /v1/runs/:id/submit          { replay } -> { score, best?, rank?, challengeId? }
+POST /v1/runs/:id/submit          { replay } -> { score, best?, rank?, xp?, challengeId? }
 GET  /v1/boards/:gameId/:modeId         -> { entries, period }
 GET  /v1/boards/:gameId/:modeId/player/:playerId -> { entry?, rank? }
-GET  /v1/me                       profile, bests, XP, medals
+GET  /v1/me                       identity
+GET  /v1/me/profile               arcade XP, level, medals, arcade rank
 PATCH /v1/me                      display name
 DELETE /v1/me                     delete the player and all player-linked data
 ```
 
+Board GETs send `Cache-Control: public, max-age=30, s-maxage=30`; the
+player-best GET sends `private, max-age=15`. Everything else is `no-store`.
+
 On submit, one Firestore transaction: check the run is issued and owned, verify
-the replay, compare against the personal best, update if better, add XP, mark
-the run verified. Idempotent on `runId`.
+the replay, retain the best XP for that game and UTC day, compare against the
+personal best, update if better, and delete the run. Idempotent on `runId`; a
+lost response retried after success returns 404 instead of double-awarding.
 
 ## Identity
 
@@ -157,6 +164,7 @@ file `0600`, atomic writes. Each file holds `playerId`, `displayName`,
 - the `providers/github:{numericId}` mapping,
 - every `sessions` entry and `accessTokens` entry for the player (all hosts),
 - pending `runs` for the player,
+- the player's `ghosts` and `xpDaily` records,
 - every board entry for the player.
 
 Board parent documents are written on submit, so deletion can enumerate every
@@ -183,7 +191,8 @@ Don't sum raw scores across games. Normalize:
 - each verified run earns `base(difficulty) × performance`, clamped;
 - only the best run per game per UTC day counts;
 - arcade board = sum of best points per game + medals;
-- medals: gold/silver/bronze by fixed thresholds or percentile.
+- medals are derived from retained records (First Credit, Spark, Silver, Gold,
+  House Legend, Daily Devotee, Polymath).
 
 That rewards breadth, not grinding one cabinet.
 
@@ -236,14 +245,30 @@ them, including from the daily anchor.
 A verified high-score run can be replayed as **unranked practice**:
 
 - The board row exposes a **Practice** action that calls
-  `GET /v1/runs/:id/ghost`, which returns the run's seed, mode, anchor, and
-  (optionally) the replay. Public boards already expose no PII; the replay is an
-  input log, not personal data.
+  `GET /v1/runs/:id/ghost`, which returns the run's seed, mode, and anchor. It
+  never returns the input log, tokens, or account data.
 - The client starts a practice run with the same seed/anchor. It is clearly
   labeled **Practice**, writes no board entry, consumes no daily attempt, and
   needs no submission.
+- A ghost record is written when a run becomes a personal best and is removed
+  with the player's account.
 - Mineflag first (same board); Neon Cycles can add a ghost trail later;
   Missile Command's wave plan becomes the ghost when that cabinet lands.
+
+## Arcade XP, medals, and rank
+
+- A ranked submit awards `base(difficulty) x performance`, clamped to 1–300:
+  difficulty 1–5 gives a 20–100 base, a win multiplies by 3, and the daily
+  carries a 1.5x bonus.
+- Only the best XP for each game and UTC day is retained; improving that day's
+  run adds the difference. Grinding the same cabinet does not farm XP.
+- `GET /v1/me/profile` returns the total, level and title, the next level
+  threshold, competition rank by total XP, per-cabinet totals, and medals.
+- Levels: Rookie 0, Regular 250, Contender 750, Veteran 1,500, Champion 3,000,
+  Legend 6,000, Arcade Immortal 10,000.
+- Medals are derived from the retained records: First Credit, Spark (100),
+  Silver (500), Gold (1,500), House Legend (3,000), Daily Devotee (seven UTC
+  days), and Polymath (all four cabinets). Ghost practice never awards XP.
 
 ## Cost
 
@@ -294,8 +319,8 @@ The script passes `--service-account`, so the revision runs as `arcade-api` with
 1. Cloud Run + Firestore + a GitHub OAuth app with Device Flow enabled.
 2. `mineflag:expert:all`, submit + top 50 + personal best.
 3. Featured daily challenge (3 attempts, best of 3) + ghost practice + arcade XP.
-   Daily challenge API, board, tile, and anchored Mineflag run are in; ghost
-   practice and XP remain.
+   Daily challenge API, board, tile, anchored Mineflag run, ghost practice, and
+   XP/medals/rank are in.
 4. Replay verification (already implemented in `packages/framework`).
 5. Game #2 on the same schema.
 6. GitHub Device Flow + per-host persistent sessions + `DELETE /v1/me`.

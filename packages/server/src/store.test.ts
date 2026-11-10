@@ -62,4 +62,35 @@ describe("MemoryStore.rank", () => {
     const store = new MemoryStore()
     expect(await store.rank("board", "nobody", "higher")).toBeUndefined()
   })
+
+  it("stores ghosts and removes them when the player is deleted", async () => {
+    const store = new MemoryStore()
+    await store.transaction(async (tx) => {
+      await tx.putGhost({
+        ghostId: "run-1",
+        playerId: "ghost-player",
+        gameId: "mineflag",
+        modeId: "expert",
+        seed: 42,
+        createdAt: 0,
+      })
+    })
+
+    expect((await store.getGhost("run-1"))?.seed).toBe(42)
+    await store.deleteGhost("run-1")
+    expect(await store.getGhost("run-1")).toBeUndefined()
+
+    await store.transaction(async (tx) => {
+      await tx.putGhost({
+        ghostId: "run-2",
+        playerId: "ghost-player",
+        gameId: "mineflag",
+        modeId: "expert",
+        seed: 43,
+        createdAt: 0,
+      })
+    })
+    await store.deletePlayerData("ghost-player", "github:1")
+    expect(await store.getGhost("run-2")).toBeUndefined()
+  })
 })

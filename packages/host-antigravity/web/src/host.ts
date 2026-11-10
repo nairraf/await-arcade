@@ -1,11 +1,13 @@
 import { LocalHost, normaliseBoard } from "@await-arcade/shell"
 import type {
+  ArcadeProfile,
   AuthPoll,
   AuthState,
   BoardEntry,
   DailyChallenge,
   DailyStart,
   DeviceFlow,
+  GhostRun,
   RunResult,
   Score,
   SubmitResult,
@@ -96,6 +98,14 @@ export class SidecarHost extends LocalHost {
       challengeId,
     })
     return normaliseBoard(result.entries)
+  }
+
+  async ghost(ghostId: string): Promise<GhostRun> {
+    return this.call<GhostRun>("/api/ghost", { ghostId })
+  }
+
+  async profile(): Promise<ArcadeProfile> {
+    return this.call<ArcadeProfile>("/api/profile", {})
   }
 
   async authState(): Promise<AuthState> {

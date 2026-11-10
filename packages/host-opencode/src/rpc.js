@@ -93,6 +93,21 @@ export const Api = define({
       },
       output: { type: "object", additionalProperties: true },
     },
+    ghost: {
+      input: {
+        type: "object",
+        properties: {
+          ghostId: { type: "string" },
+        },
+        required: ["ghostId"],
+        additionalProperties: false,
+      },
+      output: { type: "object", additionalProperties: true },
+    },
+    profile: {
+      input: { type: "object", properties: {}, additionalProperties: false },
+      output: { type: "object", additionalProperties: true },
+    },
     status: {
       output: { type: "object", additionalProperties: true },
     },

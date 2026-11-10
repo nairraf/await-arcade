@@ -272,6 +272,14 @@ export function createHostSession(options) {
       await ensureAuth()
       return client.dailyBoard(challengeId)
     },
+    async ghost(ghostId) {
+      await ensureAuth()
+      return client.ghost(ghostId)
+    },
+    async profile() {
+      await ensureAuth()
+      return client.profile()
+    },
     async authStart() {
       return client.authStart(host)
     },

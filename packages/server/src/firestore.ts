@@ -5,12 +5,14 @@ import {
   type ArcadeStore,
   type AuthFlow,
   type BoardEntry,
+  type GhostRecord,
   type PlayerRecord,
   type RotateSessionInput,
   type RunRecord,
   type SessionRecord,
   type StoreTx,
 } from "./store"
+import type { XpRecord } from "./xp"
 
 export interface FirestoreStoreOptions {
   readonly projectId?: string
@@ -43,6 +45,14 @@ export class FirestoreStore implements ArcadeStore {
     return this.db.collection("challengeAttempts").doc(`${challengeId}__${playerId}`)
   }
 
+  private ghostDoc(ghostId: string) {
+    return this.db.collection("ghosts").doc(ghostId)
+  }
+
+  private xpDoc(playerId: string, gameId: string, day: string) {
+    return this.db.collection("xpDaily").doc(`${playerId}__${gameId}__${day}`)
+  }
+
   async createRun(run: RunRecord): Promise<void> {
     await this.runDoc(run.runId).set({ ...run, expireAt: new Date(run.expiresAt) })
   }
@@ -58,6 +68,9 @@ export class FirestoreStore implements ArcadeStore {
       const entryDoc = (boardId: string, playerId: string) => this.entryDoc(boardId, playerId)
       const boardDoc = (boardId: string) => this.boardDoc(boardId)
       const playerDoc = (playerId: string) => this.playerDoc(playerId)
+      const ghostDoc = (ghostId: string) => this.ghostDoc(ghostId)
+      const xpDoc = (playerId: string, gameId: string, day: string) =>
+        this.xpDoc(playerId, gameId, day)
 
       const tx: StoreTx = {
         async getRun(runId) {
@@ -82,6 +95,43 @@ export class FirestoreStore implements ArcadeStore {
             { updatedAt: Date.now() },
             { merge: true },
           )
+        },
+        async putGhost(ghost) {
+          transaction.set(ghostDoc(ghost.ghostId), ghost)
+        },
+        async deleteGhost(ghostId) {
+          transaction.delete(ghostDoc(ghostId))
+        },
+        async recordXp(input) {
+          const ref = xpDoc(input.playerId, input.gameId, input.day)
+          const [existingSnapshot, playerSnapshot] = await Promise.all([
+            transaction.get(ref),
+            transaction.get(playerDoc(input.playerId)),
+          ])
+          const existing = existingSnapshot.exists
+            ? (existingSnapshot.data() as XpRecord)
+            : undefined
+          const total = playerSnapshot.exists
+            ? Number(playerSnapshot.get("xp") ?? 0)
+            : 0
+          if (existing && existing.xp >= input.xp) {
+            return { total, awarded: 0, dailyBest: existing.xp }
+          }
+          const delta = input.xp - (existing?.xp ?? 0)
+          const nextTotal = total + delta
+          transaction.set(ref, {
+            playerId: input.playerId,
+            gameId: input.gameId,
+            day: input.day,
+            xp: input.xp,
+            updatedAt: input.now,
+          })
+          transaction.set(
+            playerDoc(input.playerId),
+            { xp: nextTotal, xpUpdatedAt: input.now, updatedAt: input.now },
+            { merge: true },
+          )
+          return { total: nextTotal, awarded: delta, dailyBest: input.xp }
         },
         async getPlayer(playerId) {
           const snapshot = await transaction.get(playerDoc(playerId))
@@ -250,6 +300,34 @@ export class FirestoreStore implements ArcadeStore {
     return updated
   }
 
+  async getGhost(ghostId: string): Promise<GhostRecord | undefined> {
+    const snapshot = await this.ghostDoc(ghostId).get()
+    return snapshot.exists ? (snapshot.data() as GhostRecord) : undefined
+  }
+
+  async deleteGhost(ghostId: string): Promise<void> {
+    await this.ghostDoc(ghostId).delete()
+  }
+
+  async getXp(playerId: string): Promise<readonly XpRecord[]> {
+    const snapshot = await this.db
+      .collection("xpDaily")
+      .where("playerId", "==", playerId)
+      .get()
+    return snapshot.docs.map((doc) => doc.data() as XpRecord)
+  }
+
+  async getXpRank(playerId: string, total?: number): Promise<number | undefined> {
+    const mine = total ?? (await this.getPlayer(playerId))?.xp
+    if (!mine) return undefined
+    const snapshot = await this.db
+      .collection("players")
+      .where("xp", ">", mine)
+      .count()
+      .get()
+    return snapshot.data().count + 1
+  }
+
   async getChallengeAttempts(challengeId: string, playerId: string): Promise<number> {
     const snapshot = await this.attemptDoc(challengeId, playerId).get()
     return snapshot.exists ? Number(snapshot.get("attempts") ?? 0) : 0
@@ -388,17 +466,21 @@ export class FirestoreStore implements ArcadeStore {
     writer.delete(this.playerDoc(playerId))
     writer.delete(this.db.collection("providers").doc(providerId))
 
-    const [sessions, tokens, runs, attempts] = await Promise.all([
+    const [sessions, tokens, runs, attempts, ghosts, xp] = await Promise.all([
       this.db.collection("sessions").where("playerId", "==", playerId).get(),
       this.db.collection("accessTokens").where("playerId", "==", playerId).get(),
       this.db.collection("runs").where("playerId", "==", playerId).get(),
       this.db.collection("challengeAttempts").where("playerId", "==", playerId).get(),
+      this.db.collection("ghosts").where("playerId", "==", playerId).get(),
+      this.db.collection("xpDaily").where("playerId", "==", playerId).get(),
     ])
 
     for (const session of sessions.docs) writer.delete(session.ref)
     for (const token of tokens.docs) writer.delete(token.ref)
     for (const run of runs.docs) writer.delete(run.ref)
     for (const attempt of attempts.docs) writer.delete(attempt.ref)
+    for (const ghost of ghosts.docs) writer.delete(ghost.ref)
+    for (const record of xp.docs) writer.delete(record.ref)
 
     const allBoardIds = new Set<string>(boardIds)
     for (const attempt of attempts.docs) {

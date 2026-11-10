@@ -13,6 +13,7 @@ import {
 } from "./challenges"
 import { githubClientFromEnv, type GitHubClient } from "./github"
 import { verifiers } from "./registry.generated"
+import { gameXp, levelFor, medalsFor, totalXp, xpForRun } from "./xp"
 import {
   MemoryStore,
   nameKey,
@@ -30,6 +31,7 @@ export interface RateLimitsConfig {
   readonly pollsPerMin?: number
   readonly startsPer10Min?: number
   readonly namesPerMin?: number
+  readonly profilePerMin?: number
 }
 
 export interface ArcadeServerOptions {
@@ -52,6 +54,9 @@ export interface ArcadeServer {
 
 const MAX_BODY = 2_500_000
 const RUN_TTL_MS = 24 * 60 * 60 * 1000
+/** Boards are public reads; a short shared cache keeps the free tier cheap. */
+const BOARD_CACHE_CONTROL = "public, max-age=30, s-maxage=30"
+const PLAYER_CACHE_CONTROL = "private, max-age=15"
 
 function winner(a: Score, b: Score): boolean {
   return a.type === "lower" ? a.value < b.value : a.value > b.value
@@ -61,12 +66,18 @@ function boardKey(gameId: string, modeId: string): string {
   return `${gameId}:${modeId}:all`
 }
 
-function json(res: ServerResponse, status: number, body: unknown, cors = true): void {
+function json(
+  res: ServerResponse,
+  status: number,
+  body: unknown,
+  cors = true,
+  cacheControl = "no-store",
+): void {
   const payload = JSON.stringify(body)
   const headers: Record<string, string> = {
     "content-type": "application/json; charset=utf-8",
     "content-length": String(Buffer.byteLength(payload)),
-    "cache-control": "no-store",
+    "cache-control": cacheControl,
     "access-control-allow-headers": "content-type, x-arcade-player, authorization",
     "access-control-allow-methods": "GET, POST, DELETE, OPTIONS",
   }
@@ -203,6 +214,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
   const allowAuthPoll = createRateLimiter(60_000, rl.pollsPerMin ?? 30)
   const allowAuthRefresh = createRateLimiter(10 * 60_000, rl.refreshesPer10Min ?? 60)
   const allowNameLookup = createRateLimiter(60_000, rl.namesPerMin ?? 60)
+  const allowProfile = createRateLimiter(60_000, rl.profilePerMin ?? 30)
   const allowRunsIp = createRateLimiter(60_000, rl.runsPerMin ?? 30)
   const allowRunsPlayer = createRateLimiter(60_000, rl.runsPerMin ?? 30)
   const allowSubmitIp = createRateLimiter(60_000, rl.submitsPerMin ?? 20)
@@ -326,6 +338,31 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
         if (!identity) throw new AuthError(401, "sign in required")
         await auth!.signOut(identity.token)
         noContent(res, false)
+        return
+      }
+
+      if (req.method === "GET" && url.pathname === "/v1/me/profile") {
+        const identity = await authenticate(req)
+        if (!identity) throw new AuthError(401, "sign in required")
+        if (!allowProfile(identity.player.playerId)) {
+          throw new AuthError(429, "too many profile requests")
+        }
+        const records = await store.getXp(identity.player.playerId)
+        const total = totalXp(records)
+        const level = levelFor(total)
+        const rank = await store.getXpRank(identity.player.playerId, total)
+        json(res, 200, {
+          playerId: identity.player.playerId,
+          displayName: identity.player.displayName,
+          totalXp: total,
+          level: level.level,
+          levelTitle: level.title,
+          levelStartXp: level.levelStartXp,
+          ...(level.nextLevelXp !== undefined ? { nextLevelXp: level.nextLevelXp } : {}),
+          ...(rank !== undefined ? { rank } : {}),
+          medals: medalsFor(records),
+          games: gameXp(records),
+        }, false)
         return
       }
 
@@ -626,6 +663,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           json(res, 404, { error: `unknown game: ${run.gameId}` }, false)
           return
         }
+        const modeDifficulty = entry.meta.modes.find((mode) => mode.id === run.modeId)?.difficulty
 
         const body = record(await readBody(req))
         const replay = body.replay
@@ -704,7 +742,22 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           const player = await tx.getPlayer(run.playerId)
           if (!player) return { missingPlayer: true as const }
 
+          // All reads must happen before any write in a Firestore transaction.
           const previous = await tx.getEntry(key, run.playerId)
+          const xpAward = score.ranked
+            ? await tx.recordXp({
+                playerId: run.playerId,
+                gameId: run.gameId,
+                day: dailyDate(Date.now()),
+                xp: xpForRun({
+                  ...(modeDifficulty !== undefined ? { difficulty: modeDifficulty } : {}),
+                  won: score.won,
+                  daily: Boolean(run.challengeId),
+                }),
+                now: Date.now(),
+              })
+            : undefined
+
           const beatPrevious =
             !previous ||
             (dailyRankKey && previous.rankKey
@@ -719,8 +772,21 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
               displayName: player.displayName,
               score: best,
               achievedAt: Date.now(),
+              ghostId: runId,
               ...(bestRankKey ? { rankKey: bestRankKey } : {}),
             })
+            await tx.putGhost({
+              ghostId: runId,
+              playerId: run.playerId,
+              gameId: run.gameId,
+              modeId: run.modeId,
+              seed: run.seed,
+              createdAt: Date.now(),
+              ...(run.anchor ? { anchor: run.anchor } : {}),
+            })
+            if (previous?.ghostId && previous.ghostId !== runId) {
+              await tx.deleteGhost(previous.ghostId)
+            }
           } else if (previous && previous.displayName !== player.displayName) {
             await tx.putEntry(key, {
               ...previous,
@@ -729,7 +795,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           }
 
           await tx.deleteRun(runId)
-          return { missing: false as const, best }
+          return { missing: false as const, best, xp: xpAward }
         })
 
         if ("missingPlayer" in outcome) {
@@ -755,8 +821,36 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           score: dailyScore,
           ...(outcome.best ? { best: outcome.best } : {}),
           ...(rank !== undefined ? { rank } : {}),
+          ...(outcome.xp ? { xp: outcome.xp.awarded } : {}),
           ...(run.challengeId ? { challengeId: run.challengeId } : {}),
         }, false)
+        return
+      }
+
+      if (
+        req.method === "GET" &&
+        parts.length === 4 &&
+        parts[0] === "v1" &&
+        parts[1] === "runs" &&
+        parts[3] === "ghost"
+      ) {
+        const ghostId = decodeSegment(parts[2])
+        if (!ghostId || !/^[a-f0-9]{24}$/.test(ghostId)) {
+          json(res, 400, { error: "invalid ghostId" })
+          return
+        }
+        const ghost = await store.getGhost(ghostId)
+        if (!ghost) {
+          json(res, 404, { error: "ghost not found" })
+          return
+        }
+        json(res, 200, {
+          ghostId: ghost.ghostId,
+          gameId: ghost.gameId,
+          modeId: ghost.modeId,
+          seed: ghost.seed,
+          ...(ghost.anchor ? { anchor: ghost.anchor } : {}),
+        })
         return
       }
 
@@ -785,7 +879,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           entry.meta.score.type,
           "rankKey",
         )
-        json(res, 200, { ...challenge, period: "daily", entries })
+        json(res, 200, { ...challenge, period: "daily", entries }, true, BOARD_CACHE_CONTROL)
         return
       }
 
@@ -846,7 +940,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           playerId: pid,
           ...(best ? { entry: best } : {}),
           ...(rank !== undefined ? { rank } : {}),
-        })
+        }, true, decoded === "me" ? "no-store" : PLAYER_CACHE_CONTROL)
         return
       }
 
@@ -876,7 +970,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
         }
 
         const entries = await store.top(boardKey(gameId, modeId), 50, entry.meta.score.type)
-        json(res, 200, { gameId, modeId, period: "all", entries })
+        json(res, 200, { gameId, modeId, period: "all", entries }, true, BOARD_CACHE_CONTROL)
         return
       }
 

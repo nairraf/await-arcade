@@ -18,9 +18,9 @@ talking to the backend.
 - **Featured daily challenge (done):** one featured game per day, a fixed
   seed/anchor, three attempts consumed on start, best-of-three scoring, a separate
   daily board, and a launcher daily tile with attempts and a reset countdown.
-- **Arcade XP/medals (next):** a cross-game XP/medal board that rewards breadth.
-- **Ghost practice:** play a verified high-score run on the same seed/anchor as
-  unranked practice; no board entry and no daily attempt consumed.
+- **Arcade XP/medals (done):** a cross-game XP/medal board that rewards breadth.
+- **Ghost practice (done):** play a verified high-score run on the same seed/anchor
+  as unranked practice; no board entry and no daily attempt consumed.
 - **Visual system:** cartridge/cabinet shell, per-game accents, Auto/Light/Dark
   modes, and light/dark smoke tests on both hosts.
 - **Release gate:** both hosts smoke-tested, CI green, security review done, docs

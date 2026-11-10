@@ -133,6 +133,21 @@ describe("GitHub device flow", () => {
 
     await playOne(complete.accessToken, complete.player.playerId)
 
+    const profile = (await get("/v1/me/profile", complete.accessToken).then((r) =>
+      r.json(),
+    )) as {
+      totalXp: number
+      level: number
+      rank?: number
+      medals: Array<{ id: string }>
+      games: Array<{ gameId: string; xp: number }>
+    }
+    expect(profile.totalXp).toBeGreaterThan(0)
+    expect(profile.level).toBe(1)
+    expect(profile.rank).toBeGreaterThan(0)
+    expect(profile.medals.map((medal) => medal.id)).toContain("first-run")
+    expect(profile.games[0]?.gameId).toBe("light-cycles")
+
     const refreshed = (await post("/v1/auth/refresh", {
       refreshToken: complete.refreshToken,
     }).then((r) => r.json())) as { accessToken: string; refreshToken: string }

@@ -54,6 +54,7 @@ export function normaliseBoard(value: unknown): BoardEntry[] {
       achievedAt: typeof record.achievedAt === "number" ? record.achievedAt : 0,
       ...(typeof record.displayName === "string" ? { displayName: record.displayName } : {}),
       ...(typeof record.rankKey === "string" ? { rankKey: record.rankKey } : {}),
+      ...(typeof record.ghostId === "string" ? { ghostId: record.ghostId } : {}),
       score: {
         value: raw.value,
         type: raw.type,

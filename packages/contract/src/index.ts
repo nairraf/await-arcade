@@ -172,6 +172,10 @@ export interface SubmitResult {
   readonly score?: Score
   readonly best?: Score
   readonly rank?: number
+  /** Arcade XP newly awarded for this run (best per game per UTC day). */
+  readonly xp?: number
+  /** Set when the host queued an offline submission instead of completing it. */
+  readonly queued?: boolean
   readonly reason?: string
   /** Set for daily runs so hosts keep the daily best out of the all-time cache. */
   readonly challengeId?: string
@@ -257,8 +261,50 @@ export interface BoardEntry {
   readonly score: Score
   readonly achievedAt: number
   readonly displayName?: string
-  /** Hidden ascending sort key for daily boards: attempt|time|moves. */
+  /** Hidden ascending sort key for daily boards: moves|time. */
   readonly rankKey?: string
+  /** Run id whose seed/mode/anchor can be replayed as unranked practice. */
+  readonly ghostId?: string
+}
+
+export interface GhostRun {
+  readonly ghostId: string
+  readonly gameId: string
+  readonly modeId: string
+  readonly seed: number
+  readonly anchor?: RunAnchor
+}
+
+/** A medal earned from cumulative arcade play. */
+export interface ArcadeMedal {
+  readonly id: string
+  readonly title: string
+  readonly description: string
+  /** When the medal condition was first reached, if known. */
+  readonly earnedAt?: number
+}
+
+/** Per-cabinet XP totals, summed from the best run per UTC day. */
+export interface ArcadeGameXp {
+  readonly gameId: string
+  readonly xp: number
+}
+
+/** The player's arcade progression, shown in the account panel. */
+export interface ArcadeProfile {
+  readonly playerId: string
+  readonly displayName?: string
+  readonly totalXp: number
+  readonly level: number
+  readonly levelTitle: string
+  /** XP at which the current level began. */
+  readonly levelStartXp: number
+  /** Absolute XP needed for the next level; absent at the top level. */
+  readonly nextLevelXp?: number
+  /** Competition rank by total XP, when the player has earned any. */
+  readonly rank?: number
+  readonly medals: readonly ArcadeMedal[]
+  readonly games: readonly ArcadeGameXp[]
 }
 
 /** The required first input for an anchored daily (Mineflag). */
@@ -347,6 +393,10 @@ export interface GameHost {
   startDaily?(challengeId: string): Promise<DailyStart>
   /** The daily board for a challenge id. */
   dailyBoard?(challengeId: string): Promise<readonly BoardEntry[]>
+  /** Resolve a verified best run as an unranked practice descriptor. */
+  ghost?(ghostId: string): Promise<GhostRun>
+  /** The signed-in player's arcade XP, medals, and arcade rank. */
+  profile?(): Promise<ArcadeProfile>
   /** Sign-in and account capabilities. Local hosts omit these. */
   authState?(): Promise<AuthState>
   authStart?(): Promise<DeviceFlow>

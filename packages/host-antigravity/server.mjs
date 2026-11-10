@@ -87,6 +87,8 @@ app.api("/api/daily-start", async (data) => {
   }
 }, "POST")
 app.api("/api/daily-board", (data) => session.dailyBoard(data.challengeId), "POST")
+app.api("/api/ghost", (data) => session.ghost(data.ghostId), "POST")
+app.api("/api/profile", () => session.profile(), "POST")
 app.api(
   "/api/status",
   async () => {

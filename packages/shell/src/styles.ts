@@ -672,6 +672,78 @@ export const styles = `
   color: var(--arcade-danger);
 }
 
+.arcade-profile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--arcade-line);
+  border-radius: 10px;
+  background: var(--arcade-slot);
+}
+
+.arcade-profile-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+.arcade-profile-head .arcade-overlay-kicker {
+  margin: 0;
+}
+
+.arcade-profile-xp {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--arcade-coin);
+  font-variant-numeric: tabular-nums;
+}
+
+.arcade-profile-rank {
+  grid-column: 1 / -1;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--arcade-muted);
+}
+
+.arcade-xp-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--arcade-line) 70%, transparent);
+}
+
+.arcade-xp-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--game-accent), var(--game-accent-2));
+}
+
+.arcade-profile-games,
+.arcade-medals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.arcade-profile-game {
+  padding: 3px 7px;
+  border: 1px solid var(--arcade-line);
+  border-radius: 999px;
+  font-size: 10px;
+  color: var(--arcade-muted);
+}
+
+.arcade-medal {
+  padding: 3px 8px;
+  border: 1px solid color-mix(in srgb, var(--arcade-coin) 45%, transparent);
+  border-radius: 999px;
+  font-size: 10px;
+  color: var(--arcade-coin);
+  background: color-mix(in srgb, var(--arcade-coin) 10%, transparent);
+}
+
 .arcade-hud {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -848,12 +920,19 @@ export const styles = `
 
 .arcade-board-row {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) auto;
+  grid-template-columns: 44px minmax(0, 1fr) auto auto;
   gap: 10px;
   align-items: baseline;
   padding: 6px 8px;
   border-bottom: 1px solid var(--arcade-line);
   font-size: 12px;
+}
+
+.arcade-board-practice {
+  align-self: center;
+  padding: 2px 8px;
+  font-size: 10px;
+  line-height: 1.3;
 }
 
 .arcade-board-rank {

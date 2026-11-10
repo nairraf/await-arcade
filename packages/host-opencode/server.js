@@ -47,6 +47,8 @@ export default {
         }
       },
       dailyBoard: (input) => session.dailyBoard(input.challengeId),
+      ghost: (input) => session.ghost(input.ghostId),
+      profile: () => session.profile(),
       status: () => session.status(),
       authStatus: () => session.status(),
       authStart: () => session.authStart(),

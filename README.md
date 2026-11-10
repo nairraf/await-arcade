@@ -32,7 +32,8 @@ This is a working scaffold, not a finished arcade.
   Flow auth with per-host sessions.
 - ✅ All-time leaderboard hub and the featured daily challenge: fixed seed,
   Mineflag anchor, three attempts, best-of-three board, and a daily tile.
-- ⏳ Arcade XP/medals, ghost practice, and the production deployment.
+- ✅ Arcade XP, medals, arcade rank, and unranked ghost practice in both hosts.
+- ⏳ The production deployment.
 
 Scores are local for guests. Signed-in players submit replay-verified runs to the
 shared Firestore boards; the dev API is live, and `docs/backend.md` has the design.
@@ -165,7 +166,7 @@ criteria, and what is deliberately out of scope.
 3. ✅ Firestore + Cloud Run: the server keeps the in-memory store for tests and
    uses Firestore in production.
 4. ✅ Featured daily challenge (fixed seed/anchor, 3 attempts, best of 3,
-   separate board, daily tile). ⏳ Unranked ghost practice and arcade XP/medals.
+   separate board, daily tile). ✅ Unranked ghost practice and arcade XP/medals.
 5. ⏳ Add the next cabinet from the skill; Missile Defense async PvP is the first
    multiplayer candidate.
 

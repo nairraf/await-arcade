@@ -86,6 +86,14 @@ export function createArcadeClient(options) {
     return request(`/v1/challenges/${encodeURIComponent(challengeId)}/board`)
   }
 
+  async function ghost(ghostId) {
+    return request(`/v1/runs/${encodeURIComponent(ghostId)}/ghost`)
+  }
+
+  async function profile() {
+    return request("/v1/me/profile")
+  }
+
   async function bestFor(gameId, modeId) {
     const { score } = await playerBest(gameId, modeId)
     return score
@@ -148,6 +156,8 @@ export function createArcadeClient(options) {
     dailyToday,
     dailyStart,
     dailyBoard,
+    ghost,
+    profile,
     authStart,
     authPoll,
     authRefresh,

@@ -1,10 +1,12 @@
 import type {
+  ArcadeProfile,
   AuthPoll,
   AuthState,
   BoardEntry,
   DailyChallenge,
   DailyStart,
   DeviceFlow,
+  GhostRun,
   RunResult,
   Score,
   SubmitResult,
@@ -91,6 +93,14 @@ export class OpenCodeHost extends LocalHost {
       entries?: unknown
     }
     return normaliseBoard(result.entries)
+  }
+
+  async ghost(ghostId: string): Promise<GhostRun> {
+    return (await this.client.rpc(Api).ghost({ ghostId })) as GhostRun
+  }
+
+  async profile(): Promise<ArcadeProfile> {
+    return (await this.client.rpc(Api).profile({})) as ArcadeProfile
   }
 
   async authState(): Promise<AuthState> {

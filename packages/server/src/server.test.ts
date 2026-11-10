@@ -49,15 +49,17 @@ describe("verifier server", () => {
       ok: boolean
       rank: number
       score: { value: number }
+      xp: number
     }
 
     expect(body.ok).toBe(true)
     expect(body.rank).toBe(1)
     expect(body.score.value).toBe(result.score.value)
+    expect(body.xp).toBeGreaterThan(0)
 
-    const board = (await fetch(`${base}/v1/boards/light-cycles/solo`).then((response) =>
-      response.json(),
-    )) as { entries: Array<{ playerId: string }> }
+    const boardResponse = await fetch(`${base}/v1/boards/light-cycles/solo`)
+    expect(boardResponse.headers.get("cache-control")).toContain("max-age=30")
+    const board = (await boardResponse.json()) as { entries: Array<{ playerId: string }> }
 
     expect(board.entries[0]?.playerId).toBe("tester")
   })
@@ -653,5 +655,42 @@ describe("daily challenge", () => {
     } finally {
       await local.close()
     }
+  })
+
+  it("exposes a verified best as an unranked ghost", async () => {
+    const run = await startRun("light-cycles", "solo", "ghost-player")
+    const entry = verifiers["light-cycles"]!
+    const result = playRealtime(entry.core, entry.meta, {
+      seed: run.seed,
+      mode: entry.meta.modes[0]!,
+      ticks: 4000,
+      inputs: [],
+    })
+
+    await fetch(`${base}/v1/runs/${run.runId}/submit`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ replay: result.replay }),
+    })
+
+    const board = (await fetch(`${base}/v1/boards/light-cycles/solo`).then((response) =>
+      response.json(),
+    )) as { entries: Array<{ playerId: string; ghostId?: string }> }
+    const mine = board.entries.find((item) => item.playerId === "ghost-player")
+    expect(mine?.ghostId).toBe(run.runId)
+
+    const ghost = (await fetch(`${base}/v1/runs/${run.runId}/ghost`).then((response) =>
+      response.json(),
+    )) as { ghostId: string; gameId: string; modeId: string; seed: number }
+    expect(ghost.ghostId).toBe(run.runId)
+    expect(ghost.gameId).toBe("light-cycles")
+    expect(ghost.modeId).toBe("solo")
+    expect(ghost.seed).toBe(run.seed)
+
+    const missing = await fetch(`${base}/v1/runs/000000000000000000000000/ghost`)
+    expect(missing.status).toBe(404)
+
+    const invalid = await fetch(`${base}/v1/runs/not-a-run-id/ghost`)
+    expect(invalid.status).toBe(400)
   })
 })

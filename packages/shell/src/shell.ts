@@ -1,4 +1,5 @@
 import type {
+  ArcadeProfile,
   AuthPoll,
   AuthState,
   BoardEntry,
@@ -7,6 +8,7 @@ import type {
   GameEntry,
   GameHost,
   GameMeta,
+  GhostRun,
   Mode,
   RunAnchor,
   RunResult,
@@ -139,6 +141,75 @@ function modeInGroup(
   )
 }
 
+function profileNode(
+  profile: ArcadeProfile,
+  titleFor: (gameId: string) => string,
+): HTMLElement {
+  const wrap = el("div", "arcade-profile")
+  const head = el("div", "arcade-profile-head")
+  head.append(
+    el("div", "arcade-overlay-kicker", `LEVEL ${profile.level} · ${profile.levelTitle}`),
+    el("div", "arcade-profile-xp", `${profile.totalXp} XP`),
+    el(
+      "div",
+      "arcade-profile-rank",
+      profile.rank ? `ARCADE RANK #${profile.rank}` : "UNRANKED",
+    ),
+  )
+  wrap.append(head)
+
+  if (profile.nextLevelXp !== undefined) {
+    const percent = Math.min(
+      100,
+      Math.round(
+        ((profile.totalXp - profile.levelStartXp) /
+          Math.max(1, profile.nextLevelXp - profile.levelStartXp)) *
+          100,
+      ),
+    )
+    const bar = el("div", "arcade-xp-bar")
+    const fill = el("div", "arcade-xp-fill")
+    fill.style.width = `${percent}%`
+    bar.append(fill)
+    wrap.append(
+      bar,
+      el(
+        "div",
+        "arcade-overlay-detail",
+        `${Math.max(0, profile.nextLevelXp - profile.totalXp)} XP to level ${profile.level + 1}`,
+      ),
+    )
+  } else {
+    wrap.append(el("div", "arcade-overlay-detail", "Top level reached."))
+  }
+
+  if (profile.games.length > 0) {
+    const games = el("div", "arcade-profile-games")
+    for (const game of profile.games) {
+      games.append(
+        el("span", "arcade-profile-game", `${titleFor(game.gameId)} · ${game.xp} XP`),
+      )
+    }
+    wrap.append(el("div", "arcade-overlay-kicker", "CABINETS"), games)
+  }
+
+  if (profile.medals.length > 0) {
+    const medals = el("div", "arcade-medals")
+    for (const medal of profile.medals) {
+      const chip = el("span", "arcade-medal", medal.title)
+      chip.title = medal.description
+      medals.append(chip)
+    }
+    wrap.append(el("div", "arcade-overlay-kicker", "MEDALS"), medals)
+  } else {
+    wrap.append(
+      el("div", "arcade-overlay-detail", "No medals yet. Finish a ranked run to earn XP."),
+    )
+  }
+
+  return wrap
+}
+
 function renderBoardRow(
   item: BoardEntry,
   index: number,
@@ -146,6 +217,7 @@ function renderBoardRow(
   currentId?: string,
   extraClass = "",
   format: (score: Score, meta: GameMeta) => string = formatScore,
+  onPractice?: (item: BoardEntry) => void,
 ): HTMLElement {
   const isYou = Boolean(currentId && item.playerId === currentId)
   const row = el(
@@ -160,6 +232,13 @@ function renderBoardRow(
     player,
     el("span", "arcade-board-score", format(item.score, meta)),
   )
+  if (onPractice && item.ghostId) {
+    const practice = el("button", "arcade-btn arcade-btn-ghost arcade-board-practice", "Practice")
+    practice.type = "button"
+    practice.title = "Replay this run's seed as unranked practice"
+    practice.addEventListener("click", () => onPractice(item))
+    row.append(practice)
+  }
   return row
 }
 
@@ -488,6 +567,13 @@ export function createArcade(options: ArcadeOptions): Arcade {
         ),
       ]
 
+      const profileSlot = el("div", "arcade-profile-slot")
+      profileSlot.append(
+        el("div", "arcade-overlay-kicker", "ARCADE XP"),
+        el("div", "arcade-overlay-detail", "Loading arcade rank…"),
+      )
+      children.push(profileSlot)
+
       if (host.updateName) {
         const nameInput = el("input", "arcade-input")
         nameInput.type = "text"
@@ -614,6 +700,27 @@ export function createArcade(options: ArcadeOptions): Arcade {
       )
 
       card.replaceChildren(...children)
+
+      if (host.profile) {
+        void host
+          .profile()
+          .then((profile) => {
+            if (!profileSlot.isConnected) return
+            profileSlot.replaceChildren(
+              profileNode(
+                profile,
+                (gameId) =>
+                  games.find((candidate) => candidate.meta.id === gameId)?.meta.title ?? gameId,
+              ),
+            )
+          })
+          .catch((error: unknown) => {
+            if (!profileSlot.isConnected) return
+            profileSlot.replaceChildren(
+              el("div", "arcade-overlay-detail", errorMessage(error)),
+            )
+          })
+      }
     }
 
     if (authState?.signedIn) {
@@ -1230,6 +1337,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
             playerId,
             "arcade-boards-row",
             daily ? formatDailyScore : formatScore,
+            host.ghost ? (ghostItem) => void startPractice(entry, ghostItem) : undefined,
           ),
         )
       })
@@ -1246,10 +1354,32 @@ export function createArcade(options: ArcadeOptions): Arcade {
     }
   }
 
+  const startPractice = async (
+    entry: GameEntry,
+    item: BoardEntry,
+  ): Promise<void> => {
+    if (!item.ghostId || !host.ghost) return
+    try {
+      const ghost = await host.ghost(item.ghostId)
+      if (ghost.gameId !== entry.meta.id) {
+        host.toast("That practice run belongs to another cabinet.")
+        return
+      }
+      const mode =
+        entry.meta.modes.find((candidate) => candidate.id === ghost.modeId) ??
+        entry.meta.modes.find((candidate) => candidate.ranked !== false)
+      if (!mode) return
+      void playGame(entry, mode.id, undefined, ghost)
+    } catch (error) {
+      host.toast(errorMessage(error))
+    }
+  }
+
   const playGame = async (
     entry: GameEntry,
     modeId: string,
     daily?: DailyChallenge,
+    ghost?: GhostRun,
   ): Promise<void> => {
     const generation = ++playGeneration
     homeButton.hidden = false
@@ -1261,7 +1391,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     const mode = entry.meta.modes.find((item) => item.id === modeId) ?? entry.meta.modes[0]
     if (!mode) return
 
-    const isRankedMode = mode.ranked !== false
+    const isRankedMode = mode.ranked !== false && !ghost
     let session: {
       seed: number
       runId?: string
@@ -1271,7 +1401,9 @@ export function createArcade(options: ArcadeOptions): Arcade {
       attemptsLeft?: number
     }
     try {
-      if (daily) {
+      if (ghost) {
+        session = { seed: ghost.seed, ...(ghost.anchor ? { anchor: ghost.anchor } : {}) }
+      } else if (daily) {
         if (!host.startDaily) throw new Error("The daily challenge is not available.")
         const started = await host.startDaily(daily.challengeId)
         const anchor = started.anchor ?? daily.anchor
@@ -1311,8 +1443,8 @@ export function createArcade(options: ArcadeOptions): Arcade {
     main.replaceChildren()
 
     const isDaily = Boolean(daily)
-    const best = isDaily || !isRankedMode ? undefined : host.best(entry.meta.id, mode.id)
-    const bestLabel = isDaily ? "Daily best" : scoreLabel(entry.meta)
+    const best = ghost || isDaily || !isRankedMode ? undefined : host.best(entry.meta.id, mode.id)
+    const bestLabel = ghost ? "Practice" : isDaily ? "Daily best" : scoreLabel(entry.meta)
     const section = el("section", "arcade-game")
     section.style.setProperty("--game-accent-dark", entry.meta.theme?.accent ?? "#22d3ee")
     section.style.setProperty("--game-accent-2-dark", entry.meta.theme?.accent2 ?? "#f472b6")
@@ -1322,14 +1454,19 @@ export function createArcade(options: ArcadeOptions): Arcade {
     const cabinetBest = el(
       "div",
       "arcade-cabinet-score",
-      !isRankedMode
-        ? "Unranked"
-        : `${bestLabel}: ${best ? formatScore(best, entry.meta) : "—"}`,
+      ghost
+        ? "Unranked · ghost practice"
+        : !isRankedMode
+          ? "Unranked"
+          : `${bestLabel}: ${best ? formatScore(best, entry.meta) : "—"}`,
     )
     cabinet.append(
       el("span", "arcade-cabinet-badge", "AA"),
       ...(daily
         ? [el("span", "arcade-cabinet-badge arcade-cabinet-daily", `DAILY ${session.attempt ?? 1}/3`)]
+        : []),
+      ...(ghost
+        ? [el("span", "arcade-cabinet-badge arcade-cabinet-daily", "PRACTICE")]
         : []),
       el("div", "arcade-cabinet-title", entry.meta.title),
       cabinetBest,
@@ -1375,7 +1512,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
         groupSelect.append(option)
       }
       groupSelect.value = currentGroup
-      groupSelect.disabled = Boolean(daily)
+      groupSelect.disabled = Boolean(daily) || Boolean(ghost)
 
       const variantSelect = el("select", "arcade-select")
       variantSelect.setAttribute("aria-label", "Board type")
@@ -1385,7 +1522,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
         variantSelect.append(option)
       }
       variantSelect.value = currentVariant
-      variantSelect.disabled = Boolean(daily)
+      variantSelect.disabled = Boolean(daily) || Boolean(ghost)
 
       groupSelect.addEventListener("change", () => {
         const next = modeInGroup(entry, groupSelect.value, variantSelect.value)
@@ -1411,7 +1548,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
         modeSelect.append(option)
       }
       modeSelect.value = mode.id
-      modeSelect.disabled = Boolean(daily)
+      modeSelect.disabled = Boolean(daily) || Boolean(ghost)
       modeSelect.addEventListener("change", () => chooseMode(modeSelect.value))
       actions.append(modeSelect)
     }
@@ -1430,7 +1567,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
       ) {
         return
       }
-      void playGame(entry, mode.id, daily)
+      void playGame(entry, mode.id, daily, ghost)
     }
 
     actions.append(pause, restart)
@@ -1640,6 +1777,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
       result: RunResult<any>,
       submit: SubmitResult,
       previousBest: Score | undefined,
+      practice = false,
     ): void => {
       pause.disabled = true
       pause.textContent = "Pause"
@@ -1650,31 +1788,42 @@ export function createArcade(options: ArcadeOptions): Arcade {
       const improved = daily
         ? typeof currentKey === "string" && currentKey === bestKey
         : submit.best !== undefined && isBetter(submit.best, previousBest)
-      const kicker = daily
-        ? `DAILY ATTEMPT ${session.attempt ?? 1}/3`
-        : !result.score.ranked
-          ? "UNRANKED RUN"
-          : improved
-            ? "NEW BEST"
-            : "RUN COMPLETE"
+      const kicker = practice
+        ? "PRACTICE · UNRANKED"
+        : daily
+          ? `DAILY ATTEMPT ${session.attempt ?? 1}/3`
+          : !result.score.ranked
+            ? "UNRANKED RUN"
+            : improved
+              ? "NEW BEST"
+              : "RUN COMPLETE"
       const title = result.score.won ? "You win." : "Run over."
       const detailParts: string[] = []
 
-      if (daily) detailParts.push(`Daily attempt ${session.attempt ?? 1} of 3.`)
-      if (!result.score.ranked) detailParts.push("This run is not eligible for the leaderboard.")
-      else if (submit.ok) {
+      if (practice) {
         detailParts.push(
-          improved
-            ? daily
-              ? "Daily best saved."
-              : "Personal best saved."
-            : daily
-              ? "Daily best stands."
-              : "Personal best stands.",
+          "Ghost practice on the same seed. Unranked; no leaderboard entry or daily attempt used.",
         )
-      } else detailParts.push(submit.reason ?? "Submission failed.")
+        detailParts.push(`Your practice score: ${formatScore(result.score, entry.meta)}.`)
+      } else if (daily) detailParts.push(`Daily attempt ${session.attempt ?? 1} of 3.`)
+      if (!practice) {
+        if (!result.score.ranked) {
+          detailParts.push("This run is not eligible for the leaderboard.")
+        } else if (submit.ok) {
+          detailParts.push(
+            improved
+              ? daily
+                ? "Daily best saved."
+                : "Personal best saved."
+              : daily
+                ? "Daily best stands."
+                : "Personal best stands.",
+          )
+        } else detailParts.push(submit.reason ?? "Submission failed.")
+      }
 
       if (submit.rank !== undefined) detailParts.push(`Rank #${submit.rank}`)
+      if (submit.xp !== undefined && submit.xp > 0) detailParts.push(`+${submit.xp} XP`)
       if (daily && submit.score) {
         const detail = submit.score.detail ?? {}
         const elapsed = typeof detail.elapsedMs === "number" ? detail.elapsedMs : undefined
@@ -1712,6 +1861,13 @@ export function createArcade(options: ArcadeOptions): Arcade {
         again.textContent = "Daily attempts used"
       }
       const actions = [again, button("Lobby", false, showLauncher), download]
+      if (practice) {
+        actions.push(
+          button("Leaderboard", false, () => {
+            void showBoards(entry.meta.id, mode.id)
+          }),
+        )
+      }
       if (daily) {
         actions.push(
           button("Daily board", false, () => {
@@ -1774,7 +1930,11 @@ export function createArcade(options: ArcadeOptions): Arcade {
         } else if (entry.meta.kind === "turn") {
           time.value.textContent = result.score.won ? "Won" : "Lost"
         }
-        const previousBest = isDaily || !isRankedMode ? undefined : host.best(entry.meta.id, mode.id)
+        const previousBest = ghost || isDaily || !isRankedMode ? undefined : host.best(entry.meta.id, mode.id)
+        if (ghost) {
+          showGameOver(result, { ok: false, reason: "" }, previousBest, true)
+          return
+        }
         void host
           .submit(result)
           .then((submit) => showGameOver(result, submit, previousBest))
@@ -1870,6 +2030,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
                 currentId,
                 "",
                 activeDaily ? formatDailyScore : formatScore,
+                host.ghost ? (ghostItem) => void startPractice(entry, ghostItem) : undefined,
               ),
             )
           })
