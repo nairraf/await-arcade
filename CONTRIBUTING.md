@@ -10,7 +10,7 @@ By participating, you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 - Merge `development` into `main` only at a milestone, then tag the merge (`beta-1`, ...).
 - Governance and release docs may land directly on `main`; everything else goes through a PR.
 
-## Add a cabinet
+## Add a cartridge
 
 ```sh
 npm install
@@ -54,7 +54,7 @@ Read `skills/await-arcade-game/SKILL.md` first. The short version:
 
 - `CODEOWNERS` maps `games/<id>/` to the game author.
 - Framework changes need a framework maintainer.
-- A cabinet can land as `status: "experimental"` and live in Labs before it is
+- A cartridge can land as `status: "experimental"` and live in Labs before it is
   promoted to `stable`.
 
 ## Commits and licensing

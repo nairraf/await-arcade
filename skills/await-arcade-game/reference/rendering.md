@@ -1,6 +1,6 @@
 # Rendering, input, and pause
 
-The shell provides the cabinet frame, HUD, overlays, typography, and light/dark
+The shell provides the cartridge frame, HUD, overlays, typography, and light/dark
 tokens. Use the shared visual system in `visual-language.md`; do not recreate
 the chrome inside a game.
 

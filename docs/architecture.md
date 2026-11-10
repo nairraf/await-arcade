@@ -6,7 +6,7 @@
 contract   types only: GameMeta, GameCore, GameView, Replay, Score
 framework  runner, seeded RNG, surface, verifier, testkit
 shell      launcher, HUD, local host, styles, generated game registry
-games      pure core + view per cabinet
+games      pure core + view per cartridge
 server     run issuance + replay verification + Firestore-backed boards
 hosts      OpenCode GUI plugin and Antigravity sidecar
 apps/web   the same shell in a browser

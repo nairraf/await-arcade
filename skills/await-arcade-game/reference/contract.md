@@ -49,7 +49,7 @@ interface GameMeta {
 }
 ```
 
-The shell owns the cabinet frame and typography. `theme` is only the cabinet
+The shell owns the cartridge frame and typography. `theme` is only the cartridge
 accent; do not recreate the chrome in a game view.
 
 ## Turn games

@@ -41,7 +41,7 @@ Rebuild after changing anything under `packages/shell`, `packages/framework`, or
 
 - Pinned **Await Arcade** tab in every session's side region.
 - `Await Arcade` command in the palette and a titlebar pill.
-- Launcher, two cabinets, local best scores, pause, restart, replay download.
+- Launcher, two cartridges, local best scores, pause, restart, replay download.
 
 ## What is next
 

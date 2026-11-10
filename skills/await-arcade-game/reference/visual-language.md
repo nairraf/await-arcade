@@ -1,15 +1,15 @@
 # Visual language
 
-Await Arcade is one cabinet system, not a theme per game. The shell owns the
+Await Arcade is one cartridge system, not a theme per game. The shell owns the
 frame, typography, spacing, overlays, and light/dark behavior. A game owns its
 accent and its art.
 
 ## The look
 
-**Late-night cabinet with a cartridge shelf.**
+**Late-night cartridge with a cartridge shelf.**
 
-- Near-black cabinet, warm paper light mode
-- One strong accent per cabinet, plus a secondary action accent
+- Near-black cartridge, warm paper light mode
+- One strong accent per cartridge, plus a secondary action accent
 - Thin glowing edge lines, soft bezel shadows, subtle scanlines
 - Monospace UI; a display wordmark/monogram for marquees, not for scores
 - Attract-mode energy: a blinking cursor, a “now loading” pulse, a coin-slot
@@ -31,13 +31,13 @@ theme: {
 ```
 
 The shell sets `--game-accent` and `--game-accent-2` on the launcher card and
-the cabinet. The frame, marquee, HUD, focus ring, and overlay use those tokens.
+the cartridge. The frame, marquee, HUD, focus ring, and overlay use those tokens.
 A game may use them in its own CSS; canvas games should read
 `ctx.meta.theme` or the same tokens instead of hardcoding hex values.
 
 Suggested accents:
 
-| Cabinet | Accent | Secondary | Mode |
+| Cartridge | Accent | Secondary | Mode |
 |---|---|---|---|
 | Mineflag | `#60a5fa` | `#fbbf24` | terminal |
 | Neon Cycles | `#22d3ee` | `#f472b6` | neon |
@@ -59,7 +59,7 @@ The launcher card is a cartridge, not a generic card:
 Hover lifts the cartridge slightly and lights its edge. The play button is the
 slot. Keep the animation short (120–180ms).
 
-## The cabinet
+## The cartridge
 
 The game view is the inserted cartridge:
 
@@ -77,9 +77,9 @@ overlays.
 Both modes are first-class. The shell uses `data-theme="auto" | "light" | "dark"`
 and CSS variables. `auto` follows `prefers-color-scheme`.
 
-Light mode is a **paper cabinet**: warm off-white, dark ink, same accents at
+Light mode is a **paper cartridge**: warm off-white, dark ink, same accents at
 lower saturation, no heavy glow, scanlines barely visible. The game surface may
-remain a dark CRT screen inside the light cabinet; that is intentional. A DOM
+remain a dark CRT screen inside the light cartridge; that is intentional. A DOM
 game like Mineflag should use the light board tokens so it reads as a desk
 game in light mode.
 
@@ -96,7 +96,7 @@ Test both modes with the top-bar theme toggle before shipping a game. Emulate
 - Contrast: body text and HUD values must pass against the panel in both modes.
 - Never use color alone: Mineflag uses digits and glyphs; Neon Cycles should
   give bikes a head marker/pattern, not just cyan vs pink.
-- Focus rings use the cabinet accent.
+- Focus rings use the cartridge accent.
 - Respect `prefers-reduced-motion`; no flashing above 3 Hz.
 - Keyboard-playable menus and games; pause and mute always reachable.
 - Canvas games need a text control summary and a pause.
@@ -105,7 +105,7 @@ Test both modes with the top-bar theme toggle before shipping a game. Emulate
 
 - Invent a new shell layout per game.
 - Mix a tiny pixel font with smooth neon everywhere.
-- Use ripped sprites, marquees, fonts, or copyrighted cabinet art.
+- Use ripped sprites, marquees, fonts, or copyrighted cartridge art.
 - Overdo CRT curvature, bloom, or scanlines.
 - Hardcode shell chrome colors inside a game view.
 - Use color alone for state.

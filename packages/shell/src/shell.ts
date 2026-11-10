@@ -190,7 +190,7 @@ function profileNode(
         el("span", "arcade-profile-game", `${titleFor(game.gameId)} · ${game.xp} XP`),
       )
     }
-    wrap.append(el("div", "arcade-overlay-kicker", "CABINETS"), games)
+    wrap.append(el("div", "arcade-overlay-kicker", "CARTRIDGES"), games)
   }
 
   if (profile.medals.length > 0) {
@@ -210,6 +210,34 @@ function profileNode(
   return wrap
 }
 
+const RANK_MEDALS = ["gold", "silver", "bronze"] as const
+
+/** Render a rank as a top-three medal badge, or a plain #N for the rest. */
+function applyRank(node: HTMLElement, rank?: number): void {
+  node.classList.remove(
+    "arcade-rank-medal",
+    "arcade-rank-gold",
+    "arcade-rank-silver",
+    "arcade-rank-bronze",
+  )
+  node.removeAttribute("aria-label")
+  if (rank === undefined) {
+    node.textContent = "—"
+    node.removeAttribute("title")
+    return
+  }
+  if (rank >= 1 && rank <= 3) {
+    const medal = RANK_MEDALS[rank - 1]!
+    node.classList.add("arcade-rank-medal", `arcade-rank-${medal}`)
+    node.textContent = String(rank)
+    node.setAttribute("aria-label", `Rank ${rank} · ${medal} medal`)
+    node.title = `Rank ${rank} · ${medal} medal`
+    return
+  }
+  node.textContent = `#${rank}`
+  node.title = `Rank ${rank}`
+}
+
 function renderBoardRow(
   item: BoardEntry,
   index: number,
@@ -227,8 +255,10 @@ function renderBoardRow(
   const name = item.displayName || (isYou ? "You" : item.playerId.slice(0, 8))
   const player = el("span", "arcade-board-player", name)
   player.title = isYou ? "You" : (item.displayName ? `${item.displayName} (${item.playerId})` : item.playerId)
+  const rank = el("span", "arcade-board-rank")
+  applyRank(rank, index + 1)
   row.append(
-    el("span", "arcade-board-rank", `#${index + 1}`),
+    rank,
     player,
     el("span", "arcade-board-score", format(item.score, meta)),
   )
@@ -772,7 +802,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     const entry = games.find((candidate) => candidate.meta.id === challenge.gameId)
     const mode = entry?.meta.modes.find((candidate) => candidate.id === challenge.modeId)
     if (!entry || !mode) {
-      return el("div", "arcade-empty", "Today's featured cabinet is not installed.")
+      return el("div", "arcade-empty", "Today's featured cartridge is not installed.")
     }
 
     const section = el("section", "arcade-daily")
@@ -1060,7 +1090,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
         "arcade-hero-sub",
         daily
           ? "One fixed seed, three attempts, best of three. Everyone plays the same board."
-          : "Verified runs from every player. Pick a cabinet and mode.",
+          : "Verified runs from every player. Pick a cartridge and mode.",
       ),
     )
     const head = el("header", "arcade-boards-head")
@@ -1272,13 +1302,13 @@ export function createArcade(options: ArcadeOptions): Arcade {
           : "YOUR DAILY"
         if (dailyIndex >= 0) {
           const entryAt = entries[dailyIndex]!
-          youRank.textContent = `#${dailyIndex + 1}`
+          applyRank(youRank, dailyIndex + 1)
           youScore.textContent = formatDailyScore(entryAt.score, entry.meta)
         } else if (auth && !auth.signedIn) {
-          youRank.textContent = "—"
+          applyRank(youRank)
           youScore.textContent = "Sign in with GitHub to play the daily."
         } else {
-          youRank.textContent = "—"
+          applyRank(youRank)
           youScore.textContent = `No daily run yet. ${freshDaily?.attemptsLeft ?? daily.attemptsLeft} of 3 attempts left.`
         }
       } else if (auth?.signedIn) {
@@ -1287,18 +1317,18 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
       if (!daily) {
         if (!mineResult.ok) {
-          youRank.textContent = "—"
+          applyRank(youRank)
           youScore.textContent = "Rank unavailable. Refresh to retry."
         } else if (mine?.rank !== undefined) {
-          youRank.textContent = `#${mine.rank}`
+          applyRank(youRank, mine.rank)
           youScore.textContent = mine.score
             ? `${scoreLabel(entry.meta)}: ${formatScore(mine.score, entry.meta)}`
             : ""
         } else if (auth && !auth.signedIn) {
-          youRank.textContent = "—"
+          applyRank(youRank)
           youScore.textContent = "Sign in with GitHub to rank on this board."
         } else {
-          youRank.textContent = "—"
+          applyRank(youRank)
           youScore.textContent = "No ranked run yet. Play to set one."
         }
       }
@@ -1362,7 +1392,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     try {
       const ghost = await host.ghost(item.ghostId)
       if (ghost.gameId !== entry.meta.id) {
-        host.toast("That practice run belongs to another cabinet.")
+        host.toast("That practice run belongs to another cartridge.")
         return
       }
       const mode =
@@ -1450,26 +1480,26 @@ export function createArcade(options: ArcadeOptions): Arcade {
     section.style.setProperty("--game-accent-2-dark", entry.meta.theme?.accent2 ?? "#f472b6")
     section.dataset.mode = entry.meta.theme?.mode ?? "neon"
 
-    const cabinet = el("div", "arcade-cabinet-marquee")
-    const cabinetBest = el(
+    const cartridge = el("div", "arcade-cartridge-marquee")
+    const cartridgeBest = el(
       "div",
-      "arcade-cabinet-score",
+      "arcade-cartridge-score",
       ghost
         ? "Unranked · ghost practice"
         : !isRankedMode
           ? "Unranked"
           : `${bestLabel}: ${best ? formatScore(best, entry.meta) : "—"}`,
     )
-    cabinet.append(
-      el("span", "arcade-cabinet-badge", "AA"),
+    cartridge.append(
+      el("span", "arcade-cartridge-badge", "AA"),
       ...(daily
-        ? [el("span", "arcade-cabinet-badge arcade-cabinet-daily", `DAILY ${session.attempt ?? 1}/3`)]
+        ? [el("span", "arcade-cartridge-badge arcade-cartridge-daily", `DAILY ${session.attempt ?? 1}/3`)]
         : []),
       ...(ghost
-        ? [el("span", "arcade-cabinet-badge arcade-cabinet-daily", "PRACTICE")]
+        ? [el("span", "arcade-cartridge-badge arcade-cartridge-daily", "PRACTICE")]
         : []),
-      el("div", "arcade-cabinet-title", entry.meta.title),
-      cabinetBest,
+      el("div", "arcade-cartridge-title", entry.meta.title),
+      cartridgeBest,
     )
 
     const head = el("header", "arcade-game-head")
@@ -1608,7 +1638,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
           if (!best) return
           const text = formatScore(best, entry.meta)
           bestCell.value.textContent = text
-          cabinetBest.textContent = `${scoreLabel(entry.meta)}: ${text}`
+          cartridgeBest.textContent = `${scoreLabel(entry.meta)}: ${text}`
         })
         .catch(() => {
           // Offline; keep the cached best.
@@ -1625,7 +1655,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
           if (!mine) return
           const text = formatDailyScore(mine.score, entry.meta)
           bestCell.value.textContent = text
-          cabinetBest.textContent = `${bestLabel}: ${text}`
+          cartridgeBest.textContent = `${bestLabel}: ${text}`
         })
         .catch(() => {
           // Offline or no previous daily run.
@@ -1647,7 +1677,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     overlay.hidden = true
 
     section.append(
-      cabinet,
+      cartridge,
       head,
       ...(modeHint ? [modeHint] : []),
       hud,
@@ -1842,7 +1872,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
           ? formatDailyScore(submit.best, entry.meta)
           : formatScore(submit.best, entry.meta)
         bestCell.value.textContent = bestText
-        cabinetBest.textContent = `${bestLabel}: ${bestText}`
+        cartridgeBest.textContent = `${bestLabel}: ${bestText}`
       }
 
       const download = button("Download replay", false, () => {

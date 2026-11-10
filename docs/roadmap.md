@@ -21,7 +21,7 @@ talking to the backend.
 - **Arcade XP/medals (done):** a cross-game XP/medal board that rewards breadth.
 - **Ghost practice (done):** play a verified high-score run on the same seed/anchor
   as unranked practice; no board entry and no daily attempt consumed.
-- **Visual system:** cartridge/cabinet shell, per-game accents, Auto/Light/Dark
+- **Visual system:** cartridge/cartridge shell, per-game accents, Auto/Light/Dark
   modes, and light/dark smoke tests on both hosts.
 - **Release gate:** both hosts smoke-tested, CI green, security review done, docs
   updated, and `beta-1` tagged on `main`.
@@ -30,7 +30,7 @@ talking to the backend.
 
 - Real-time PvP, async Missile Defense, or any multiplayer.
 - Runtime third-party game loading; the registry stays build-time.
-- A third cabinet; the two reference games are enough for beta-1.
+- A third cartridge; the two reference games are enough for beta-1.
 - Mobile-specific polish beyond the responsive shell.
 - Ranked ghost boards or per-player daily seeds.
 
@@ -46,8 +46,8 @@ talking to the backend.
   starts consumed on start, and scores the best of three on a separate board.
 - A player can open a high-score run as unranked practice on the same board; it
   writes no board entry and consumes no daily attempt.
-- The arcade reads correctly in light and dark modes for DOM cabinets
-  (Mineflag, Mergegrid) and canvas cabinets (Neon Cycles, Brickstorm).
+- The arcade reads correctly in light and dark modes for DOM cartridges
+  (Mineflag, Mergegrid) and canvas cartridges (Neon Cycles, Brickstorm).
 - Arcade XP aggregates across games without one game dominating.
 - Tokens never enter the renderer or webview.
 - `DELETE /v1/me` removes the player, sessions, and board entries.
@@ -57,7 +57,7 @@ talking to the backend.
 
 - Async **Missile Defense**: attacker builds a wave, defender plays it.
 - Real-time **Neon Cycles** and **Pong**.
-- More cabinets: Space Invaders-like, Pong.
+- More cartridges: Space Invaders-like, Pong.
 - A public game registry / marketplace only if a sandbox exists.
 
 ## How we work

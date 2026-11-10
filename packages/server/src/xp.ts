@@ -103,7 +103,7 @@ export function medalsFor(records: readonly XpRecord[]): ArcadeMedal[] {
   medals.push({
     id: "first-run",
     title: "First Credit",
-    description: "Earn arcade XP in any cabinet.",
+    description: "Earn arcade XP in any cartridge.",
     ...(Number.isFinite(firstAt) ? { earnedAt: firstAt } : {}),
   })
 
@@ -123,8 +123,8 @@ export function medalsFor(records: readonly XpRecord[]): ArcadeMedal[] {
     readonly at: number
   }> = [
     { id: "spark", title: "Spark", description: "Reach 100 total XP.", at: 100 },
-    { id: "silver", title: "Silver Cabinet", description: "Reach 500 total XP.", at: 500 },
-    { id: "gold", title: "Gold Cabinet", description: "Reach 1,500 total XP.", at: 1500 },
+    { id: "silver", title: "Silver Cartridge", description: "Reach 500 total XP.", at: 500 },
+    { id: "gold", title: "Gold Cartridge", description: "Reach 1,500 total XP.", at: 1500 },
     { id: "legend", title: "House Legend", description: "Reach 3,000 total XP.", at: 3000 },
   ]
 
@@ -169,7 +169,7 @@ export function medalsFor(records: readonly XpRecord[]): ArcadeMedal[] {
     medals.push({
       id: "polymath",
       title: "Polymath",
-      description: "Earn XP in all four launch cabinets.",
+      description: "Earn XP in all four launch cartridges.",
       earnedAt: polymathAt,
     })
   }

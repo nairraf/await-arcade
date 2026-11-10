@@ -40,7 +40,7 @@ Don't sum raw scores across games. Normalize:
 - arcade board = sum of best points per game + medals.
 
 Medals per board: gold/silver/bronze by fixed thresholds or percentile. Arcade
-rank rewards breadth, not grinding one cabinet.
+rank rewards breadth, not grinding one cartridge.
 
 ## Daily challenge
 

@@ -194,7 +194,7 @@ Don't sum raw scores across games. Normalize:
 - medals are derived from retained records (First Credit, Spark, Silver, Gold,
   House Legend, Daily Devotee, Polymath).
 
-That rewards breadth, not grinding one cabinet.
+That rewards breadth, not grinding one cartridge.
 
 ## Daily challenge
 
@@ -253,7 +253,7 @@ A verified high-score run can be replayed as **unranked practice**:
 - A ghost record is written when a run becomes a personal best and is removed
   with the player's account.
 - Mineflag first (same board); Neon Cycles can add a ghost trail later;
-  Missile Command's wave plan becomes the ghost when that cabinet lands.
+  Missile Command's wave plan becomes the ghost when that cartridge lands.
 
 ## Arcade XP, medals, and rank
 
@@ -261,14 +261,14 @@ A verified high-score run can be replayed as **unranked practice**:
   difficulty 1–5 gives a 20–100 base, a win multiplies by 3, and the daily
   carries a 1.5x bonus.
 - Only the best XP for each game and UTC day is retained; improving that day's
-  run adds the difference. Grinding the same cabinet does not farm XP.
+  run adds the difference. Grinding the same cartridge does not farm XP.
 - `GET /v1/me/profile` returns the total, level and title, the next level
-  threshold, competition rank by total XP, per-cabinet totals, and medals.
+  threshold, competition rank by total XP, per-cartridge totals, and medals.
 - Levels: Rookie 0, Regular 250, Contender 750, Veteran 1,500, Champion 3,000,
   Legend 6,000, Arcade Immortal 10,000.
 - Medals are derived from the retained records: First Credit, Spark (100),
   Silver (500), Gold (1,500), House Legend (3,000), Daily Devotee (seven UTC
-  days), and Polymath (all four cabinets). Ghost practice never awards XP.
+  days), and Polymath (all four cartridges). Ghost practice never awards XP.
 
 ## Cost
 

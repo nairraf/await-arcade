@@ -1,6 +1,6 @@
 ---
 name: New game proposal
-about: Propose a cabinet before you build it
+about: Propose a cartridge before you build it
 title: "[Game] "
 labels: game, proposal
 ---
@@ -35,6 +35,6 @@ tick rate?
 
 Original, CC0, or CC-BY? Any assets you need help with?
 
-## Why this cabinet?
+## Why this cartridge?
 
 What does it add to the arcade that the existing games do not?

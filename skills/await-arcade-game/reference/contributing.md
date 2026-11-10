@@ -1,6 +1,6 @@
 # Contributing and review
 
-## Adding a cabinet
+## Adding a cartridge
 
 1. Fork and branch.
 2. `npm run aa -- new-game <id>`

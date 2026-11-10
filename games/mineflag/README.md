@@ -1,6 +1,6 @@
 # Mineflag
 
-A seeded minesweeper-style logic cabinet: reveal safe cells, flag mines, and
+A seeded minesweeper-style logic cartridge: reveal safe cells, flag mines, and
 chord cleared numbers. Beginner, intermediate, and expert boards.
 
 ## Files

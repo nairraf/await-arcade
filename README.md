@@ -2,7 +2,7 @@
 
 Await Arcade is a tiny cross-host arcade for OpenCode Desktop and Antigravity.
 
-Four cabinets ship in the scaffold:
+Four cartridges ship in the scaffold:
 
 - **Mineflag** — turn-based, safe first click, flood reveal, chording,
   keyboard play, three difficulties in random or no-guess logic boards,
@@ -15,7 +15,7 @@ Four cabinets ship in the scaffold:
   more gold armor per wall.
 
 The point is the framework: the shell is the product, games are content. Adding
-a cabinet should be one folder plus `npm run aa -- sync`.
+a cartridge should be one folder plus `npm run aa -- sync`.
 
 ## Status
 
@@ -167,7 +167,7 @@ criteria, and what is deliberately out of scope.
    uses Firestore in production.
 4. ✅ Featured daily challenge (fixed seed/anchor, 3 attempts, best of 3,
    separate board, daily tile). ✅ Unranked ghost practice and arcade XP/medals.
-5. ⏳ Add the next cabinet from the skill; Missile Defense async PvP is the first
+5. ⏳ Add the next cartridge from the skill; Missile Defense async PvP is the first
    multiplayer candidate.
 
 ## Design docs
