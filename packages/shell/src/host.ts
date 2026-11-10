@@ -1,4 +1,12 @@
-import type { AudioBus, GameHost, GameStorage, RunResult, Score, SubmitResult } from "@await-arcade/contract"
+import type {
+  AudioBus,
+  BoardEntry,
+  GameHost,
+  GameStorage,
+  RunResult,
+  Score,
+  SubmitResult,
+} from "@await-arcade/contract"
 import { isBetter } from "./format"
 
 interface LocalHostOptions {
@@ -15,6 +23,49 @@ const FREQUENCIES: Record<string, number> = {
   lose: 180,
   turn: 560,
   crash: 140,
+}
+
+/** Accept only well-formed board entries from a host or an untrusted server. */
+export function normaliseBoard(value: unknown): BoardEntry[] {
+  if (!Array.isArray(value)) return []
+
+  const entries: BoardEntry[] = []
+  for (const item of value) {
+    if (typeof item !== "object" || item === null) continue
+    const record = item as Record<string, unknown>
+    const score = record.score
+    if (typeof record.playerId !== "string" || typeof score !== "object" || score === null) continue
+    const raw = score as Record<string, unknown>
+    if (typeof raw.value !== "number" || (raw.type !== "higher" && raw.type !== "lower")) continue
+
+    let detail: Record<string, number | string | boolean> | undefined
+    if (typeof raw.detail === "object" && raw.detail !== null && !Array.isArray(raw.detail)) {
+      const candidate: Record<string, number | string | boolean> = {}
+      for (const [key, value] of Object.entries(raw.detail as Record<string, unknown>)) {
+        if (typeof value === "number" || typeof value === "string" || typeof value === "boolean") {
+          candidate[key] = value
+        }
+      }
+      detail = candidate
+    }
+
+    entries.push({
+      playerId: record.playerId,
+      achievedAt: typeof record.achievedAt === "number" ? record.achievedAt : 0,
+      ...(typeof record.displayName === "string" ? { displayName: record.displayName } : {}),
+      ...(typeof record.rankKey === "string" ? { rankKey: record.rankKey } : {}),
+      ...(typeof record.ghostId === "string" ? { ghostId: record.ghostId } : {}),
+      score: {
+        value: raw.value,
+        type: raw.type,
+        won: raw.won === true,
+        ranked: raw.ranked !== false,
+        ...(detail ? { detail } : {}),
+      },
+    })
+    if (entries.length >= 50) break
+  }
+  return entries
 }
 
 class SimpleAudio implements AudioBus {
@@ -128,6 +179,17 @@ export class LocalHost implements GameHost {
     const value = this.storage.get<Score>(`best.${gameId}.${modeId}`)
     if (!value || typeof value.value !== "number" || typeof value.type !== "string") return undefined
     return value
+  }
+
+  /** Merge a remote best into the local cache; the better score wins. */
+  protected mergeBest(gameId: string, modeId: string, remote: Score | undefined): Score | undefined {
+    const local = this.best(gameId, modeId)
+    if (!remote) return local
+    if (!local || isBetter(remote, local)) {
+      this.storage.set(`best.${gameId}.${modeId}`, remote)
+      return remote
+    }
+    return local
   }
 
   async submit(run: RunResult): Promise<SubmitResult> {

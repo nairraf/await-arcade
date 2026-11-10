@@ -59,11 +59,13 @@ export const core: GameCore<TargetState, TargetInput> = {
 
   score(state, context: ScoreContext): Score {
     return {
-      value: context.elapsedMs,
+      // Turn replays carry a client-supplied durationMs, so rank verified
+      // moves instead of wall time.
+      value: context.ticks,
       type: "lower",
       won: state.phase === "won",
       ranked: state.phase === "won",
-      detail: { hits: state.hits },
+      detail: { hits: state.hits, moves: context.ticks },
     }
   },
 

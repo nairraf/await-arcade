@@ -18,6 +18,6 @@ describe("template game", () => {
 
     const result = playTurn(core, meta, { seed: 1, mode, inputs, durationMs: 1_000 })
     expect(result.verified.ok).toBe(true)
-    expect(result.score.value).toBe(1_000)
+    expect(result.score.value).toBe(inputs.length)
   })
 })

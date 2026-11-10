@@ -16,6 +16,10 @@ listed in `CODEOWNERS`. Do not open a public issue for a vulnerability.
 
 - Clients never hold a service-account credential.
 - Games never see auth tokens; the shell owns submission.
+- Auth state is server-side in a `0600` file in the native per-user state
+  directory; refresh tokens are hashed server-side. No token enters the renderer
+  or webview.
+- `DELETE /v1/me` removes the player, sessions, and board entries.
 - Scores are verified from replays on the server.
 - No `eval`, `new Function`, or dynamic code execution in a game core.
 - Display names are rendered with `textContent`, not HTML.

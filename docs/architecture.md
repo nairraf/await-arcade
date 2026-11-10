@@ -7,7 +7,7 @@ contract   types only: GameMeta, GameCore, GameView, Replay, Score
 framework  runner, seeded RNG, surface, verifier, testkit
 shell      launcher, HUD, local host, styles, generated game registry
 games      pure core + view per cabinet
-server     run issuance + replay verification + boards (in-memory for now)
+server     run issuance + replay verification + Firestore-backed boards
 hosts      OpenCode GUI plugin and Antigravity sidecar
 apps/web   the same shell in a browser
 ```
@@ -72,24 +72,31 @@ folder, run `sync`, and the release bundles it.
 
 ## Verification flow
 
-1. `POST /v1/runs` issues `runId` + `seed`.
+1. `POST /v1/runs` issues `runId` + `seed`; the shell asks for it through
+   `GameHost.start`.
 2. The client plays and records inputs.
-3. `POST /v1/runs/:id/submit` sends the replay.
+3. `POST /v1/runs/:id/submit` sends the replay with the run id.
 4. The server calls `verifyReplay(core, meta, replay)`.
 5. If `score.ranked`, it updates the board.
 
-The client never sends a trusted score. A determined cheater can still use a
-solver; leaderboards are for fun. The verifier stops trivial score injection.
+Local fallback runs use a local seed and are not ranked; only a server-issued
+run can be submitted or queued. The client never sends a trusted score. A
+determined cheater can still use a solver; leaderboards are for fun. The verifier
+stops trivial score injection.
 
 ## Host boundary
 
-- **OpenCode**: GUI bundle + optional server part. The panel mounts the shared
-  shell into a `div`; styles go through `ctx.add(Style, …)`. The server part is
-  the future place for the API proxy and token storage.
+- **OpenCode**: GUI bundle + server part. The panel mounts the shared shell into
+  a `div`; styles go through `ctx.add(Style, …)`. The server part owns the API
+  client, run issuance, the submit queue, and (later) auth tokens.
 - **Antigravity**: a Node sidecar serves `index.html`, `app.js`, `app.css` on
-  loopback. The page mounts the same shell. The sidecar data directory is the
-  future token store.
+  loopback and proxies `/api/start`, `/api/submit`, `/api/best`, `/api/board`,
+  `/api/player-best`, `/api/daily`, `/api/daily-start`, `/api/daily-board`, and
+  `/api/status` to the verifier. The page mounts the same shell. The sidecar data
+  directory holds the player id and the submit queue; auth moves to the native
+  state directory later.
 
 The shell is framework-free DOM, so both hosts can mount it without shipping a
 React/Solid runtime into the game layer. The OpenCode wrapper is Solid because
-that is the host's component model; the shell itself is not.
+that is the host's component model; the shell itself is not. Both hosts share
+`@await-arcade/api-client` on their server side.

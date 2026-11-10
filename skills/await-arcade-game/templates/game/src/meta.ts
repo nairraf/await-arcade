@@ -9,11 +9,12 @@ export const meta: GameMeta = {
   engines: { arcade: "^0.1.0" },
   kind: "turn",
   modes: [{ id: "classic", title: "Classic", difficulty: 1 }],
-  score: { type: "lower", min: 0, max: 600_000 },
+  score: { type: "lower", min: 0, max: 10_000, unit: "moves" },
   leaderboard: "replay",
   status: "experimental",
   controls: [{ keys: "Click", action: "Hit the glowing target" }],
   display: { surface: "dom", width: 3, height: 3 },
+  theme: { accent: "#22d3ee", accent2: "#f472b6", mode: "neon" },
   maxDurationMs: 600_000,
   tags: ["template"],
 }

@@ -14,6 +14,7 @@ function desiredDirection(key: string): number | undefined {
 export function view(ctx: ViewContext<CycleState, CycleInput>): GameView<CycleState> {
   const canvas = ctx.ctx2d
   if (!canvas) throw new Error("Neon Cycles needs a canvas surface")
+  const tickRate = ctx.meta.tickRate ?? 12
 
   const turn = (player: 0 | 1, direction: number): void => {
     const bike = ctx.state().bikes[player]
@@ -41,7 +42,7 @@ export function view(ctx: ViewContext<CycleState, CycleInput>): GameView<CycleSt
     turn(0, direction)
   }
 
-  globalThis.addEventListener("keydown", onKey)
+  ctx.container.addEventListener("keydown", onKey)
 
   const render = (state: CycleState): void => {
     const width = ctx.size().width
@@ -69,6 +70,7 @@ export function view(ctx: ViewContext<CycleState, CycleInput>): GameView<CycleSt
     state.bikes.forEach((bike, player) => {
       const color = COLORS[player] ?? "#e6edf3"
       const dim = bike.alive ? 1 : 0.25
+      const boosted = (state.boostTicks[player] ?? 0) > 0
 
       canvas.globalAlpha = 0.28 * dim
       canvas.fillStyle = color
@@ -80,12 +82,33 @@ export function view(ctx: ViewContext<CycleState, CycleInput>): GameView<CycleSt
 
       canvas.globalAlpha = dim
       canvas.shadowColor = color
-      canvas.shadowBlur = 14
+      canvas.shadowBlur = boosted ? 26 : 14
       canvas.fillStyle = color
       canvas.fillRect(bike.x * cell, bike.y * cell, cell, cell)
       canvas.shadowBlur = 0
       canvas.globalAlpha = 1
     })
+
+    state.boostTicks.forEach((ticks, player) => {
+      if (ticks <= 0) return
+      const label = player === 0 ? "P1" : state.modeId === "duel" ? "P2" : "AI"
+      canvas.fillStyle = COLORS[player] ?? "#e6edf3"
+      canvas.font = "9px ui-monospace, Menlo, monospace"
+      canvas.fillText(`BOOST ${label}`, 8, 12 + player * 12)
+    })
+
+    canvas.fillStyle = "#e6edf3"
+    canvas.font = "10px ui-monospace, Menlo, monospace"
+    canvas.textAlign = "center"
+    canvas.fillText(`LEVEL ${state.level}`, width / 2, 12)
+
+    if (state.ticks < state.levelReadyUntilTick) {
+      const remaining = Math.ceil((state.levelReadyUntilTick - state.ticks) / tickRate)
+      canvas.fillStyle = "#22d3ee"
+      canvas.font = "bold 18px ui-monospace, Menlo, monospace"
+      canvas.fillText(`LEVEL ${state.level} · READY ${Math.max(1, remaining)}`, width / 2, height / 2)
+    }
+    canvas.textAlign = "left"
 
     canvas.strokeStyle = "rgba(148, 163, 184, 0.22)"
     canvas.lineWidth = 1
@@ -97,7 +120,7 @@ export function view(ctx: ViewContext<CycleState, CycleInput>): GameView<CycleSt
       render(state)
     },
     destroy() {
-      globalThis.removeEventListener("keydown", onKey)
+      ctx.container.removeEventListener("keydown", onKey)
     },
   }
 }

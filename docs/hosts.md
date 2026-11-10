@@ -30,8 +30,15 @@ onMount(() => {
 })
 ```
 
-Next: add an RPC contract (`server.js` + `src/rpc.ts`) and proxy leaderboard
-calls through the plugin server so the renderer never holds a token.
+Remote bests and the leaderboard are wired: `GameHost.loadBest` refreshes the
+cached best, `GameHost.board` feeds both the cabinet's Board overlay and the
+top-bar Boards hub, and `GameHost.playerBest` supplies the player's rank and
+entry for the hub. The daily ladder uses `GameHost.daily`,
+`GameHost.startDaily`, and `GameHost.dailyBoard`; RPC methods `daily`,
+`dailyStart`, and `dailyBoard` mirror them. Auth is wired too: the server part
+owns `auth.opencode.json` in the native state directory, exposes
+`authStatus`/`authStart`/`authPoll`/`authSignOut`, and the shell renders the
+GitHub device-code panel. Use the RPC methods for account actions.
 
 ## Antigravity
 
@@ -47,16 +54,43 @@ Model: a **sidecar** process plus a **web UI extension**.
   `app.css` at the package root so the server can serve them without a static
   directory handler.
 - The host assigns `ANTIGRAVITY_SIDECAR_WEB_PORT`; the UI origin can change
-  between runs. Do not rely on `localStorage` for a session token. Store it in
-  `ANTIGRAVITY_EXECUTABLE_DATA_DIR` from the sidecar server.
+  between runs. Do not rely on `localStorage` for a session token. Store auth in
+  the native per-OS state directory (`auth.antigravity.json`, `0600`); use
+  `ANTIGRAVITY_EXECUTABLE_DATA_DIR` for non-secret sidecar cache and queue state.
 
-Next: proxy the verifier API through `server.mjs`, store the player token in
-the sidecar data directory, and use `window.sidecar.agent.sendMessage` for
-"brief me on my run" style actions.
+Remote bests and the leaderboard are wired through `/api/best`,
+`/api/board`, `/api/player-best`, `/api/daily`, `/api/daily-start`, and
+`/api/daily-board`. Auth is wired through
+`/api/auth/status|start|poll|signout|delete`; the sidecar owns
+`auth.antigravity.json` and the shell shows the device code. Next: use
+`window.sidecar.agent.sendMessage` for "brief me on my run" style actions.
+
+## Verifier API
+
+Both host server halves use `@await-arcade/api-client`.
+
+- **Ranked runs:** the shell calls `GameHost.start`, which asks the host server
+  to `POST /v1/runs` for a server seed and run id. The runner carries the run id;
+  submit sends the replay with it.
+- **Local runs:** if the API is unavailable, or the host has no start hook, the
+  shell uses a local random seed and stores a local best. That replay is not
+  submitted as ranked.
+- **Offline queue:** a submit that fails with a network or 5xx error is stored in
+  the host server state and retried on the next start/submit. 4xx rejections are
+  not queued.
+- **Best and board:** `GameHost.loadBest` asks the host half for the player's
+  best and merges it with the local cache (the better score wins).
+  `GameHost.board` returns the top 50 for the cabinet's Board overlay and the
+  Boards hub, and `GameHost.playerBest` returns the player's own entry and rank
+  for the hub. All are optional; a local host omits them and the shell stays
+  local-only.
+- **Boundary:** the renderer never calls the API and never holds a credential.
+  The host server half owns the API client, the player identity, and (later) the
+  auth token.
 
 ## Shared shell
 
 The shell is framework-free DOM and canvas. It mounts into any element. The
-OpenCode wrapper is Solid because the host requires Solid components; the
-shell itself stays independent. Both hosts use the same `games` registry, the
-same `LocalHost` (until the API proxy lands), and the same styles.
+OpenCode wrapper is Solid because the host requires Solid components; the shell
+itself stays independent. Both hosts use the same `games` registry and styles;
+each supplies its own `GameHost` proxy, with `LocalHost` as the fallback.

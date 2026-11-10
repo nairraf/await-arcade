@@ -2,7 +2,6 @@ import {
   FRAMEWORK_VERSION,
   REPLAY_VERSION,
   type GameCore,
-  type GameHost,
   type GameMeta,
   type GameView,
   type InputEvent,
@@ -10,6 +9,7 @@ import {
   type Replay,
   type RunResult,
   type ViewContext,
+  type ViewHost,
 } from "@await-arcade/contract"
 import { createSurface } from "./surface"
 import { stateHash } from "./utils"
@@ -18,10 +18,13 @@ export interface RunnerOptions<S, I> {
   readonly meta: GameMeta
   readonly core: GameCore<S, I>
   readonly view: (ctx: ViewContext<S, I>) => GameView<S>
-  readonly host: GameHost
+  readonly host: ViewHost
   readonly container: HTMLElement
   readonly mode: Mode
   readonly seed: number
+  readonly runId?: string
+  /** Inputs applied before the clock starts, recorded in the replay (daily anchors). */
+  readonly prelude?: readonly I[]
   readonly onEnd?: (result: RunResult<I>) => void
   readonly onTick?: (state: S, elapsedMs: number, ticks: number) => void
 }
@@ -59,7 +62,7 @@ const caf = (id: number): void => {
 }
 
 export function createRunner<S, I>(options: RunnerOptions<S, I>): GameRunner<S, I> {
-  const { meta, core, host, container, mode, seed, onEnd, onTick } = options
+  const { meta, core, host, container, mode, seed, runId, onEnd, onTick } = options
   const rate = meta.kind === "realtime" ? (meta.tickRate ?? 60) : 0
   const dt = rate > 0 ? 1000 / rate : 0
 
@@ -115,7 +118,13 @@ export function createRunner<S, I>(options: RunnerOptions<S, I>): GameRunner<S, 
       stateHash: stateHash(core.serialize(state)),
     }
 
-    lastResult = { gameId: meta.id, modeId: mode.id, score, replay }
+    lastResult = {
+      gameId: meta.id,
+      modeId: mode.id,
+      ...(runId !== undefined ? { runId } : {}),
+      score,
+      replay,
+    }
     view.render(state, 1)
     onTick?.(state, durationMs, ticks)
     onEnd?.(lastResult)
@@ -192,7 +201,12 @@ export function createRunner<S, I>(options: RunnerOptions<S, I>): GameRunner<S, 
   view.resize?.(surface.size())
   onTick?.(state, elapsed(), 0)
 
-  if (meta.kind === "realtime") {
+  for (const input of options.prelude ?? []) {
+    if (stopped || finished) break
+    dispatch(input)
+  }
+
+  if (meta.kind === "realtime" && !finished && !stopped) {
     lastFrame = now()
     rafId = raf(frame)
   }

@@ -1,8 +1,12 @@
 # Rendering, input, and pause
 
+The shell provides the cabinet frame, HUD, overlays, typography, and light/dark
+tokens. Use the shared visual system in `visual-language.md`; do not recreate
+the chrome inside a game.
+
 ## DOM games
 
-Use DOM for grid/board games: Minesweeper, 2048, card games. Buttons are
+Use DOM for grid/board games: Mineflag, Mergegrid, card games. Buttons are
 focusable, screen readers can label them, and the layout is responsive.
 
 - Set `meta.display.surface = "dom"`.
@@ -13,7 +17,7 @@ focusable, screen readers can label them, and the layout is responsive.
 
 ## Canvas games
 
-Use canvas for action games: Light Cycles, Breakout, shooters. The framework
+Use canvas for action games: Neon Cycles, Brickstorm, shooters. The framework
 creates a canvas sized to `meta.display` and handles DPR.
 
 - Set `meta.display.surface = "canvas"`.
@@ -44,4 +48,4 @@ creates a canvas sized to `meta.display` and handles DPR.
 - The game has a pause and a mute.
 - Respect `prefers-reduced-motion`.
 - Canvas games get a text description of controls and state.
-- Minesweeper/2048 should be fully keyboard playable.
+- Mineflag/Mergegrid should be fully keyboard playable.

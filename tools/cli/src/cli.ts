@@ -207,6 +207,29 @@ async function verifyCommand(args: string[]): Promise<void> {
   if (!result.ok) process.exitCode = 1
 }
 
+function stripComments(source: string): string {
+  return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "")
+}
+
+function findPureFiles(dir: string): string[] {
+  const result: string[] = []
+  if (!existsSync(dir)) return result
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name)
+    if (entry.isDirectory()) {
+      result.push(...findPureFiles(full))
+    } else if (
+      entry.isFile() &&
+      entry.name.endsWith(".ts") &&
+      !entry.name.endsWith(".test.ts") &&
+      !entry.name.endsWith("view.ts")
+    ) {
+      result.push(full)
+    }
+  }
+  return result
+}
+
 async function check(): Promise<void> {
   const games = await findGames()
   const verifiers = await loadVerifiers()
@@ -223,15 +246,21 @@ async function check(): Promise<void> {
     { pattern: /\bfetch\s*\(/, label: "fetch" },
     { pattern: /\beval\s*\(/, label: "eval" },
     { pattern: /\bnew Function\b/, label: "new Function" },
+    { pattern: /\bglobalThis\b/, label: "globalThis" },
+    { pattern: /\bsetTimeout\s*\(/, label: "setTimeout" },
+    { pattern: /\bsetInterval\s*\(/, label: "setInterval" },
+    { pattern: /\brequestAnimationFrame\s*\(/, label: "requestAnimationFrame" },
   ]
 
   for (const game of games) {
-    const coreFile = resolveModule(game.dir, game.config.core)
-    const source = readFileSync(coreFile, "utf8")
+    const pureFiles = findPureFiles(path.join(game.dir, "src"))
 
-    for (const rule of forbidden) {
-      if (rule.pattern.test(source)) {
-        errors.push(`${game.config.meta.id}: core uses ${rule.label} (${path.relative(root, coreFile)})`)
+    for (const file of pureFiles) {
+      const source = stripComments(readFileSync(file, "utf8"))
+      for (const rule of forbidden) {
+        if (rule.pattern.test(source)) {
+          errors.push(`${game.config.meta.id}: pure code uses ${rule.label} (${path.relative(root, file)})`)
+        }
       }
     }
 

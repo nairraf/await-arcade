@@ -9,6 +9,10 @@ packages/host-opencode/gui-experimental.cjs
 packages/host-antigravity/index.html
 packages/host-antigravity/app.js
 packages/host-antigravity/app.css
+packages/host-antigravity/.data/
+
+# workspace link created by scripts/install-hosts.sh
+packages/host-opencode/node_modules
 
 # private agent memory (symlinked from ~/ai/memory/projects/await-arcade)
 AGENTS.md
@@ -18,3 +22,17 @@ AGENTS.md
 # local env
 .env
 .env.*
+
+# terraform local state and vars
+infra/terraform/.terraform/
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.*
+infra/terraform/terraform.tfstate.d/
+infra/terraform/*.tfvars
+infra/terraform/*.tfvars.json
+infra/terraform/envs/*.tfvars
+infra/terraform/*.tfplan
+infra/terraform/tfplan
+infra/terraform/plan.out
+infra/terraform/override.tf
+infra/terraform/*_override.tf

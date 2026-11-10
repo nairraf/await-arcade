@@ -15,6 +15,18 @@ interface GameView<S> {
   destroy(): void
 }
 
+interface Mode {
+  id: string
+  title: string
+  description?: string
+  difficulty?: number
+  ranked?: boolean
+  /** Group modes that share a difficulty; the shell renders a variant selector. */
+  group?: string
+  /** A GameMeta.variants id, e.g. "random" or "logic". */
+  variant?: string
+}
+
 interface GameMeta {
   id: string
   title: string
@@ -25,15 +37,20 @@ interface GameMeta {
   kind: "turn" | "realtime"
   tickRate?: number
   modes: Mode[]
-  score: { type: "higher" | "lower"; min: number; max: number }
+  variants?: { id: string; title: string; description: string }[]
+  score: { type: "higher" | "lower"; min: number; max: number; unit?: "time" | "moves" | "points" }
   leaderboard: "replay" | "bounds" | "none"
   status: "stable" | "experimental"
   controls: { keys: string; action: string }[]
   display: { surface: "dom" | "canvas"; width: number; height: number; pixelated?: boolean }
+  theme?: { accent: string; accent2: string; mode: "neon" | "terminal" | "paper" }
   maxDurationMs: number
   tags?: string[]
 }
 ```
+
+The shell owns the cabinet frame and typography. `theme` is only the cabinet
+accent; do not recreate the chrome in a game view.
 
 ## Turn games
 
