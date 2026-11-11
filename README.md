@@ -176,16 +176,19 @@ The first tagged milestone is **beta-1**; the public release target is **beta-2*
 
 The static site lives in `site/`. `firebase.json` deploys it to Firebase Hosting and rewrites
 `/v1/**` to the production Cloud Run service. Policy pages in `site/` are beta-2 drafts for
-review before launch.
+review before launch. The preview is intentionally `noindex` until the custom domain is
+attached and the policies are approved.
 
 ```sh
-npx firebase-tools use await-arcade
-npx firebase-tools deploy --only hosting
+FIREBASE_ACCESS_TOKEN="$(gcloud auth application-default print-access-token)" \
+  npm run deploy:hosting
 ```
 
+`HOSTING_DRY_RUN=1` lists the files and converted Hosting config without uploading. The
+Firebase CLI works too, but the REST script avoids an interactive login.
+
 The custom domain `awaitarcade.com` will be attached in Firebase Hosting, not by Cloud Run
-domain mapping (which is not available in `northamerica-northeast1`). The policies are
-drafts and stay `noindex` until reviewed and approved.
+domain mapping (which is not available in `northamerica-northeast1`).
 
 ## Design docs
 
