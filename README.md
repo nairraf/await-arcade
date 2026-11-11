@@ -105,7 +105,7 @@ once, then restart the apps:
 
 ```sh
 npm run build:hosts
-AWAIT_ARCADE_API_URL=https://await-arcade-api-apxfi7nqna-nn.a.run.app \
+AWAIT_ARCADE_API_URL=https://api.awaitarcade.com \
   ./scripts/install-hosts.sh
 ```
 
