@@ -314,12 +314,15 @@ The script passes `--service-account`, so the revision runs as `arcade-api` with
   for local testing; don't use it in production.
 - Firestore in `northamerica-northeast1` (Montreal), matching the existing
   Selos database. The region is permanent.
-- Terraform owns the base resources; see `infra/terraform/README.md`.
+- Terraform owns the base resources: `infra/terraform/` for dev and
+  `infra/terraform-prod/` for production. They use separate state; keep the
+  shared `.tf` files in sync.
 - The GitHub OAuth client secret container exists in Secret Manager, but the
   device flow does not use it. It is reserved for a future web flow.
 - Firestore rules in `firestore.rules` deny all client access; everything goes
-  through the API. Deploy them with the Firebase CLI or the rules API.
-- Budget alert at $5 (CAD); per-player rate limits are still open work.
+  through the API. Terraform deploys the ruleset and release.
+- Budget alert at $5 (CAD). Per-player and per-IP limits are implemented; a
+  cost soak and a budget-alert test remain.
 
 ## What to build first
 

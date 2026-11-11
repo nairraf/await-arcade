@@ -1,0 +1,11 @@
+env        = "prod"
+project_id = "your-prod-project"
+region     = "northamerica-northeast1"
+
+# Leave empty to skip the budget, or set the billing account id.
+# billing_account = "XXXXXX-XXXXXX-XXXXXX"
+billing_account = ""
+
+# Budgets must use the billing account currency.
+# budget_currency = "CAD"
+# budget_amount   = 5

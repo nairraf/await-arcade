@@ -23,16 +23,17 @@ AGENTS.md
 .env
 .env.*
 
-# terraform local state and vars
-infra/terraform/.terraform/
-infra/terraform/*.tfstate
-infra/terraform/*.tfstate.*
-infra/terraform/terraform.tfstate.d/
-infra/terraform/*.tfvars
-infra/terraform/*.tfvars.json
-infra/terraform/envs/*.tfvars
-infra/terraform/*.tfplan
-infra/terraform/tfplan
-infra/terraform/plan.out
-infra/terraform/override.tf
-infra/terraform/*_override.tf
+# terraform local state and vars (dev and prod roots)
+infra/terraform*/.terraform/
+infra/terraform*/*.tfstate
+infra/terraform*/*.tfstate.*
+infra/terraform*/terraform.tfstate.d/
+infra/terraform*/*.tfvars
+infra/terraform*/*.tfvars.json
+infra/terraform*/envs/*.tfvars
+infra/terraform*/*.tfplan
+infra/terraform*/tfplan
+infra/terraform*/plan.out
+infra/terraform*/override.tf
+infra/terraform*/*_override.tf
+crash.log

@@ -11,8 +11,12 @@ variable "region" {
 
 variable "env" {
   type        = string
-  default     = "dev"
   description = "Environment label used in the budget display name. Each environment uses its own project."
+
+  validation {
+    condition     = contains(["dev", "prod"], var.env)
+    error_message = "env must be \"dev\" or \"prod\"."
+  }
 }
 
 variable "billing_account" {
