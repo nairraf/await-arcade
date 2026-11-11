@@ -33,7 +33,7 @@ This is a working scaffold, not a finished arcade.
 - ✅ All-time leaderboard hub and the featured daily challenge: fixed seed,
   Mineflag anchor, three attempts, best-of-three board, and a daily tile.
 - ✅ Arcade XP, medals, arcade rank, and unranked ghost practice in both hosts.
-- ⏳ The production deployment.
+- ✅ Prod backend live on Cloud Run + Firestore. ⏳ Public site, custom domain, and packaged installer.
 
 Scores are local for guests. Signed-in players submit replay-verified runs to the
 shared Firestore boards; the dev API is live, and `docs/backend.md` has the design.
@@ -80,6 +80,8 @@ skills/
   await-arcade-game/ the executable contribution guide
 apps/
   web/             Vite demo
+site/              static landing and policy pages
+firebase.json      Firebase Hosting config
 ```
 
 ## Add a game
@@ -103,7 +105,7 @@ once, then restart the apps:
 
 ```sh
 npm run build:hosts
-AWAIT_ARCADE_API_URL=https://await-arcade-api-164244433164.northamerica-northeast1.run.app \
+AWAIT_ARCADE_API_URL=https://await-arcade-api-apxfi7nqna-nn.a.run.app \
   ./scripts/install-hosts.sh
 ```
 
@@ -153,8 +155,8 @@ to `~/.gemini/config/config.json`, with a matching project file. Open the
 
 ## Pick up here
 
-The first milestone is **beta-1**. See `docs/roadmap.md` for scope, acceptance
-criteria, and what is deliberately out of scope.
+The first tagged milestone is **beta-1**; the public release target is **beta-2**. See
+`docs/roadmap.md` for scope, acceptance criteria, and what is deliberately out of scope.
 
 1. ✅ Wire the shell's `GameHost.submit` to the verifier API:
    - OpenCode: a small RPC in `packages/host-opencode/server.js`; the server part
@@ -170,10 +172,25 @@ criteria, and what is deliberately out of scope.
 5. ⏳ Add the next cartridge from the skill; Missile Defense async PvP is the first
    multiplayer candidate.
 
+## Website
+
+The static site lives in `site/`. `firebase.json` deploys it to Firebase Hosting and rewrites
+`/v1/**` to the production Cloud Run service. Policy pages in `site/` are beta-2 drafts for
+review before launch.
+
+```sh
+npx firebase-tools use await-arcade
+npx firebase-tools deploy --only hosting
+```
+
+The custom domain `awaitarcade.com` will be attached in Firebase Hosting, not by Cloud Run
+domain mapping (which is not available in `northamerica-northeast1`). The policies are
+drafts and stay `noindex` until reviewed and approved.
+
 ## Design docs
 
 - `docs/architecture.md` — layers, contract, determinism, verification.
-- `docs/roadmap.md` — beta-1 scope, acceptance criteria, and later milestones.
+- `docs/roadmap.md` — beta-1/beta-2 scope, acceptance criteria, and later milestones.
 - `docs/backend.md` — the cheap GCP plan: Firestore, Cloud Run, GitHub identity,
   per-host persistent sessions, boards, account deletion, arcade XP, costs.
 - `docs/hosts.md` — the two host models and their constraints.

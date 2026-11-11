@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Install — Await Arcade</title>
+    <meta
+      name="description"
+      content="Install Await Arcade in OpenCode Desktop and Antigravity, sign in, and play the shared arcade."
+    />
+    <link rel="canonical" href="https://awaitarcade.com/install.html" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <header class="wrap site-head">
+      <a class="brand" href="index.html">
+        <span class="brand-badge" aria-hidden="true">AA</span>
+        <span>AWAIT ARCADE</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="install.html">Install</a>
+        <a href="https://github.com/nairraf/await-arcade">GitHub</a>
+        <a href="index.html#policies">Policies</a>
+      </nav>
+    </header>
+
+    <main id="main" class="wrap policy">
+      <p class="kicker">Beta-2 · source install</p>
+      <h1>Install Await Arcade</h1>
+      <p class="updated">Last updated: 10 November 2026</p>
+
+      <p class="draft">
+        Beta-2 packaging is in progress. This page describes the current source install. A
+        one-command installer and packaged release artifacts will replace it before the public
+        launch.
+      </p>
+
+      <h2>What you need</h2>
+      <ul>
+        <li>macOS or Linux (Antigravity’s sidecar SDK is currently macOS-first).</li>
+        <li>OpenCode Desktop and/or Antigravity.</li>
+        <li>Node.js 22 or newer, npm, Git, and <code>python3</code> (used by the installer).</li>
+        <li>A GitHub account for ranked play. Guest play works without one.</li>
+      </ul>
+
+      <h2>Build from source</h2>
+      <pre class="code"><code>git clone https://github.com/nairraf/await-arcade.git
+cd await-arcade
+npm install
+npm run check
+npm run build:hosts</code></pre>
+
+      <h2>Install both hosts</h2>
+      <p>
+        Point the hosts at the production API, then run the local installer. It links the
+        OpenCode plugin and the Antigravity sidecar into the host configuration.
+      </p>
+      <pre class="code"><code>AWAIT_ARCADE_API_URL=https://await-arcade-api-apxfi7nqna-nn.a.run.app \
+  ./scripts/install-hosts.sh</code></pre>
+      <p class="tiny">
+        The API will move to <code>https://awaitarcade.com</code> when the custom domain is
+        live. Use the URL from the project README if it has already moved.
+      </p>
+
+      <h2>Open the arcade</h2>
+      <ul>
+        <li><strong>OpenCode:</strong> reload the app or restart the OpenCode service, then open the Await Arcade tab.</li>
+        <li><strong>Antigravity:</strong> open the Await Arcade auxiliary pane. If it was already open, close and reopen it after rebuilding.</li>
+      </ul>
+
+      <h2>Sign in</h2>
+      <p>
+        Open the account panel and choose <strong>Sign in</strong>. GitHub Device Flow shows a
+        short code; enter it at <code>github.com/login/device</code>. Each host keeps its own
+        session, and both resolve to the same player.
+      </p>
+      <p>
+        Guest play stays local. Sign in to submit replay-verified runs, appear on the shared
+        boards, play the daily challenge, and earn arcade XP.
+      </p>
+
+      <h2>Troubleshooting</h2>
+      <ul>
+        <li><strong>The pane shows JavaScript as text:</strong> rebuild with <code>npm run build:hosts</code>, then close and reopen the Antigravity pane.</li>
+        <li><strong>Sign-in expired:</strong> open the account panel, sign out, and sign in again.</li>
+        <li><strong>API offline:</strong> play locally as a guest. Queued ranked submissions retry without double-submitting.</li>
+        <li><strong>Old scores after an update:</strong> game versions can invalidate old replays; local bests reset on a version bump.</li>
+      </ul>
+
+      <h2>Uninstall</h2>
+      <p>
+        Remove the OpenCode plugin link and the Antigravity sidecar directory, then delete the
+        host state files if you want to sign out completely. A one-command uninstall will ship
+        with the packaged release.
+      </p>
+
+      <h2>Policies</h2>
+      <div class="policy-links">
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms of Service</a>
+        <a href="acceptable-use.html">Acceptable Use</a>
+        <a href="security.html">Security</a>
+        <a href="deletion.html">Data Deletion</a>
+        <a href="accessibility.html">Accessibility</a>
+      </div>
+    </main>
+
+    <footer class="wrap site-foot">
+      <div class="foot-grid">
+        <div>
+          <h2>Await Arcade</h2>
+          <p class="foot-note">
+            A tiny, replay-verified arcade for OpenCode Desktop and Antigravity.
+          </p>
+        </div>
+        <div>
+          <h2>Product</h2>
+          <div class="foot-links">
+            <a href="install.html">Install</a>
+            <a href="https://github.com/nairraf/await-arcade">Source code</a>
+            <a href="mailto:hello@awaitarcade.com">hello@awaitarcade.com</a>
+          </div>
+        </div>
+        <div>
+          <h2>Policies</h2>
+          <div class="foot-links">
+            <a href="privacy.html">Privacy</a>
+            <a href="terms.html">Terms of Service</a>
+            <a href="acceptable-use.html">Acceptable Use</a>
+            <a href="security.html">Security</a>
+            <a href="deletion.html">Data Deletion</a>
+            <a href="accessibility.html">Accessibility</a>
+          </div>
+        </div>
+      </div>
+      <div class="foot-bottom">
+        <span>© 2026 Await Arcade · Code under the MIT license</span>
+        <span>No cookies, no analytics, no tracking.</span>
+      </div>
+    </footer>
+  </body>
+</html>

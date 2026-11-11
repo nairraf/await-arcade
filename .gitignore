@@ -37,3 +37,9 @@ infra/terraform*/plan.out
 infra/terraform*/override.tf
 infra/terraform*/*_override.tf
 crash.log
+
+# firebase local state and logs
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+ui-debug.log

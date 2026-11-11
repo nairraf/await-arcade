@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <meta name="color-scheme" content="dark" />
+    <title>Privacy Policy — Await Arcade</title>
+    <meta name="description" content="How Await Arcade collects, uses, and deletes player data." />
+    <link rel="canonical" href="https://awaitarcade.com/privacy.html" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Privacy Policy — Await Arcade" />
+    <meta property="og:description" content="How Await Arcade collects, uses, and deletes player data." />
+    <meta property="og:url" content="https://awaitarcade.com/privacy.html" />
+    <meta property="og:image" content="https://awaitarcade.com/assets/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Await Arcade — a tiny arcade for the wait" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://awaitarcade.com/assets/og.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <header class="wrap site-head">
+      <a class="brand" href="index.html">
+        <span class="brand-badge" aria-hidden="true">AA</span>
+        <span>AWAIT ARCADE</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="install.html">Install</a>
+        <a href="https://github.com/nairraf/await-arcade">GitHub</a>
+        <a href="index.html#policies">Policies</a>
+      </nav>
+    </header>
+
+    <main id="main" class="wrap policy">
+      <p class="kicker">Policies · Beta-2 draft</p>
+      <h1>Privacy Policy</h1>
+      <p class="updated">Last updated: 10 November 2026</p>
+      <p class="draft">
+        This is a beta-2 policy draft for review before launch. It is not legal advice. If
+        anything is unclear, contact <a href="mailto:hello@awaitarcade.com">hello@awaitarcade.com</a>.
+      </p>
+
+      <h2>Who we are</h2>
+      <p>
+        Await Arcade (“we”, “us”) operates the hosted arcade at
+        <a href="https://awaitarcade.com">awaitarcade.com</a> and the OpenCode Desktop and
+        Antigravity clients. The data controller is Await Arcade, Ontario, Canada. This policy
+        explains what we collect, why, and how to remove it.
+      </p>
+
+      <h2>What we collect</h2>
+      <h3>Account and identity</h3>
+      <ul>
+        <li>Your GitHub numeric ID, login, display name, and avatar URL when you sign in.</li>
+        <li>Your chosen arcade display name. It is public on leaderboards.</li>
+        <li>Your GitHub login is used for sign-in and support; it is not shown on public boards.</li>
+      </ul>
+      <h3>Gameplay</h3>
+      <ul>
+        <li>Seed, mode, input log, replay, elapsed time, score, timestamps, and verification result.</li>
+        <li>Daily-challenge attempts, XP totals, levels, medals, and ghost-practice records.</li>
+        <li>Replays contain game inputs only. They do not contain chat, files, or your screen.</li>
+      </ul>
+      <h3>Session and technical data</h3>
+      <ul>
+        <li>Session identifiers, hashed refresh/access tokens, host name, and expiry times.</li>
+        <li>The raw refresh token is stored on your device; Firestore stores a hash.</li>
+        <li>IP addresses are used for rate limiting and abuse prevention; Cloud Run/Cloud Logging may retain request metadata for up to 30 days for security and operations.</li>
+        <li>We do not use analytics, advertising cookies, or third-party trackers.</li>
+      </ul>
+
+      <h2>How we use it</h2>
+      <ul>
+        <li>Provide sign-in, run issuance, replay verification, boards, daily challenges, XP, medals, and ghost practice.</li>
+        <li>Detect cheating, abuse, and rate-limit violations.</li>
+        <li>Respond to support, privacy, security, and deletion requests.</li>
+        <li>Operate, debug, and improve the service.</li>
+      </ul>
+
+      <h2>What is public</h2>
+      <p>
+        Leaderboards show your arcade display name, score, board rank, XP level, global XP
+        rank, medals, and ghost-practice seed/mode/anchor. Board responses also include a
+        random <code>playerId</code> used by the API; it is not your GitHub ID and is not
+        publicly linked to your login. We do not show your email, GitHub login, tokens, or IP
+        address.
+      </p>
+
+      <h2>Legal bases</h2>
+      <p>
+        Where required, we rely on performance of our contract with you (providing the
+        service), our legitimate interests (security, abuse prevention, and operating the
+        service), and consent where we ask for it. You can withdraw consent at any time.
+      </p>
+
+      <h2>Processors and transfers</h2>
+      <p>
+        We use GitHub for authentication and Google Cloud for Firestore, Cloud Run, Secret
+        Manager, and Firebase Hosting. If you email us, Zoho processes that message. These
+        providers may process data outside Canada under their standard safeguards. We do not
+        sell personal data.
+      </p>
+
+      <h2>Retention</h2>
+      <ul>
+        <li>Runs: about 24 hours (Firestore TTL).</li>
+        <li>Access tokens: about 15 minutes; refresh sessions: up to 180 days.</li>
+        <li>Auth flows: about 15 minutes.</li>
+        <li>Boards, XP, medals, ghosts, and daily attempt counters: until you delete your account or we clean up the service.</li>
+        <li>Local host state (auth files, bests, queue): until you sign out, clear it, or uninstall.</li>
+      </ul>
+
+      <h2>Cookies and local storage</h2>
+      <p>
+        The website uses no cookies and no analytics. The host clients use local storage for
+        settings, personal bests, and the offline submission queue. That data stays on your
+        device unless you sign in and submit a run.
+      </p>
+
+      <h2>Security</h2>
+      <p>
+        We hash session tokens, verify replays on the server, use TLS, and restrict service
+        accounts. No service is perfectly secure; report issues to
+        <a href="mailto:security@awaitarcade.com">security@awaitarcade.com</a>.
+      </p>
+
+      <h2>Your rights</h2>
+      <p>
+        You can access, correct, delete, or request a copy of your data, object to processing,
+        and complain to a privacy regulator. Delete your account from the account panel, or email
+        <a href="mailto:privacy@awaitarcade.com">privacy@awaitarcade.com</a>. We aim to respond
+        within 30 days. See <a href="deletion.html">Data Deletion</a> for details.
+      </p>
+
+      <h2>Children</h2>
+      <p>
+        The service is not directed to children under 13. GitHub accounts are subject to
+        GitHub’s age requirements. Contact us if you believe a child provided personal data.
+      </p>
+
+      <h2>Changes</h2>
+      <p>
+        If a data breach creates a risk of significant harm, we will notify affected users and
+        the appropriate regulator as required by law. We may update this policy as the beta
+        changes. We will change the date above and, for material changes, post a notice on the
+        site.
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        Privacy: <a href="mailto:privacy@awaitarcade.com">privacy@awaitarcade.com</a><br />
+        General: <a href="mailto:hello@awaitarcade.com">hello@awaitarcade.com</a>
+      </p>
+    </main>
+
+    <footer class="wrap site-foot">
+      <div class="foot-grid">
+        <div>
+          <h2>Await Arcade</h2>
+          <p class="foot-note">
+            A tiny, replay-verified arcade for OpenCode Desktop and Antigravity.
+          </p>
+        </div>
+        <div>
+          <h2>Product</h2>
+          <div class="foot-links">
+            <a href="install.html">Install</a>
+            <a href="https://github.com/nairraf/await-arcade">Source code</a>
+            <a href="mailto:hello@awaitarcade.com">hello@awaitarcade.com</a>
+          </div>
+        </div>
+        <div>
+          <h2>Policies</h2>
+          <div class="foot-links">
+            <a href="privacy.html">Privacy</a>
+            <a href="terms.html">Terms of Service</a>
+            <a href="acceptable-use.html">Acceptable Use</a>
+            <a href="security.html">Security</a>
+            <a href="deletion.html">Data Deletion</a>
+            <a href="accessibility.html">Accessibility</a>
+          </div>
+        </div>
+      </div>
+      <div class="foot-bottom">
+        <span>© 2026 Await Arcade · Code under the MIT license</span>
+        <span>No cookies, no analytics, no tracking.</span>
+      </div>
+    </footer>
+  </body>
+</html>

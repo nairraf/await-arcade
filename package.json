@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": { "node": ">=22" },
   "description": "Await Arcade — a tiny cross-host arcade for OpenCode and Antigravity",
   "repository": {
     "type": "git",
