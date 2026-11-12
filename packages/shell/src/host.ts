@@ -55,6 +55,16 @@ export function normaliseBoard(value: unknown): BoardEntry[] {
       ...(typeof record.displayName === "string" ? { displayName: record.displayName } : {}),
       ...(typeof record.rankKey === "string" ? { rankKey: record.rankKey } : {}),
       ...(typeof record.ghostId === "string" ? { ghostId: record.ghostId } : {}),
+      ...(typeof record.xpRank === "number" &&
+      Number.isInteger(record.xpRank) &&
+      record.xpRank > 0
+        ? { xpRank: record.xpRank }
+        : {}),
+      ...(typeof record.xpLevel === "number" &&
+      Number.isInteger(record.xpLevel) &&
+      record.xpLevel > 0
+        ? { xpLevel: record.xpLevel }
+        : {}),
       score: {
         value: raw.value,
         type: raw.type,

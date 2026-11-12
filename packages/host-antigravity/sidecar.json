@@ -1,7 +1,7 @@
 {
   "command": "node",
   "args": ["server.mjs"],
-  "restart_policy": "on-failure",
+  "restart_policy": "always",
   "display_name": "Await Arcade",
   "description": "A tiny arcade for the wait.",
   "has_web_ui": true,

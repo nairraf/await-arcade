@@ -75,6 +75,25 @@ resource "google_secret_manager_secret_iam_member" "arcade_api_accessor" {
   member    = "serviceAccount:${google_service_account.arcade_api.email}"
 }
 
+resource "google_monitoring_notification_channel" "email_support" {
+  project      = var.project_id
+  display_name = "Await Arcade support"
+  type         = "email"
+  labels = {
+    email_address = "support@awaitarcade.com"
+  }
+}
+
+resource "google_monitoring_notification_channel" "email_ian" {
+  count        = var.personal_alert_email == "" ? 0 : 1
+  project      = var.project_id
+  display_name = "Await Arcade Ian"
+  type         = "email"
+  labels = {
+    email_address = var.personal_alert_email
+  }
+}
+
 resource "google_billing_budget" "arcade" {
   count = var.billing_account == "" ? 0 : 1
 
@@ -103,5 +122,12 @@ resource "google_billing_budget" "arcade" {
 
   threshold_rules {
     threshold_percent = 1.0
+  }
+
+  all_updates_rule {
+    monitoring_notification_channels = concat(
+      [google_monitoring_notification_channel.email_support.id],
+      var.personal_alert_email == "" ? [] : [google_monitoring_notification_channel.email_ian[0].id],
+    )
   }
 }

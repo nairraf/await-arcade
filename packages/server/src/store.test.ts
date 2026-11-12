@@ -63,6 +63,36 @@ describe("MemoryStore.rank", () => {
     expect(await store.rank("board", "nobody", "higher")).toBeUndefined()
   })
 
+  it("computes competition XP ranks for board enrichment", async () => {
+    const store = new MemoryStore()
+    const now = Date.now()
+    for (const [playerId, xp] of [
+      ["low", 20],
+      ["high", 300],
+      ["tie-a", 60],
+      ["tie-b", 60],
+      ["zero", 0],
+    ] as const) {
+      await store.ensurePlayer(`github:${playerId}`, {
+        playerId,
+        providerId: `github:${playerId}`,
+        displayName: playerId,
+        createdAt: now,
+        updatedAt: now,
+        xp,
+      })
+    }
+
+    const summaries = await store.getXpSummaries(["high", "tie-a", "low", "zero", "nobody"])
+    expect(summaries.get("high")?.rank).toBe(1)
+    expect(summaries.get("high")?.level).toBe(2)
+    expect(summaries.get("tie-a")?.rank).toBe(2)
+    expect(summaries.get("tie-a")?.level).toBe(1)
+    expect(summaries.get("low")?.rank).toBe(4)
+    expect(summaries.has("zero")).toBe(false)
+    expect(summaries.has("nobody")).toBe(false)
+  })
+
   it("stores ghosts and removes them when the player is deleted", async () => {
     const store = new MemoryStore()
     await store.transaction(async (tx) => {

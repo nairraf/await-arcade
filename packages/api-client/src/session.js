@@ -27,6 +27,22 @@ export function apiUrl(dir = stateDir()) {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
+const RETRYABLE_AUTH_STATUS = new Set([500, 502, 503, 504])
+
+async function retryAuth(run) {
+  let lastError
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      return await run()
+    } catch (error) {
+      lastError = error
+      if (!RETRYABLE_AUTH_STATUS.has(error?.status) || attempt === 3) throw error
+      await sleep(400 * attempt)
+    }
+  }
+  throw lastError
+}
+
 export function createHostSession(options) {
   const host = options.host
   const playerId = options.playerId
@@ -230,6 +246,9 @@ export function createHostSession(options) {
         await flush()
         return result
       } catch (error) {
+        if (error?.status === 422) {
+          return { ok: false, reason: error.message }
+        }
         if (!(error?.status >= 400 && error?.status < 500)) {
           const items = await readQueue()
           items.push({
@@ -281,10 +300,10 @@ export function createHostSession(options) {
       return client.profile()
     },
     async authStart() {
-      return client.authStart(host)
+      return retryAuth(() => client.authStart(host))
     },
     async authPoll(flowId) {
-      const result = await client.authPoll(flowId)
+      const result = await retryAuth(() => client.authPoll(flowId))
       if (result.status === "complete") {
         auth = {
           host,

@@ -31,7 +31,7 @@ onMount(() => {
 ```
 
 Remote bests and the leaderboard are wired: `GameHost.loadBest` refreshes the
-cached best, `GameHost.board` feeds both the cabinet's Board overlay and the
+cached best, `GameHost.board` feeds both the cartridge's Board overlay and the
 top-bar Boards hub, and `GameHost.playerBest` supplies the player's rank and
 entry for the hub. The daily ladder uses `GameHost.daily`,
 `GameHost.startDaily`, and `GameHost.dailyBoard`; RPC methods `daily`,
@@ -80,7 +80,7 @@ Both host server halves use `@await-arcade/api-client`.
   not queued.
 - **Best and board:** `GameHost.loadBest` asks the host half for the player's
   best and merges it with the local cache (the better score wins).
-  `GameHost.board` returns the top 50 for the cabinet's Board overlay and the
+  `GameHost.board` returns the top 50 for the cartridge's Board overlay and the
   Boards hub, and `GameHost.playerBest` returns the player's own entry and rank
   for the hub. All are optional; a local host omits them and the shell stays
   local-only.

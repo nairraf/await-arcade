@@ -1,6 +1,6 @@
 import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from "node:http"
 import { randomBytes } from "node:crypto"
-import type { Replay, Score, VerifiedResult } from "@await-arcade/contract"
+import type { BoardEntry, Replay, Score, VerifiedResult } from "@await-arcade/contract"
 import { verifyReplay } from "@await-arcade/framework"
 import { AuthError, AuthService, type AuthConfig } from "./auth"
 import {
@@ -201,6 +201,18 @@ function createRateLimiter(windowMs: number, max: number, maxKeys = 1_000): (key
 
 export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeServer {
   const store = options.store ?? new MemoryStore()
+
+  /** Attach each entry's global arcade XP rank and level for the board UI. */
+  async function withXp(entries: readonly BoardEntry[]): Promise<BoardEntry[]> {
+    if (entries.length === 0) return []
+    const summaries = await store.getXpSummaries(entries.map((entry) => entry.playerId))
+    return entries.map((entry) => {
+      const summary = summaries.get(entry.playerId)
+      return summary
+        ? { ...entry, xpRank: summary.rank, xpLevel: summary.level }
+        : entry
+    })
+  }
   const bindHost = options.host ?? "127.0.0.1"
   const github = options.github ?? githubClientFromEnv()
   const auth = github ? new AuthService(store, github, options.auth) : undefined
@@ -702,6 +714,18 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
 
         const verified: VerifiedResult = verifyReplay(entry.core, entry.meta, candidate)
         if (!verified.ok || !verified.score) {
+          console.log(
+            "[await-arcade] rejected submit",
+            JSON.stringify({
+              runId,
+              gameId: run.gameId,
+              modeId: run.modeId,
+              reason: verified.reason,
+              won: verified.score?.won,
+              detail: verified.score?.detail,
+              ticks: verified.ticks,
+            }),
+          )
           json(res, 422, {
             ok: false,
             reason: verified.reason ?? "replay did not verify",
@@ -873,12 +897,12 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           json(res, 404, { error: `unknown game: ${challenge.gameId}` })
           return
         }
-        const entries = await store.top(
+        const entries = await withXp(await store.top(
           challenge.challengeId,
           50,
           entry.meta.score.type,
           "rankKey",
-        )
+        ))
         json(res, 200, { ...challenge, period: "daily", entries }, true, BOARD_CACHE_CONTROL)
         return
       }
@@ -932,13 +956,25 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
 
         const key = boardKey(gameId, modeId)
         const best = await store.getEntry(key, pid)
-        const rank = best ? await store.rank(key, pid, entry.meta.score.type, best) : undefined
+        const player = best ? await store.getPlayer(pid) : undefined
+        const xpRank = player?.xp ? await store.getXpRank(pid, player.xp) : undefined
+        const xpLevel = player?.xp ? levelFor(player.xp).level : undefined
+        const enriched = best
+          ? {
+              ...best,
+              ...(xpRank !== undefined ? { xpRank } : {}),
+              ...(xpLevel !== undefined ? { xpLevel } : {}),
+            }
+          : undefined
+        const rank = enriched
+          ? await store.rank(key, pid, entry.meta.score.type, enriched)
+          : undefined
 
         json(res, 200, {
           gameId,
           modeId,
           playerId: pid,
-          ...(best ? { entry: best } : {}),
+          ...(enriched ? { entry: enriched } : {}),
           ...(rank !== undefined ? { rank } : {}),
         }, true, decoded === "me" ? "no-store" : PLAYER_CACHE_CONTROL)
         return
@@ -969,7 +1005,9 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           return
         }
 
-        const entries = await store.top(boardKey(gameId, modeId), 50, entry.meta.score.type)
+        const entries = await withXp(
+          await store.top(boardKey(gameId, modeId), 50, entry.meta.score.type),
+        )
         json(res, 200, { gameId, modeId, period: "all", entries }, true, BOARD_CACHE_CONTROL)
         return
       }

@@ -1,0 +1,40 @@
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version
+        required: true
+        default: 0.2.0
+      release_name:
+        description: Release artifact name
+        required: true
+        default: await-arcade-beta-2
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+      - run: npm run package:release
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_NAME: ${{ inputs.release_name }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.release_name }}
+          path: |
+            dist-release/*.tar.gz
+            dist-release/*.sha256
+          if-no-files-found: error

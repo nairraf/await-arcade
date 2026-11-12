@@ -1,6 +1,6 @@
 # Mergegrid
 
-A seeded merge-grid cabinet: slide the grid, merge matching tiles, and reach 2048
+A seeded merge-grid cartridge: slide the grid, merge matching tiles, and reach 2048
 before the board fills. The score is the sum of merged tiles.
 
 ## Files

@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="robots" content="noindex" />
+    <title>Await Arcade — a tiny arcade for the wait</title>
+    <meta
+      name="description"
+      content="Await Arcade is a tiny, replay-verified arcade for OpenCode Desktop and Antigravity. Four cartridges, shared boards, daily challenges, XP, medals, and ghost practice."
+    />
+    <link rel="canonical" href="https://awaitarcade.com/" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Await Arcade" />
+    <meta
+      property="og:description"
+      content="A tiny arcade for the wait. Four deterministic cartridges inside OpenCode Desktop and Antigravity."
+    />
+    <meta property="og:url" content="https://awaitarcade.com/" />
+    <meta property="og:image" content="https://awaitarcade.com/assets/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Await Arcade — a tiny arcade for the wait" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://awaitarcade.com/assets/og.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <header class="wrap site-head">
+      <a class="brand" href="index.html">
+        <span class="brand-badge" aria-hidden="true">AA</span>
+        <span>AWAIT ARCADE</span>
+      </a>
+      <nav class="site-nav" aria-label="Main">
+        <a href="install.html">Install</a>
+        <a href="https://github.com/nairraf/await-arcade">GitHub</a>
+        <a href="#policies">Policies</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="wrap hero">
+        <p class="kicker">Insert coin · Beta-2 in progress</p>
+        <h1>Await Arcade</h1>
+        <p class="lede">
+          A tiny arcade for the wait. Four deterministic cartridges inside OpenCode Desktop
+          and Antigravity. Play while the agent works, then submit a replay-verified score to
+          the shared boards.
+        </p>
+        <div class="actions">
+          <a class="btn btn-primary" href="install.html">Install</a>
+          <a class="btn" href="https://github.com/nairraf/await-arcade">View source</a>
+        </div>
+        <p class="tiny">
+          Replay-verified scores · Shared boards · Daily challenge · XP, medals, ghost practice
+        </p>
+      </section>
+
+      <section class="wrap section" aria-labelledby="cartridges">
+        <div class="section-head">
+          <div>
+            <p class="kicker">The shelf</p>
+            <h2 id="cartridges">Four cartridges</h2>
+          </div>
+          <p class="section-sub">One core, two hosts, no runtime plugins.</p>
+        </div>
+        <div class="grid grid-4">
+          <article class="card" data-accent="brick">
+            <pre class="glyph" aria-hidden="true"> [##]
+--##--
+ [##]</pre>
+            <h3>Brickstorm</h3>
+            <p>Endless walls, rising speed, and more gold per level. Keep one run alive.</p>
+            <div class="tags"><span class="tag">Action</span><span class="tag">Endless</span></div>
+          </article>
+          <article class="card" data-accent="neon">
+            <pre class="glyph" aria-hidden="true">   __o
+ _`\&lt;,_
+(*)/ (*)</pre>
+            <h3>Neon Cycles</h3>
+            <p>Cut off the AI, level up, and face a sharper rider each round on an endless grid.</p>
+            <div class="tags"><span class="tag">Action</span><span class="tag">Solo vs AI</span></div>
+          </article>
+          <article class="card" data-accent="merge">
+            <pre class="glyph" aria-hidden="true">+--+--+
+|2 |4 |
++--+--+
+|8 |16|</pre>
+            <h3>Mergegrid</h3>
+            <p>Slide the grid, merge matching tiles, and reach 2048 before the board fills.</p>
+            <div class="tags"><span class="tag">Turn-based</span><span class="tag">Classic</span></div>
+          </article>
+          <article class="card" data-accent="mine">
+            <pre class="glyph" aria-hidden="true">\ | /
+--*--
+/ | \</pre>
+            <h3>Mineflag</h3>
+            <p>Clear the field without detonating the mines. Random or no-guess logic boards.</p>
+            <div class="tags"><span class="tag">Turn-based</span><span class="tag">Logic</span></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="wrap section" aria-labelledby="why">
+        <div class="section-head">
+          <div>
+            <p class="kicker">Built for the wait</p>
+            <h2 id="why">Verified, shared, and a little competitive</h2>
+          </div>
+        </div>
+        <div class="grid grid-4">
+          <div class="feature">
+            <h3>Replay-verified</h3>
+            <p>The server replays the seed and input log. Client scores are never trusted.</p>
+          </div>
+          <div class="feature">
+            <h3>Shared boards</h3>
+            <p>Top 50 per cartridge and mode, with your rank and global XP standing.</p>
+          </div>
+          <div class="feature">
+            <h3>Daily challenge</h3>
+            <p>One featured cartridge a day, three attempts, best of three on a fixed seed.</p>
+          </div>
+          <div class="feature">
+            <h3>XP, medals, ghosts</h3>
+            <p>Best per game per UTC day, level and medal progression, and unranked ghost practice.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="wrap section" aria-labelledby="hosts">
+        <div class="section-head">
+          <div>
+            <p class="kicker">Two hosts, one arcade</p>
+            <h2 id="hosts">Play where the agent works</h2>
+          </div>
+          <p class="section-sub">Thin host adapters, one shared shell and game core.</p>
+        </div>
+        <div class="hosts">
+          <div class="host">
+            <h3>OpenCode Desktop</h3>
+            <p>A GUI plugin with a native tab, per-host sessions, and the same shared boards.</p>
+          </div>
+          <div class="host">
+            <h3>Antigravity</h3>
+            <p>A sidecar with an auxiliary pane and a single-file page. Same player, same boards.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="wrap section" aria-labelledby="start">
+        <div class="section-head">
+          <div>
+            <p class="kicker">Start here</p>
+            <h2 id="start">Install and sign in</h2>
+          </div>
+        </div>
+        <p class="section-sub section-sub-narrow">
+          Beta-2 packaging is in progress. Until the one-command installer lands, build both
+          hosts from source with the steps in the install guide.
+        </p>
+        <div class="actions actions-spaced">
+          <a class="btn btn-primary" href="install.html">Read the install guide</a>
+          <a class="btn" href="https://github.com/nairraf/await-arcade">Open the repository</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="wrap site-foot" id="policies">
+      <div class="foot-grid">
+        <div>
+          <h2>Await Arcade</h2>
+          <p class="foot-note">
+            A tiny, replay-verified arcade for OpenCode Desktop and Antigravity. Built in the
+            open under the MIT license.
+          </p>
+          <p class="foot-status">
+            <span class="status-pill">Beta-2 in progress</span>
+          </p>
+        </div>
+        <div>
+          <h2>Product</h2>
+          <div class="foot-links">
+            <a href="install.html">Install</a>
+            <a href="https://github.com/nairraf/await-arcade">Source code</a>
+            <a href="https://github.com/nairraf/await-arcade/issues">Report an issue</a>
+            <a href="mailto:support@awaitarcade.com">support@awaitarcade.com</a>
+          </div>
+        </div>
+        <div>
+          <h2>Policies</h2>
+          <div class="foot-links">
+            <a href="privacy.html">Privacy</a>
+            <a href="terms.html">Terms of Service</a>
+            <a href="acceptable-use.html">Acceptable Use</a>
+            <a href="security.html">Security</a>
+            <a href="deletion.html">Data Deletion</a>
+            <a href="accessibility.html">Accessibility</a>
+            <a href="legal.html">Legal</a>
+          </div>
+        </div>
+      </div>
+      <div class="foot-bottom">
+        <span>© 2026 Await Arcade · Code under the MIT license</span>
+        <span>No cookies, no analytics, no tracking.</span>
+      </div>
+    </footer>
+  </body>
+</html>

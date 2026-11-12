@@ -66,11 +66,18 @@ export class OpenCodeHost extends LocalHost {
   async playerBest(
     gameId: string,
     modeId: string,
-  ): Promise<{ score?: Score; rank?: number; playerId?: string }> {
+  ): Promise<{
+    score?: Score
+    rank?: number
+    playerId?: string
+    xpRank?: number
+  }> {
     return (await this.client.rpc(Api).playerBest({ gameId, modeId })) as {
       score?: Score
       rank?: number
       playerId?: string
+      xpRank?: number
+      xpLevel?: number
     }
   }
 

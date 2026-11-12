@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Await Arcade sidecar for Antigravity",
   "scripts": {
-    "build": "node clean.mjs && vite build && node inline.mjs"
+    "build": "node clean.mjs && vite build && node inline.mjs && vite build --config vite.server.config.ts"
   },
   "dependencies": {
     "@await-arcade/api-client": "0.1.0",

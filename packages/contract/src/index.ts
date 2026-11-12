@@ -35,7 +35,7 @@ export interface Mode {
 export interface GameVariant {
   readonly id: string
   readonly title: string
-  /** One-line hint shown under the cabinet controls. */
+  /** One-line hint shown under the cartridge controls. */
   readonly description: string
 }
 
@@ -82,8 +82,8 @@ export interface Display {
 }
 
 /**
- * A cabinet's visual accent. The shell owns the frame and typography; the game
- * owns its accent, so every cabinet feels like part of the same system.
+ * A cartridge's visual accent. The shell owns the frame and typography; the game
+ * owns its accent, so every cartridge feels like part of the same system.
  */
 export interface GameTheme {
   readonly accent: string
@@ -116,7 +116,7 @@ export interface GameMeta {
   readonly status: GamePublicationStatus
   readonly controls: readonly ControlHint[]
   readonly display: Display
-  /** Optional cabinet accent; the shell provides the frame and typography. */
+  /** Optional cartridge accent; the shell provides the frame and typography. */
   readonly theme?: GameTheme
   /** Optional multi-line ASCII mark for the launcher card. */
   readonly glyph?: string
@@ -265,6 +265,10 @@ export interface BoardEntry {
   readonly rankKey?: string
   /** Run id whose seed/mode/anchor can be replayed as unranked practice. */
   readonly ghostId?: string
+  /** Competition rank by total arcade XP, enriched when a board is read. */
+  readonly xpRank?: number
+  /** Arcade XP level, enriched when a board is read. */
+  readonly xpLevel?: number
 }
 
 export interface GhostRun {
@@ -284,7 +288,7 @@ export interface ArcadeMedal {
   readonly earnedAt?: number
 }
 
-/** Per-cabinet XP totals, summed from the best run per UTC day. */
+/** Per-cartridge XP totals, summed from the best run per UTC day. */
 export interface ArcadeGameXp {
   readonly gameId: string
   readonly xp: number
@@ -386,7 +390,13 @@ export interface GameHost {
   playerBest?(
     gameId: string,
     modeId: string,
-  ): Promise<{ readonly score?: Score; readonly rank?: number; readonly playerId?: string }>
+  ): Promise<{
+    readonly score?: Score
+    readonly rank?: number
+    readonly playerId?: string
+    readonly xpRank?: number
+    readonly xpLevel?: number
+  }>
   /** Today's featured challenge, when the host supports the daily ladder. */
   daily?(): Promise<DailyChallenge>
   /** Start a daily attempt. Consumes one of the three attempts. */
@@ -414,7 +424,7 @@ export interface GameHost {
 
 /**
  * What game views get: play and presentation only. Account mutation stays with
- * the shell so a cabinet cannot delete a player or revoke a session.
+ * the shell so a cartridge cannot delete a player or revoke a session.
  */
 export type ViewHost = Pick<
   GameHost,

@@ -66,7 +66,15 @@ export function createArcadeClient(options) {
     const value = await request(
       `/v1/boards/${encodeURIComponent(gameId)}/${encodeURIComponent(modeId)}/player/${who}`,
     )
-    return { score: value.entry?.score, rank: value.rank, playerId: value.playerId }
+    const positiveInt = (input) =>
+      typeof input === "number" && Number.isInteger(input) && input > 0 ? input : undefined
+    return {
+      score: value.entry?.score,
+      rank: value.rank,
+      playerId: value.playerId,
+      xpRank: positiveInt(value.entry?.xpRank),
+      xpLevel: positiveInt(value.entry?.xpLevel),
+    }
   }
 
   async function dailyToday() {

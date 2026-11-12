@@ -1,6 +1,6 @@
 # __TITLE__
 
-This is a generated Await Arcade cabinet. It is a working "click the target five
+This is a generated Await Arcade cartridge. It is a working "click the target five
 times" game, and it is meant to be replaced.
 
 ## Files

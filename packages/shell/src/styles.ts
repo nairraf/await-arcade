@@ -12,6 +12,7 @@ export const styles = `
   --arcade-accent: #22d3ee;
   --arcade-accent-2: #f472b6;
   --arcade-coin: #fbbf24;
+  --arcade-medal-ink: #17130b;
   --arcade-success: #4ade80;
   --arcade-danger: #fb7185;
   --arcade-bezel: #04070b;
@@ -49,6 +50,7 @@ export const styles = `
   --arcade-accent: #0e7490;
   --arcade-accent-2: #be185d;
   --arcade-coin: #b45309;
+  --arcade-medal-ink: #17130b;
   --arcade-success: #15803d;
   --arcade-danger: #b91c1c;
   --arcade-bezel: #c9bfae;
@@ -72,6 +74,7 @@ export const styles = `
     --arcade-accent: #0e7490;
     --arcade-accent-2: #be185d;
     --arcade-coin: #b45309;
+  --arcade-medal-ink: #17130b;
     --arcade-success: #15803d;
     --arcade-danger: #b91c1c;
     --arcade-bezel: #c9bfae;
@@ -88,7 +91,7 @@ export const styles = `
   box-sizing: border-box;
 }
 
-/* Bright game accents in the dark cabinet; a darker mix on paper. */
+/* Bright game accents in the dark cartridge; a darker mix on paper. */
 .arcade-card,
 .arcade-game,
 .arcade-boards,
@@ -530,7 +533,7 @@ export const styles = `
   min-height: 100%;
 }
 
-.arcade-cabinet-marquee {
+.arcade-cartridge-marquee {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -544,7 +547,7 @@ export const styles = `
   box-shadow: 0 0 26px -12px color-mix(in srgb, var(--game-accent) 45%, transparent);
 }
 
-.arcade-cabinet-badge {
+.arcade-cartridge-badge {
   display: inline-grid;
   place-items: center;
   width: 30px;
@@ -559,7 +562,7 @@ export const styles = `
   letter-spacing: -0.08em;
 }
 
-.arcade-cabinet-badge.arcade-cabinet-daily {
+.arcade-cartridge-badge.arcade-cartridge-daily {
   width: auto;
   height: 24px;
   padding: 0 9px;
@@ -570,7 +573,7 @@ export const styles = `
   letter-spacing: 0.1em;
 }
 
-.arcade-cabinet-title {
+.arcade-cartridge-title {
   min-width: 0;
   font-size: 16px;
   font-weight: 700;
@@ -581,7 +584,7 @@ export const styles = `
   text-overflow: ellipsis;
 }
 
-.arcade-cabinet-score {
+.arcade-cartridge-score {
   margin-left: auto;
   color: var(--arcade-muted);
   font-size: 9.5px;
@@ -684,13 +687,20 @@ export const styles = `
 
 .arcade-profile-head {
   display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: baseline;
-  gap: 4px 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
 }
 
 .arcade-profile-head .arcade-overlay-kicker {
   margin: 0;
+}
+
+.arcade-profile-level {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .arcade-profile-xp {
@@ -700,11 +710,76 @@ export const styles = `
   font-variant-numeric: tabular-nums;
 }
 
-.arcade-profile-rank {
-  grid-column: 1 / -1;
-  font-size: 10px;
-  letter-spacing: 0.12em;
+.arcade-profile-rank-badge {
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 7px;
+  justify-self: end;
+  padding: 7px 12px 7px 10px;
+  border: 1px solid color-mix(in srgb, var(--game-accent) 45%, var(--arcade-line));
+  border-radius: 12px;
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--game-accent) 12%, transparent),
+    transparent
+  );
+}
+
+.arcade-profile-rank-icon {
+  grid-row: 1 / span 2;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--game-accent);
+}
+
+.arcade-profile-rank-value {
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--game-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.arcade-profile-rank-label {
+  font-size: 8px;
+  letter-spacing: 0.16em;
   color: var(--arcade-muted);
+}
+
+.arcade-profile-rank-gold {
+  border-color: color-mix(in srgb, #d79a1e 72%, transparent);
+  background: linear-gradient(145deg, rgba(255, 224, 138, 0.16), rgba(215, 154, 30, 0.05));
+  box-shadow: 0 0 26px -12px #d79a1e;
+}
+
+.arcade-profile-rank-gold .arcade-profile-rank-icon,
+.arcade-profile-rank-gold .arcade-profile-rank-value {
+  color: #ffe08a;
+}
+
+.arcade-profile-rank-silver {
+  border-color: color-mix(in srgb, #9aa6b5 72%, transparent);
+  background: linear-gradient(145deg, rgba(244, 246, 250, 0.14), rgba(154, 166, 181, 0.05));
+  box-shadow: 0 0 26px -12px #9aa6b5;
+}
+
+.arcade-profile-rank-silver .arcade-profile-rank-icon,
+.arcade-profile-rank-silver .arcade-profile-rank-value {
+  color: #f4f6fa;
+}
+
+.arcade-profile-rank-bronze {
+  border-color: color-mix(in srgb, #a85c25 72%, transparent);
+  background: linear-gradient(145deg, rgba(240, 178, 122, 0.16), rgba(168, 92, 37, 0.05));
+  box-shadow: 0 0 26px -12px #a85c25;
+}
+
+.arcade-profile-rank-bronze .arcade-profile-rank-icon,
+.arcade-profile-rank-bronze .arcade-profile-rank-value {
+  color: #f0b27a;
 }
 
 .arcade-xp-bar {
@@ -940,15 +1015,70 @@ export const styles = `
   font-variant-numeric: tabular-nums;
 }
 
+.arcade-rank-medal {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  align-self: center;
+  color: var(--arcade-medal-ink);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  border: 1px solid color-mix(in srgb, #fff 45%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, #000 18%, transparent), 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.arcade-rank-gold {
+  background: linear-gradient(145deg, #ffe08a, #d79a1e);
+}
+
+.arcade-rank-silver {
+  background: linear-gradient(145deg, #f4f6fa, #9aa6b5);
+}
+
+.arcade-rank-bronze {
+  background: linear-gradient(145deg, #f0b27a, #a85c25);
+}
+
 .arcade-board-row:first-child .arcade-board-rank,
 .arcade-board-row:first-child .arcade-board-player {
   color: var(--arcade-coin);
 }
 
+.arcade-board-row:first-child .arcade-board-rank.arcade-rank-medal {
+  color: var(--arcade-medal-ink);
+}
+
 .arcade-board-player {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.arcade-board-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.arcade-board-xp {
+  flex: none;
+  padding: 1px 5px;
+  border: 1px solid color-mix(in srgb, var(--arcade-line) 80%, transparent);
+  border-radius: 999px;
+  color: var(--arcade-muted);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.arcade-board-xp-top {
+  color: var(--arcade-coin);
+  border-color: color-mix(in srgb, var(--arcade-coin) 45%, transparent);
 }
 
 .arcade-board-score {
@@ -1144,6 +1274,14 @@ export const styles = `
   font-weight: 700;
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
+}
+
+.arcade-boards-you-rank.arcade-rank-medal {
+  width: 30px;
+  height: 30px;
+  font-size: 14px;
+  color: var(--arcade-medal-ink);
+  flex: none;
 }
 
 .arcade-boards-you-score {
@@ -1363,7 +1501,7 @@ export const styles = `
     display: none;
   }
 
-  .arcade-cabinet-title {
+  .arcade-cartridge-title {
     font-size: 14px;
   }
 }

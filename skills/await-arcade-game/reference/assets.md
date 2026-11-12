@@ -6,7 +6,7 @@
 - No ripped sprites, tilesets, fonts, or music from commercial games.
 - Keep a `LICENSES.md` in the game folder listing every asset and its license.
 - Prefer small pixel art or procedural canvas drawing for the first version.
-- Audio is optional. Mute by default in new cabinets until playtested.
+- Audio is optional. Mute by default in new cartridges until playtested.
 
 ## Naming
 
@@ -18,7 +18,7 @@ trademarks.
 - "Breakout" → **Brick Buster**
 - "Tron" / "Light Cycles" → **Neon Cycles**
 
-Use original cabinet names and visuals. It keeps the project clean and avoids
+Use original cartridge names and visuals. It keeps the project clean and avoids
 marketplace review problems later.
 
 ## Code license

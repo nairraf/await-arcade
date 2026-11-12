@@ -75,7 +75,7 @@ GET  /v1/runs/:id/ghost           seed/mode/anchor for unranked ghost practice
 POST /v1/runs                     { gameId, modeId } -> { runId, seed, expiresAt }
 POST /v1/runs/:id/submit          { replay } -> { score, best?, rank?, xp?, challengeId? }
 GET  /v1/boards/:gameId/:modeId         -> { entries, period }
-GET  /v1/boards/:gameId/:modeId/player/:playerId -> { entry?, rank? }
+GET  /v1/boards/:gameId/:modeId/player/:playerId -> { entry? (includes xpLevel, xpRank), rank? }
 GET  /v1/me                       identity
 GET  /v1/me/profile               arcade XP, level, medals, arcade rank
 PATCH /v1/me                      display name
@@ -83,7 +83,13 @@ DELETE /v1/me                     delete the player and all player-linked data
 ```
 
 Board GETs send `Cache-Control: public, max-age=30, s-maxage=30`; the
-player-best GET sends `private, max-age=15`. Everything else is `no-store`.
+player-best GET sends `private, max-age=15`, except `/player/me`, which is
+`no-store`. Everything else is `no-store`.
+Board entries include `xpLevel` and `xpRank`: the player's arcade XP level and
+global competition rank by total XP, enriched on read from a projection of the
+`players` collection. Rows show `LVL n · Rn`; players with no XP have no
+enrichment and no pill. The projection is cached in-process for 30 seconds; the
+board response is separately cacheable for 30s.
 
 On submit, one Firestore transaction: check the run is issued and owned, verify
 the replay, retain the best XP for that game and UTC day, compare against the
@@ -194,7 +200,7 @@ Don't sum raw scores across games. Normalize:
 - medals are derived from retained records (First Credit, Spark, Silver, Gold,
   House Legend, Daily Devotee, Polymath).
 
-That rewards breadth, not grinding one cabinet.
+That rewards breadth, not grinding one cartridge.
 
 ## Daily challenge
 
@@ -253,7 +259,7 @@ A verified high-score run can be replayed as **unranked practice**:
 - A ghost record is written when a run becomes a personal best and is removed
   with the player's account.
 - Mineflag first (same board); Neon Cycles can add a ghost trail later;
-  Missile Command's wave plan becomes the ghost when that cabinet lands.
+  Missile Command's wave plan becomes the ghost when that cartridge lands.
 
 ## Arcade XP, medals, and rank
 
@@ -261,14 +267,14 @@ A verified high-score run can be replayed as **unranked practice**:
   difficulty 1–5 gives a 20–100 base, a win multiplies by 3, and the daily
   carries a 1.5x bonus.
 - Only the best XP for each game and UTC day is retained; improving that day's
-  run adds the difference. Grinding the same cabinet does not farm XP.
+  run adds the difference. Grinding the same cartridge does not farm XP.
 - `GET /v1/me/profile` returns the total, level and title, the next level
-  threshold, competition rank by total XP, per-cabinet totals, and medals.
+  threshold, competition rank by total XP, per-cartridge totals, and medals.
 - Levels: Rookie 0, Regular 250, Contender 750, Veteran 1,500, Champion 3,000,
   Legend 6,000, Arcade Immortal 10,000.
 - Medals are derived from the retained records: First Credit, Spark (100),
   Silver (500), Gold (1,500), House Legend (3,000), Daily Devotee (seven UTC
-  days), and Polymath (all four cabinets). Ghost practice never awards XP.
+  days), and Polymath (all four cartridges). Ghost practice never awards XP.
 
 ## Cost
 
@@ -278,8 +284,9 @@ A verified high-score run can be replayed as **unranked practice**:
 | Cloud Run | 2M requests, 180k vCPU-s, 360k GB-s/mo | far below | `min-instances=0`, `max-instances=2` |
 | Egress | ~1 GB/month | well under | small JSON |
 
-Cache each board's top 50 in Cloud Run memory for 30–60 seconds, set
-`Cache-Control` on GETs, use `count()` for "your rank", and TTL `runs`.
+Set `Cache-Control` on GETs, cache the XP projection in-process for 30s (and
+invalidate it when XP is awarded), use `count()` for a single player's XP rank,
+and TTL `runs`.
 
 ## Deployment sketch
 
@@ -307,12 +314,15 @@ The script passes `--service-account`, so the revision runs as `arcade-api` with
   for local testing; don't use it in production.
 - Firestore in `northamerica-northeast1` (Montreal), matching the existing
   Selos database. The region is permanent.
-- Terraform owns the base resources; see `infra/terraform/README.md`.
+- Terraform owns the base resources: `infra/terraform/` for dev and
+  `infra/terraform-prod/` for production. They use separate state; keep the
+  shared `.tf` files in sync.
 - The GitHub OAuth client secret container exists in Secret Manager, but the
   device flow does not use it. It is reserved for a future web flow.
 - Firestore rules in `firestore.rules` deny all client access; everything goes
-  through the API. Deploy them with the Firebase CLI or the rules API.
-- Budget alert at $5 (CAD); per-player rate limits are still open work.
+  through the API. Terraform deploys the ruleset and release.
+- Budget alert at $5 (CAD). Per-player and per-IP limits are implemented; a
+  cost soak and a budget-alert test remain.
 
 ## What to build first
 
