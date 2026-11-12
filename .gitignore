@@ -43,3 +43,7 @@ crash.log
 firebase-debug.log
 firebase-debug.*.log
 ui-debug.log
+
+# release artifacts
+dist-release/
+packages/host-antigravity/dist-server/

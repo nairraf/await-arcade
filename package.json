@@ -23,6 +23,7 @@
     "dev": "vite --config apps/web/vite.config.ts",
     "build": "vite build --config apps/web/vite.config.ts",
     "deploy:hosting": "node scripts/deploy-hosting.mjs",
+    "package:release": "node scripts/package-release.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",

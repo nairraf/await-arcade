@@ -203,3 +203,26 @@ domain mapping (which is not available in `northamerica-northeast1`).
 
 MIT. Game assets must be original or CC0/CC-BY; see
 `skills/await-arcade-game/reference/assets.md`.
+
+## Release artifacts
+
+`npm run package:release` builds the beta-2 tarball:
+
+```sh
+npm run package:release
+```
+
+It writes `dist-release/await-arcade-beta-2.tar.gz`, its `.sha256`, and an unpacked
+release directory. The tarball contains `install.mjs`; after extracting:
+
+```sh
+shasum -a 256 -c await-arcade-beta-2.tar.gz.sha256
+tar -xzf await-arcade-beta-2.tar.gz
+node await-arcade-beta-2/install.mjs --verify
+```
+
+The installer requires Node.js 22 or newer. It installs both hosts by default, backs up
+and merges the Antigravity config, preserves local auth/state and sidecar player data, and
+writes `https://api.awaitarcade.com` as the API URL. Antigravity's `sidecar_sdk` is
+provided by the host (currently macOS-first). Use `--home <dir>` for a throwaway install,
+`--opencode-only`, `--antigravity-only`, `--force`, `--dry-run`, or `--uninstall`.

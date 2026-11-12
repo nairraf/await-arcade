@@ -64,3 +64,8 @@ Open the **Await Arcade** project and the **Await Arcade** aux-pane view.
   module works (the same pattern Selos Pulse uses).
 - Scores go through the shared verifier API; the sidecar owns the player id,
   sessions, and the submit queue.
+
+## Release bundle
+
+`npm run build` also writes the self-contained sidecar server to
+`dist-server/server.mjs`; the release packager ships that plus the inlined `index.html`.
