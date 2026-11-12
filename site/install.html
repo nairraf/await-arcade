@@ -92,11 +92,27 @@ npm run build:hosts</code></pre>
         <li><strong>Old scores after an update:</strong> game versions can invalidate old replays; local bests reset on a version bump.</li>
       </ul>
 
-      <h2>Uninstall</h2>
+      <h2>Clean uninstall</h2>
       <p>
-        Remove the OpenCode plugin link and the Antigravity sidecar directory, then delete the
-        host state files if you want to sign out completely. A one-command uninstall will ship
-        with the packaged release.
+        Quit OpenCode and close the Antigravity pane first. From the extracted release folder:
+      </p>
+      <pre class="code"><code>node await-arcade-beta-2/install.mjs --uninstall --yes</code></pre>
+      <p>
+        This removes the OpenCode plugin, Antigravity sidecar, Antigravity config entry and
+        project, local auth, queue, and sidecar data. It does not delete your GitHub account,
+        the host apps, or the source repository.
+      </p>
+      <p>
+        To keep local auth and settings for a reinstall, add <code>--keep-data</code>. To remove
+        only one host, add <code>--opencode-only</code> or <code>--antigravity-only</code>.
+      </p>
+      <p>
+        If you no longer have the release folder, redownload the beta tarball and run the same
+        command. Manual fallback: remove
+        <code>~/.config/opencode/plugins/await-arcade</code> and
+        <code>~/.gemini/config/sidecars/await-arcade</code>, then remove the
+        <code>sidecars.await-arcade</code> entry from
+        <code>~/.gemini/config/config.json</code>.
       </p>
 
       <h2>Policies</h2>

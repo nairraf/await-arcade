@@ -226,3 +226,13 @@ and merges the Antigravity config, preserves local auth/state and sidecar player
 writes `https://api.awaitarcade.com` as the API URL. Antigravity's `sidecar_sdk` is
 provided by the host (currently macOS-first). Use `--home <dir>` for a throwaway install,
 `--opencode-only`, `--antigravity-only`, `--force`, `--dry-run`, or `--uninstall`.
+
+Clean uninstall removes both host installs, the Antigravity config entry/project, local
+auth, queue, and sidecar data. It does not touch the GitHub account, host apps, or repo:
+
+```sh
+node await-arcade-beta-2/install.mjs --uninstall --yes
+```
+
+To keep auth/state for a reinstall, add `--keep-data`. Add `--opencode-only` or
+`--antigravity-only` to remove one host only.

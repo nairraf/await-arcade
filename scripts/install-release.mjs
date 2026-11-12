@@ -52,7 +52,9 @@ Options:
   --opencode-only         Install only the OpenCode plugin
   --antigravity-only      Install only the Antigravity sidecar
   --force                 Replace an existing symlink or directory
-  --uninstall             Remove the selected host installs
+  --uninstall             Clean uninstall (requires --yes)
+  --yes                   Confirm uninstall
+  --keep-data             Keep local auth, queue, and sidecar data
   --dry-run               Print actions without writing
   --verify                Verify files against SHA256SUMS before installing
 `)
@@ -68,6 +70,8 @@ const apiUrl = option("--api-url", "https://api.awaitarcade.com")
 const force = has("--force")
 const dryRun = has("--dry-run")
 const uninstall = has("--uninstall")
+const yes = has("--yes")
+const keepData = has("--keep-data")
 const onlyOpenCode = has("--opencode-only")
 const onlyAntigravity = has("--antigravity-only")
 const verify = has("--verify")
@@ -204,12 +208,41 @@ const installAntigravity = !onlyOpenCode
 const sidecarData = join(sidecarTarget, ".data")
 
 if (uninstall) {
+  if (!yes && !dryRun) {
+    console.log("Await Arcade clean uninstall would remove:")
+    if (installOpenCode) console.log(`  ${pluginTarget}`)
+    if (installAntigravity) {
+      console.log(`  ${sidecarTarget}`)
+      console.log(`  Antigravity config entry and project (${configPath})`)
+      if (!keepData) console.log(`  ${stateDir()}`)
+    }
+    console.log("")
+    console.log("Re-run with --yes to remove these. Add --keep-data to preserve local auth/queue.")
+    process.exit(0)
+  }
+
   if (installOpenCode) {
     log("remove", pluginTarget)
     if (!dryRun) rmSync(pluginTarget, { recursive: true, force: true })
   }
+
   if (installAntigravity) {
-    if (existsSync(sidecarData)) {
+    let projectId
+    if (existsSync(configPath)) {
+      const config = readJson(configPath, {})
+      if (isPlainObject(config) && isPlainObject(config.sidecars)) {
+        projectId = config.sidecars["await-arcade"]?.projectId
+        delete config.sidecars["await-arcade"]
+        writeJson(configPath, config)
+      }
+    }
+    if (typeof projectId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectId)) {
+      const projectPath = join(projectsDir, `${projectId}.json`)
+      log("remove", projectPath)
+      if (!dryRun) rmSync(projectPath, { force: true })
+    }
+
+    if (keepData && existsSync(sidecarData)) {
       const backup = join(stateDir(), `antigravity-data-${stamp}`)
       log("preserve sidecar data", backup)
       if (!dryRun) {
@@ -219,20 +252,34 @@ if (uninstall) {
     }
     log("remove", sidecarTarget)
     if (!dryRun) rmSync(sidecarTarget, { recursive: true, force: true })
-    if (existsSync(configPath)) {
-      const config = readJson(configPath, {})
-      if (isPlainObject(config) && isPlainObject(config.sidecars)) {
-        const projectId = config.sidecars["await-arcade"]?.projectId
-        delete config.sidecars["await-arcade"]
-        writeJson(configPath, config)
-        if (typeof projectId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectId)) {
-          const projectPath = join(projectsDir, `${projectId}.json`)
-          if (!dryRun) rmSync(projectPath, { force: true })
-        }
-      }
+    if (!keepData) {
+      log("remove", `${configPath}.bak-await-arcade`)
+      if (!dryRun) rmSync(`${configPath}.bak-await-arcade`, { force: true })
     }
   }
-  console.log(dryRun ? "[dry-run] uninstall complete" : "Await Arcade removed. Local auth/state was left in place.")
+
+  if (!keepData) {
+    if (installOpenCode && installAntigravity) {
+      log("remove", stateDir())
+      if (!dryRun) rmSync(stateDir(), { recursive: true, force: true })
+    } else if (installOpenCode) {
+      for (const file of ["auth.opencode.json", "queue.opencode.json"]) {
+        const path = join(stateDir(), file)
+        log("remove", path)
+        if (!dryRun) rmSync(path, { force: true })
+      }
+    } else if (installAntigravity) {
+      for (const file of ["auth.antigravity.json", "queue.antigravity.json"]) {
+        const path = join(stateDir(), file)
+        log("remove", path)
+        if (!dryRun) rmSync(path, { force: true })
+      }
+    }
+  } else {
+    console.log(`Kept local auth/state: ${stateDir()}`)
+  }
+
+  console.log(dryRun ? "[dry-run] uninstall complete" : "Await Arcade removed.")
   process.exit(0)
 }
 
