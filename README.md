@@ -19,7 +19,9 @@ hosted boards.
 
 ### Release installer
 
-Download and extract the beta-2 release tarball, then run the installer:
+Download and extract the beta-2 tarball and checksum from the
+[GitHub Releases page](https://github.com/nairraf/await-arcade/releases), then run
+the installer:
 
 ```sh
 shasum -a 256 -c await-arcade-beta-2.tar.gz.sha256

@@ -1,7 +1,32 @@
 # Await Arcade for Antigravity
 
-The Antigravity host is a UI-extension sidecar. It serves the same shell and
-games as the OpenCode panel, wrapped in an aux-pane page.
+The Antigravity host is a UI-extension sidecar. It serves the same shell, four
+cartridges, boards, daily challenge, and ghost practice as the OpenCode panel,
+wrapped in an aux-pane page.
+
+## Install
+
+The beta-2 release installer is the normal path:
+
+```sh
+tar -xzf await-arcade-beta-2.tar.gz
+node await-arcade-beta-2/install.mjs --antigravity-only --verify
+```
+
+Omit `--antigravity-only` to install both hosts. It creates
+`~/.gemini/config/sidecars/await-arcade`, writes a local `sidecar.json`, creates
+the Antigravity project, and adds the `sidecars` config entry. It points the
+host at `https://api.awaitarcade.com` and preserves existing auth/state.
+
+From a source checkout:
+
+```sh
+npm run build:hosts
+AWAIT_ARCADE_API_URL=https://api.awaitarcade.com ./scripts/install-hosts.sh
+```
+
+Open the **Await Arcade** project and the **Await Arcade** aux-pane view. Close
+and reopen the pane after a rebuild.
 
 ## Build
 
@@ -9,63 +34,30 @@ games as the OpenCode panel, wrapped in an aux-pane page.
 npm run build --workspace @await-arcade/host-antigravity
 ```
 
-This writes `index.html` with the app bundle inlined, plus `app.js` for direct
-use. Antigravity's `plugin://` page handler returns 500 for the external bundle,
-so the inline module is required; `inline.mjs` runs after Vite. The sidecar
-serves those three paths.
-
-## Install
-
-From the repo root, use the installer:
-
-```sh
-npm run build:hosts
-AWAIT_ARCADE_API_URL=https://await-arcade-api-164244433164.northamerica-northeast1.run.app \
-  ./scripts/install-hosts.sh
-```
-
-It creates the sidecar directory, a local `sidecar.json`, the Antigravity
-project, and the `sidecars` config entry.
-
-Manual alternative: create `~/.gemini/config/sidecars/await-arcade` as a **real
-directory** (not a symlink to the package), symlink or copy the four built files
-into it, and write a local `sidecar.json` whose `args` point at the absolute
-`server.mjs` path. Then add the entry to `~/.gemini/config/config.json`:
-
-```json
-{
-  "sidecars": {
-    "await-arcade": {
-      "enabled": true,
-      "projectId": "<uuid>",
-      "schemaVersion": 1
-    }
-  }
-}
-```
-
-The matching `~/.gemini/config/projects/<uuid>.json` is required for the
-sidecar to appear under its project. `scripts/install-hosts.sh` is the reference
-for the exact shape.
-
-Open the **Await Arcade** project and the **Await Arcade** aux-pane view.
+This writes the inlined `index.html` and the self-contained sidecar server to
+`dist-server/server.mjs`. The release packager ships `server.mjs`,
+`index.html`, and a `sidecar.json.example`; no external `app.js` is needed
+because Antigravity’s `plugin://` page handler returns 500 for it.
 
 ## Notes
 
 - `server.mjs` tries `import("sidecar_sdk")` and falls back to the macOS
-  install path. Adjust the fallback for another machine.
-- The sidecar only serves registered paths. Vite is configured to emit
-  `app.js` and `app.css` at the package root so `server.mjs` can serve them.
-- `web/index.html` must load `/preload.js`; the sidecar SDK serves it and defines
-  `window.sidecar`. Without it the aux pane has no sidecar bridge and API calls
-  are unauthenticated.
-- `inline.mjs` inlines `app.js` into `index.html` after Vite. Antigravity's
-  `plugin://` handler returns 500 for the external bundle; a single inline
-  module works (the same pattern Selos Pulse uses).
+  Antigravity install path. The sidecar SDK is currently macOS-first; adjust the
+  fallback for another machine.
+- `index.html` must load `/preload.js`; the sidecar SDK serves it and defines
+  `window.sidecar`. Without it the aux pane has no bridge.
+- `inline.mjs` runs after Vite and fails the build if the page has more than one
+  module script or still references an external `app.js`.
 - Scores go through the shared verifier API; the sidecar owns the player id,
   sessions, and the submit queue.
 
-## Release bundle
+## Uninstall
 
-`npm run build` also writes the self-contained sidecar server to
-`dist-server/server.mjs`; the release packager ships that plus the inlined `index.html`.
+```sh
+node await-arcade-beta-2/install.mjs --uninstall --yes --antigravity-only
+```
+
+Use `--keep-data` to preserve auth/settings, or omit `--antigravity-only` to
+remove both hosts. The uninstaller removes the sidecar, Antigravity config entry
+and project, local auth, queue, and sidecar data; it never touches the GitHub
+account or this repo.

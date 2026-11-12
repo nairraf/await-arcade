@@ -30,41 +30,52 @@
     </header>
 
     <main id="main" class="wrap policy">
-      <p class="kicker">Beta-2 · source install</p>
+      <p class="kicker">Beta-2 · install</p>
       <h1>Install Await Arcade</h1>
-      <p class="updated">Last updated: 10 November 2026</p>
+      <p class="updated">Last updated: 12 November 2026</p>
 
       <p class="draft">
-        Beta-2 packaging is in progress. This page describes the current source install. A
-        one-command installer and packaged release artifacts will replace it before the public
-        launch.
+        The beta-2 release installer is the normal path. Antigravity’s sidecar SDK is
+        currently macOS-first; the policies remain drafts for review.
       </p>
 
       <h2>What you need</h2>
       <ul>
         <li>macOS or Linux (Antigravity’s sidecar SDK is currently macOS-first).</li>
         <li>OpenCode Desktop and/or Antigravity.</li>
-        <li>Node.js 22 or newer, npm, Git, and <code>python3</code> (used by the installer).</li>
+        <li>Node.js 22 or newer. The source path also needs npm, Git, and <code>python3</code>.</li>
         <li>A GitHub account for ranked play. Guest play works without one.</li>
       </ul>
 
-      <h2>Build from source</h2>
+      <h2>Release install</h2>
+      <p>
+        Download the beta-2 tarball and checksum from the
+        <a href="https://github.com/nairraf/await-arcade/releases">GitHub Releases page</a>,
+        then:
+      </p>
+      <pre class="code"><code>shasum -a 256 -c await-arcade-beta-2.tar.gz.sha256
+tar -xzf await-arcade-beta-2.tar.gz
+node await-arcade-beta-2/install.mjs --verify</code></pre>
+      <p>
+        The installer installs both hosts, merges the Antigravity config, preserves existing
+        auth/state, and writes <code>https://api.awaitarcade.com</code> as the API URL. Use
+        <code>--opencode-only</code> or <code>--antigravity-only</code> for one host,
+        <code>--home &lt;dir&gt;</code> for a throwaway install, or <code>--dry-run</code> to
+        preview.
+      </p>
+
+      <h2>From source</h2>
+      <p>For contributors who want to build the hosts from the checkout:</p>
       <pre class="code"><code>git clone https://github.com/nairraf/await-arcade.git
 cd await-arcade
 npm install
 npm run check
-npm run build:hosts</code></pre>
-
-      <h2>Install both hosts</h2>
-      <p>
-        Point the hosts at the production API, then run the local installer. It links the
-        OpenCode plugin and the Antigravity sidecar into the host configuration.
-      </p>
-      <pre class="code"><code>AWAIT_ARCADE_API_URL=https://api.awaitarcade.com \
+npm run build:hosts
+AWAIT_ARCADE_API_URL=https://api.awaitarcade.com \
   ./scripts/install-hosts.sh</code></pre>
       <p class="tiny">
-        The API is live at <code>https://api.awaitarcade.com</code>. The preview site is at
-        <code>https://awaitarcade.com</code>.
+        The source installer symlinks the packages into place. The release installer copies
+        self-contained files instead.
       </p>
 
       <h2>Open the arcade</h2>
