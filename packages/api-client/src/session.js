@@ -246,6 +246,9 @@ export function createHostSession(options) {
         await flush()
         return result
       } catch (error) {
+        if (error?.status === 422) {
+          return { ok: false, reason: error.message }
+        }
         if (!(error?.status >= 400 && error?.status < 500)) {
           const items = await readQueue()
           items.push({

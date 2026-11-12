@@ -714,6 +714,18 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
 
         const verified: VerifiedResult = verifyReplay(entry.core, entry.meta, candidate)
         if (!verified.ok || !verified.score) {
+          console.log(
+            "[await-arcade] rejected submit",
+            JSON.stringify({
+              runId,
+              gameId: run.gameId,
+              modeId: run.modeId,
+              reason: verified.reason,
+              won: verified.score?.won,
+              detail: verified.score?.detail,
+              ticks: verified.ticks,
+            }),
+          )
           json(res, 422, {
             ok: false,
             reason: verified.reason ?? "replay did not verify",
