@@ -16,3 +16,27 @@ packages/host-antigravity/index.html
 packages/host-antigravity/.data
 *.png
 *.docx
+
+# Private local/deploy material. Never upload to Cloud Build or Docker.
+.env
+.env.*
+AGENTS.md
+.agents
+.agents/
+site
+firebase.json
+.firebaserc
+dist-release
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfplan
+.terraform
+.terraform/
+*.pem
+*.key
+*.p12
+*.pfx
+service-account*.json
+*service-account*.json
+*.log
