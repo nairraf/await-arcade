@@ -1,219 +1,25 @@
 # Await Arcade
 
-Await Arcade is a tiny cross-host arcade for OpenCode Desktop and Antigravity.
+A tiny arcade that lives inside **OpenCode Desktop** and **Antigravity**.
 
-Four cartridges ship in the scaffold:
+Four deterministic cartridges ship today:
 
-- **Mineflag** — turn-based, safe first click, flood reveal, chording,
-  keyboard play, three difficulties in random or no-guess logic boards,
-  replay-verified fewest-moves ranking.
+- **Mineflag** — turn-based minesweeper with safe first click, flood reveal,
+  chording, keyboard play, and random or no-guess logic boards.
 - **Neon Cycles** — endless grid light cycles against a sharper AI each level,
-  plus local duel; a canvas reference implementation.
-- **Mergegrid** — seeded tile merging, keyboard/swipe/on-screen pad, a DOM
-  reference implementation with score-attack ranking.
-- **Brickstorm** — endless brick levels with varied layouts, rising speed, and
-  more gold armor per wall.
+  plus local duel.
+- **Mergegrid** — seeded tile merging with keyboard, swipe, and on-screen pad.
+- **Brickstorm** — endless brick levels with varied layouts and rising speed.
 
-The point is the framework: the shell is the product, games are content. Adding
-a cartridge should be one folder plus `npm run aa -- sync`.
+The same shell, boards, daily challenge, XP, medals, and ghost practice work in
+both hosts. Guest play is local. Signed-in play is replay-verified on the
+hosted boards.
 
-## Status
+## Install
 
-This is a working scaffold, not a finished arcade.
+### Release installer
 
-- ✅ Framework contract, fixed-timestep runner, seeded RNG, replay verifier.
-- ✅ Shell: launcher, HUD, pause, restart, local bests, replay download, leaderboard.
-- ✅ Four reference games with tests and replay verification.
-- ✅ OpenCode Desktop host (GUI plugin) and Antigravity host (sidecar).
-- ✅ Verifier API (`packages/server`) with run issuance and replay-checked boards.
-- ✅ `aa` CLI: `new-game`, `sync`, `verify`, `check`, `list`.
-- ✅ `await-arcade-game` skill with contract docs, determinism rules, and templates.
-- ✅ Firestore + Cloud Run backend, Terraform-managed dev base, and GitHub Device
-  Flow auth with per-host sessions.
-- ✅ All-time leaderboard hub and the featured daily challenge: fixed seed,
-  Mineflag anchor, three attempts, best-of-three board, and a daily tile.
-- ✅ Arcade XP, medals, arcade rank, and unranked ghost practice in both hosts.
-- ✅ Prod backend live on Cloud Run + Firestore. ⏳ Public site, custom domain, and packaged installer.
-
-Scores are local for guests. Signed-in players submit replay-verified runs to the
-shared Firestore boards; the dev API is live, and `docs/backend.md` has the design.
-
-## Quick start
-
-```sh
-npm install
-npm run dev
-```
-
-Open <http://localhost:5199>. The launcher is the front door.
-
-Useful commands:
-
-```sh
-npm run typecheck
-npm test
-npm run check                  # typecheck + tests + core scan + replay fixtures
-npm run aa -- list
-npm run aa -- sync
-npm run aa -- new-game my-game
-npm run aa -- verify mineflag games/mineflag/replay.json
-```
-
-## Layout
-
-```
-packages/
-  contract/        types and the GameCore/GameView contract
-  framework/       runner, seeded RNG, surface, replay verifier, testkit
-  shell/           launcher, HUD, local host, styles, generated game registry
-  server/          verifier API (in-memory for tests, Firestore on Cloud Run)
-  host-opencode/   OpenCode Desktop GUI plugin
-  host-antigravity/Antigravity sidecar
-games/
-  mineflag/        turn-based reference
-  light-cycles/    canvas/realtime reference
-  mergegrid/       DOM turn-based reference
-  brickstorm/      canvas brick-buster with power bricks
-tools/
-  cli/             new-game, sync, verify, check
-skills/
-  await-arcade-game/ the executable contribution guide
-apps/
-  web/             Vite demo
-site/              static landing and policy pages
-firebase.json      Firebase Hosting config
-```
-
-## Add a game
-
-```sh
-npm run aa -- new-game neon-cycles
-```
-
-That copies the template from `skills/await-arcade-game/templates/game`, replaces
-`__ID__`/`__TITLE__`, and regenerates both registries. Then read
-`skills/await-arcade-game/SKILL.md`.
-
-The one rule: `core.ts` is pure and deterministic; `view.ts` owns the DOM or
-canvas. The server imports only the core, replays the run, and derives the
-score itself.
-
-## Hosts
-
-Building is not installing. Link the packages into the host config directories
-once, then restart the apps:
-
-```sh
-npm run build:hosts
-AWAIT_ARCADE_API_URL=https://api.awaitarcade.com \
-  ./scripts/install-hosts.sh
-```
-
-`AWAIT_ARCADE_API_URL` is optional; without it the hosts use
-`http://127.0.0.1:8787`, or the `apiUrl` in
-`~/Library/Application Support/await-arcade/config.json`.
-
-### OpenCode Desktop
-
-The installer symlinks `packages/host-opencode` to
-`~/.config/opencode/plugins/await-arcade`. The plugin id is `await-arcade`
-(from `server.js`); it adds a pinned **Await Arcade** side panel, a command, and
-a titlebar pill. `npm run build:hosts` writes both `gui-experimental.cjs` and
-the bundled server half at `dist/server.js`. Rebuild after changing the shell,
-framework, or games. If your plugin directory is not the default, set
-`OPENCODE_PLUGINS_DIR` or add the absolute directory to `plugins` in
-`~/.config/opencode/opencode.jsonc`.
-
-### Antigravity
-
-The installer creates `~/.gemini/config/sidecars/await-arcade`, writes a local
-`sidecar.json` with an absolute entry point, and adds:
-
-```json
-{ "sidecars": { "await-arcade": { "enabled": true, "projectId": "…", "schemaVersion": 1 } } }
-```
-
-to `~/.gemini/config/config.json`, with a matching project file. Open the
-**await-arcade** project and the **Await Arcade** aux-pane view. See
-`packages/host-antigravity/README.md` if you prefer to install by hand.
-
-## Verified in this scaffold
-
-- `npm run check` passes: workspace typecheck, OpenCode host typecheck, 73 tests,
-  core determinism scan, and all four replay fixtures.
-- `npm run build` builds the browser demo.
-- `npm run build:hosts` builds `gui-experimental.cjs` and the Antigravity
-  `index.html` + `app.js`.
-- The Antigravity sidecar serves `/`, `/app.js`, and an empty `/app.css` on
-  loopback.
-- In the browser: the launcher renders, Mineflag reveals/floods, Neon Cycles
-  runs and ends, Mergegrid merges tiles by keyboard/swipe/pad, Brickstorm follows
-  pointer and keyboard paddle aim, the game-over overlay saves a personal best,
-  and the best score survives a return to the launcher via `localStorage`.
-- `aa new-game` scaffolds a working template game, and its test + `check`
-  pass.
-
-## Pick up here
-
-The first tagged milestone is **beta-1**; the public release target is **beta-2**. See
-`docs/roadmap.md` for scope, acceptance criteria, and what is deliberately out of scope.
-
-1. ✅ Wire the shell's `GameHost.submit` to the verifier API:
-   - OpenCode: a small RPC in `packages/host-opencode/server.js`; the server part
-     owns `auth.opencode.json` in the native state directory.
-   - Antigravity: proxy through `server.mjs`; store `auth.antigravity.json` in the
-     native state directory. The sidecar data directory is for non-secret cache.
-2. ✅ GitHub Device Flow + per-host persistent sessions; local guest mode;
-   account deletion (see `docs/backend.md`).
-3. ✅ Firestore + Cloud Run: the server keeps the in-memory store for tests and
-   uses Firestore in production.
-4. ✅ Featured daily challenge (fixed seed/anchor, 3 attempts, best of 3,
-   separate board, daily tile). ✅ Unranked ghost practice and arcade XP/medals.
-5. ⏳ Add the next cartridge from the skill; Missile Defense async PvP is the first
-   multiplayer candidate.
-
-## Website
-
-The static site lives in `site/`. `firebase.json` deploys it to Firebase Hosting and rewrites
-`/v1/**` to the production Cloud Run service. Policy pages in `site/` are beta-2 drafts for
-review before launch. The preview is intentionally `noindex` until the custom domain is
-attached and the policies are approved.
-
-```sh
-FIREBASE_ACCESS_TOKEN="$(gcloud auth application-default print-access-token)" \
-  npm run deploy:hosting
-```
-
-`HOSTING_DRY_RUN=1` lists the files and converted Hosting config without uploading. The
-Firebase CLI works too, but the REST script avoids an interactive login.
-
-The custom domain `awaitarcade.com` will be attached in Firebase Hosting, not by Cloud Run
-domain mapping (which is not available in `northamerica-northeast1`).
-
-## Design docs
-
-- `docs/architecture.md` — layers, contract, determinism, verification.
-- `docs/roadmap.md` — beta-1/beta-2 scope, acceptance criteria, and later milestones.
-- `docs/backend.md` — the cheap GCP plan: Firestore, Cloud Run, GitHub identity,
-  per-host persistent sessions, boards, account deletion, arcade XP, costs.
-- `docs/hosts.md` — the two host models and their constraints.
-- `skills/await-arcade-game/` — the contributor skill.
-
-## License
-
-MIT. Game assets must be original or CC0/CC-BY; see
-`skills/await-arcade-game/reference/assets.md`.
-
-## Release artifacts
-
-`npm run package:release` builds the beta-2 tarball:
-
-```sh
-npm run package:release
-```
-
-It writes `dist-release/await-arcade-beta-2.tar.gz`, its `.sha256`, and an unpacked
-release directory. The tarball contains `install.mjs`; after extracting:
+Download and extract the beta-2 release tarball, then run the installer:
 
 ```sh
 shasum -a 256 -c await-arcade-beta-2.tar.gz.sha256
@@ -221,18 +27,201 @@ tar -xzf await-arcade-beta-2.tar.gz
 node await-arcade-beta-2/install.mjs --verify
 ```
 
-The installer requires Node.js 22 or newer. It installs both hosts by default, backs up
-and merges the Antigravity config, preserves local auth/state and sidecar player data, and
-writes `https://api.awaitarcade.com` as the API URL. Antigravity's `sidecar_sdk` is
-provided by the host (currently macOS-first). Use `--home <dir>` for a throwaway install,
-`--opencode-only`, `--antigravity-only`, `--force`, `--dry-run`, or `--uninstall`.
+It installs both hosts, merges the Antigravity config, preserves existing auth
+and local data, and points both hosts at `https://api.awaitarcade.com`.
 
-Clean uninstall removes both host installs, the Antigravity config entry/project, local
-auth, queue, and sidecar data. It does not touch the GitHub account, host apps, or repo:
+Requirements: Node.js 22 or newer, plus OpenCode Desktop and/or Antigravity.
+Antigravity's sidecar SDK is currently macOS-first.
+
+Useful flags:
+
+```sh
+node await-arcade-beta-2/install.mjs --opencode-only
+node await-arcade-beta-2/install.mjs --antigravity-only
+node await-arcade-beta-2/install.mjs --home /tmp/arcade-test
+node await-arcade-beta-2/install.mjs --dry-run
+```
+
+### From source
+
+```sh
+npm install
+npm run build:hosts
+AWAIT_ARCADE_API_URL=https://api.awaitarcade.com ./scripts/install-hosts.sh
+```
+
+The source installer symlinks the host packages into place. The release
+installer copies self-contained files instead.
+
+### Clean uninstall
+
+Quit OpenCode and close the Antigravity pane first. From the extracted release:
 
 ```sh
 node await-arcade-beta-2/install.mjs --uninstall --yes
 ```
 
-To keep auth/state for a reinstall, add `--keep-data`. Add `--opencode-only` or
-`--antigravity-only` to remove one host only.
+This removes the OpenCode plugin, Antigravity sidecar, Antigravity config entry
+and project, local auth, queue, and sidecar data. It does not delete your GitHub
+account, host apps, or the repository. Add `--keep-data` to preserve local
+auth/settings for a reinstall, or `--opencode-only` / `--antigravity-only` to
+remove one host.
+
+If the release folder is gone, remove
+`~/.config/opencode/plugins/await-arcade` and
+`~/.gemini/config/sidecars/await-arcade`, then remove the
+`sidecars.await-arcade` entry from `~/.gemini/config/config.json`.
+
+## Play
+
+### OpenCode Desktop
+
+The installer links the plugin as `await-arcade` under
+`~/.config/opencode/plugins/`. It adds an **Await Arcade** side panel, a command,
+and a titlebar pill. Restart OpenCode after installing or rebuilding:
+
+```sh
+opencode service restart
+```
+
+Sign in from the account panel. Each host keeps its own session, but both map to
+the same player.
+
+### Antigravity
+
+The installer creates
+`~/.gemini/config/sidecars/await-arcade`, writes a local `sidecar.json`, and
+adds this to `~/.gemini/config/config.json`:
+
+```json
+{
+  "sidecars": {
+    "await-arcade": {
+      "enabled": true,
+      "projectId": "…",
+      "schemaVersion": 1
+    }
+  }
+}
+```
+
+Open the **await-arcade** project and the **Await Arcade** aux-pane view. Close
+and reopen the pane after a rebuild.
+
+### Sign-in
+
+Ranked play uses GitHub Device Flow. Enter the short code at
+`github.com/login/device`. Guest play works without an account and keeps local
+bests only.
+
+## Add a cartridge
+
+Adding a game should be one folder and one sync:
+
+```sh
+npm run aa -- new-game my-game
+```
+
+That copies the template from `skills/await-arcade-game/templates/game`,
+replaces the id/title, and regenerates the shell and server registries. Then
+read `skills/await-arcade-game/SKILL.md`.
+
+A cartridge looks roughly like:
+
+```text
+games/my-game/
+  arcade.config.ts     game metadata and modes
+  src/
+    core.ts            pure state machine and scoring
+    view.ts            DOM or canvas rendering and input
+    meta.ts            generated/exported GameMeta
+    core.test.ts       determinism and scoring tests
+  replay.json          optional fixture checked by `aa check`
+```
+
+The rule that matters: **`core.ts` is pure and deterministic**. It uses the
+seeded RNG and injected time; no `Math.random`, `Date.now`, DOM, network,
+storage, or host services. `view.ts` owns rendering and input. The server
+imports only the core, replays the input log, and derives the score.
+
+Useful commands:
+
+```sh
+npm run aa -- new-game my-game
+npm run aa -- check                 # core scan + replay fixtures
+npm run aa -- verify my-game path/to/replay.json
+npm run aa -- sync                  # regenerate registries after adding a game
+npm test
+npm run typecheck
+```
+
+## Develop
+
+```sh
+npm install
+npm run dev        # browser demo at http://localhost:5199
+npm run check      # typecheck, host typecheck, tests, core scan, fixtures
+npm run build      # browser demo
+npm run build:hosts
+```
+
+`npm run build:hosts` builds:
+
+- `packages/host-opencode/gui-experimental.cjs` and `dist/server.js`
+- `packages/host-antigravity/index.html` and `dist-server/server.mjs`
+
+Build the hosts after changing the shell, framework, or games.
+
+To produce a release tarball:
+
+```sh
+npm run package:release
+```
+
+This writes `dist-release/await-arcade-beta-2.tar.gz`, its checksum, and the
+unpacked release directory containing `install.mjs`.
+
+## How it fits together
+
+```text
+contract ── framework ── shell ── host-opencode
+                    \             host-antigravity
+                     \── games (core + view)
+```
+
+- **contract** — the `GameCore` / `GameView` boundary and shared types.
+- **framework** — fixed-timestep runner, seeded RNG, surfaces, replay verifier,
+  testkit.
+- **shell** — launcher, HUD, leaderboard hub, daily tile, XP/medals, ghost
+  practice, local host.
+- **games** — pure deterministic cores plus host-agnostic views.
+- **hosts** — thin OpenCode and Antigravity adapters. They own identity,
+  sessions, and submission; games never see tokens or raw network access.
+
+The shell is the product; games are content. One generated registry loads every
+cartridge in both hosts.
+
+## Hosted play (short version)
+
+The hosted verifier issues seeds, verifies replay input logs, and serves the
+shared boards, daily challenge, XP, medals, and ghost descriptors. The API is
+`https://api.awaitarcade.com`; the public site is
+`https://awaitarcade.com`.
+
+Guest play needs no backend. Ranked play needs GitHub sign-in. Backend design,
+storage, rate limits, and deployment live in `docs/backend.md`.
+
+## Docs and skill
+
+- `docs/architecture.md` — layers, contract, determinism, replay verification.
+- `docs/hosts.md` — the two host models and their constraints.
+- `docs/backend.md` — hosted verifier, storage, identity, costs.
+- `docs/roadmap.md` — beta scope and later milestones.
+- `skills/await-arcade-game/` — the executable game-authoring guide.
+- `site/` — landing page and policy drafts.
+- `CONTRIBUTING.md` — contribution and review expectations.
+
+## License
+
+MIT. Game assets must be original or CC0/CC-BY; see
+`skills/await-arcade-game/reference/assets.md`.
