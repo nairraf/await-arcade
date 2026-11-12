@@ -36,3 +36,9 @@ variable "budget_amount" {
   default     = 5
   description = "Monthly budget in whole units of budget_currency. Alerts fire at 50%, 90%, and 100%."
 }
+
+variable "personal_alert_email" {
+  type        = string
+  default     = ""
+  description = "Optional personal email for budget alerts. Set in a private tfvars file."
+}

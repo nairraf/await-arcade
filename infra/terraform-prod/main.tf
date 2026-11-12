@@ -85,11 +85,12 @@ resource "google_monitoring_notification_channel" "email_support" {
 }
 
 resource "google_monitoring_notification_channel" "email_ian" {
+  count        = var.personal_alert_email == "" ? 0 : 1
   project      = var.project_id
   display_name = "Await Arcade Ian"
   type         = "email"
   labels = {
-    email_address = "redacted@example.invalid"
+    email_address = var.personal_alert_email
   }
 }
 
@@ -124,9 +125,9 @@ resource "google_billing_budget" "arcade" {
   }
 
   all_updates_rule {
-    monitoring_notification_channels = [
-      google_monitoring_notification_channel.email_support.id,
-      google_monitoring_notification_channel.email_ian.id,
-    ]
+    monitoring_notification_channels = concat(
+      [google_monitoring_notification_channel.email_support.id],
+      var.personal_alert_email == "" ? [] : [google_monitoring_notification_channel.email_ian[0].id],
+    )
   }
 }
