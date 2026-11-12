@@ -51,7 +51,7 @@ run(process.platform === "win32" ? "npm.cmd" : "npm", ["run", "build:hosts"])
 
 const opencode = join(out, "opencode")
 mkdirSync(opencode, { recursive: true })
-copy(join(root, "packages/host-opencode/dist/server.js"), join(opencode, "dist/server.js"))
+copy(join(root, "packages/host-opencode/dist/server.js"), join(opencode, "server.js"))
 copy(join(root, "packages/host-opencode/gui-experimental.cjs"), join(opencode, "gui-experimental.cjs"))
 writeFileSync(
   join(opencode, "package.json"),
@@ -62,7 +62,7 @@ writeFileSync(
       private: true,
       type: "module",
       exports: {
-        ".": "./dist/server.js",
+        ".": "./server.js",
         "./gui-experimental": "./gui-experimental.cjs",
       },
     },
