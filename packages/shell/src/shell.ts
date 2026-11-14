@@ -1,13 +1,9 @@
 import type {
-  ArcadeProfile,
-  AuthPoll,
   AuthState,
   BoardEntry,
   DailyChallenge,
-  DeviceFlow,
   GameEntry,
   GameHost,
-  GameMeta,
   GhostRun,
   Mode,
   RunAnchor,
@@ -16,9 +12,23 @@ import type {
   SubmitResult,
 } from "@await-arcade/contract"
 import { createRunner, el, ensureStyle, type GameRunner } from "@await-arcade/framework"
-import { LocalHost } from "./host"
+import { openAuthModal } from "./auth-modal"
+import { type BoardsState, renderBoardsView } from "./boards-view"
 import { formatDailyScore, formatDuration, formatScore, isBetter, scoreLabel } from "./format"
+import { LocalHost } from "./host"
 import { styles } from "./styles"
+import {
+  countdownLabel,
+  errorMessage,
+  hudCell,
+  modeGroups,
+  modeInGroup,
+  nextTheme,
+  randomSeed,
+  renderBoardRow,
+  themeLabel,
+  type ThemeMode,
+} from "./ui"
 
 export interface ArcadeOptions {
   readonly root: HTMLElement
@@ -37,285 +47,6 @@ export interface Arcade {
 interface ActiveGame {
   runner: GameRunner<any, any>
   cleanup: () => void
-}
-
-type ThemeMode = "auto" | "light" | "dark"
-
-function themeLabel(mode: ThemeMode): string {
-  return mode === "auto" ? "Auto" : mode === "light" ? "Light" : "Dark"
-}
-
-function nextTheme(mode: ThemeMode): ThemeMode {
-  return mode === "auto" ? "light" : mode === "light" ? "dark" : "auto"
-}
-
-function randomSeed(): number {
-  const buffer = new Uint32Array(1)
-  if (globalThis.crypto?.getRandomValues) {
-    globalThis.crypto.getRandomValues(buffer)
-    return buffer[0]!
-  }
-  return Math.floor(Math.random() * 0xffffffff)
-}
-
-function countdownLabel(ms: number): string {
-  const total = Math.max(0, Math.floor(ms / 1000))
-  const hours = Math.floor(total / 3600)
-  const minutes = Math.floor((total % 3600) / 60)
-  const seconds = total % 60
-  return `${hours}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`
-}
-
-function safeVerificationUri(value: string): string {
-  try {
-    const url = new URL(value)
-    if (
-      url.protocol === "https:" &&
-      (url.hostname === "github.com" || url.hostname === "www.github.com")
-    ) {
-      return url.toString()
-    }
-  } catch {
-    // Fall through to the canonical URL.
-  }
-  return "https://github.com/login/device"
-}
-
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message
-  if (typeof error === "string" && error.length > 0) return error
-  if (typeof error === "object" && error !== null) {
-    const record = error as Record<string, unknown>
-    for (const key of ["message", "error", "reason", "defect", "cause"]) {
-      const value = record[key]
-      if (typeof value === "string" && value.length > 0) return value
-    }
-    try {
-      return JSON.stringify(error)
-    } catch {
-      return "Unknown error"
-    }
-  }
-  return String(error)
-}
-
-function hudCell(label: string, value: string): { root: HTMLElement; value: HTMLElement } {
-  const root = el("div", "arcade-hud-cell")
-  const valueNode = el("strong", "arcade-hud-value", value)
-  root.append(el("span", "arcade-hud-label", label), valueNode)
-  return { root, value: valueNode }
-}
-
-interface ModeGroup {
-  readonly key: string
-  readonly title: string
-  readonly modes: readonly Mode[]
-}
-
-function modeGroups(entry: GameEntry): ModeGroup[] {
-  const groups = new Map<string, Mode[]>()
-  for (const mode of entry.meta.modes) {
-    const key = mode.group ?? mode.id
-    const list = groups.get(key) ?? []
-    list.push(mode)
-    groups.set(key, list)
-  }
-
-  const variants = entry.meta.variants ?? []
-  return [...groups].map(([key, modes]) => {
-    const primary =
-      modes.find((mode) => !mode.variant || mode.variant === variants[0]?.id) ?? modes[0]!
-    return { key, title: primary.title, modes }
-  })
-}
-
-function modeInGroup(
-  entry: GameEntry,
-  groupKey: string,
-  variantId: string,
-): Mode | undefined {
-  const variants = entry.meta.variants ?? []
-  const modes = entry.meta.modes.filter((mode) => (mode.group ?? mode.id) === groupKey)
-  return (
-    modes.find((mode) => (mode.variant ?? variants[0]?.id) === variantId) ?? modes[0]
-  )
-}
-
-function profileNode(
-  profile: ArcadeProfile,
-  titleFor: (gameId: string) => string,
-): HTMLElement {
-  const wrap = el("div", "arcade-profile")
-  const head = el("div", "arcade-profile-head")
-
-  const level = el("div", "arcade-profile-level")
-  level.append(
-    el("div", "arcade-overlay-kicker", `LEVEL ${profile.level} · ${profile.levelTitle}`),
-    el("div", "arcade-profile-xp", `${profile.totalXp} XP`),
-  )
-
-  const rankBadge = el("div", "arcade-profile-rank-badge")
-  if (profile.rank) {
-    const tier =
-      profile.rank <= 3 ? (["gold", "silver", "bronze"] as const)[profile.rank - 1] : undefined
-    rankBadge.classList.add(tier ? `arcade-profile-rank-${tier}` : "arcade-profile-rank-plain")
-    rankBadge.title = `Arcade rank #${profile.rank}`
-    rankBadge.append(
-      el("span", "arcade-profile-rank-icon", tier ? "★" : "◆"),
-      el("span", "arcade-profile-rank-value", `#${profile.rank}`),
-      el("span", "arcade-profile-rank-label", "ARCADE RANK"),
-    )
-  } else {
-    rankBadge.classList.add("arcade-profile-rank-plain")
-    rankBadge.title = "No arcade rank yet"
-    rankBadge.append(
-      el("span", "arcade-profile-rank-icon", "◇"),
-      el("span", "arcade-profile-rank-value", "—"),
-      el("span", "arcade-profile-rank-label", "UNRANKED"),
-    )
-  }
-
-  head.append(level, rankBadge)
-  wrap.append(head)
-
-  if (profile.nextLevelXp !== undefined) {
-    const percent = Math.min(
-      100,
-      Math.round(
-        ((profile.totalXp - profile.levelStartXp) /
-          Math.max(1, profile.nextLevelXp - profile.levelStartXp)) *
-          100,
-      ),
-    )
-    const bar = el("div", "arcade-xp-bar")
-    const fill = el("div", "arcade-xp-fill")
-    fill.style.width = `${percent}%`
-    bar.append(fill)
-    wrap.append(
-      bar,
-      el(
-        "div",
-        "arcade-overlay-detail",
-        `${Math.max(0, profile.nextLevelXp - profile.totalXp)} XP to level ${profile.level + 1}`,
-      ),
-    )
-  } else {
-    wrap.append(el("div", "arcade-overlay-detail", "Top level reached."))
-  }
-
-  if (profile.games.length > 0) {
-    const games = el("div", "arcade-profile-games")
-    for (const game of profile.games) {
-      games.append(
-        el("span", "arcade-profile-game", `${titleFor(game.gameId)} · ${game.xp} XP`),
-      )
-    }
-    wrap.append(el("div", "arcade-overlay-kicker", "CARTRIDGES"), games)
-  }
-
-  if (profile.medals.length > 0) {
-    const medals = el("div", "arcade-medals")
-    for (const medal of profile.medals) {
-      const chip = el("span", "arcade-medal", medal.title)
-      chip.title = medal.description
-      medals.append(chip)
-    }
-    wrap.append(el("div", "arcade-overlay-kicker", "MEDALS"), medals)
-  } else {
-    wrap.append(
-      el("div", "arcade-overlay-detail", "No medals yet. Finish a ranked run to earn XP."),
-    )
-  }
-
-  return wrap
-}
-
-const RANK_MEDALS = ["gold", "silver", "bronze"] as const
-
-function xpSummaryText(level?: number, rank?: number): string {
-  const parts: string[] = []
-  if (level !== undefined) parts.push(`LVL ${level}`)
-  if (rank !== undefined) parts.push(`R${rank}`)
-  return parts.join(" · ")
-}
-
-function xpSummaryNote(level?: number, rank?: number): string {
-  const text = xpSummaryText(level, rank)
-  return text ? ` · ${text}` : ""
-}
-
-/** Render a rank as a top-three medal badge, or a plain #N for the rest. */
-function applyRank(node: HTMLElement, rank?: number): void {
-  node.classList.remove(
-    "arcade-rank-medal",
-    "arcade-rank-gold",
-    "arcade-rank-silver",
-    "arcade-rank-bronze",
-  )
-  node.removeAttribute("aria-label")
-  if (rank === undefined) {
-    node.textContent = "—"
-    node.removeAttribute("title")
-    return
-  }
-  if (rank >= 1 && rank <= 3) {
-    const medal = RANK_MEDALS[rank - 1]!
-    node.classList.add("arcade-rank-medal", `arcade-rank-${medal}`)
-    node.textContent = String(rank)
-    node.setAttribute("aria-label", `Rank ${rank} · ${medal} medal`)
-    node.title = `Rank ${rank} · ${medal} medal`
-    return
-  }
-  node.textContent = `#${rank}`
-  node.title = `Rank ${rank}`
-}
-
-function renderBoardRow(
-  item: BoardEntry,
-  index: number,
-  meta: GameMeta,
-  currentId?: string,
-  extraClass = "",
-  format: (score: Score, meta: GameMeta) => string = formatScore,
-  onPractice?: (item: BoardEntry) => void,
-): HTMLElement {
-  const isYou = Boolean(currentId && item.playerId === currentId)
-  const row = el(
-    "div",
-    `arcade-board-row${extraClass ? ` ${extraClass}` : ""}${isYou ? " arcade-board-row-you" : ""}`,
-  )
-  const name = item.displayName || (isYou ? "You" : item.playerId.slice(0, 8))
-  const player = el("div", "arcade-board-player")
-  const nameNode = el("span", "arcade-board-name", name)
-  player.append(nameNode)
-  if (item.xpLevel !== undefined || item.xpRank !== undefined) {
-    const xp = el(
-      "span",
-      `arcade-board-xp${item.xpRank !== undefined && item.xpRank <= 3 ? " arcade-board-xp-top" : ""}`,
-      xpSummaryText(item.xpLevel, item.xpRank),
-    )
-    const titleParts: string[] = []
-    if (item.xpLevel !== undefined) titleParts.push(`Level ${item.xpLevel}`)
-    if (item.xpRank !== undefined) titleParts.push(`Arcade rank #${item.xpRank}`)
-    xp.title = titleParts.join(" · ")
-    player.append(xp)
-  }
-  player.title = isYou ? "You" : (item.displayName ? `${item.displayName} (${item.playerId})` : item.playerId)
-  const rank = el("span", "arcade-board-rank")
-  applyRank(rank, index + 1)
-  row.append(
-    rank,
-    player,
-    el("span", "arcade-board-score", format(item.score, meta)),
-  )
-  if (onPractice && item.ghostId) {
-    const practice = el("button", "arcade-btn arcade-btn-ghost arcade-board-practice", "Practice")
-    practice.type = "button"
-    practice.title = "Replay this run's seed as unranked practice"
-    practice.addEventListener("click", () => onPractice(item))
-    row.append(practice)
-  }
-  return row
 }
 
 export function createArcade(options: ArcadeOptions): Arcade {
@@ -480,338 +211,24 @@ export function createArcade(options: ArcadeOptions): Arcade {
       ? `Signed in as ${state.displayName ?? state.githubLogin ?? "player"}`
       : "Sign in with GitHub"
     if (main.querySelector(".arcade-boards")) {
-      void showBoards(boardsGame, boardsMode, boardsDaily)
+      void showBoards(boardsState.gameId, boardsState.modeId, boardsState.daily)
     } else if (main.querySelector(".arcade-daily")) {
       dailyRefresh?.()
     }
   }
 
   const openAuth = (): void => {
-    if (!host.authState) return
-    if (root.querySelector(".arcade-auth-backdrop")) return
-
-    const backdrop = el("div", "arcade-auth-backdrop")
-    const card = el("div", "arcade-overlay-card arcade-auth-card")
-    backdrop.append(card)
-    root.append(backdrop)
-
-    let timer: ReturnType<typeof setInterval> | undefined
-    const close = (): void => {
-      if (timer) clearInterval(timer)
-      timer = undefined
-      closeAuth = undefined
-      backdrop.remove()
-    }
-    closeAuth = close
-
-    backdrop.addEventListener("click", (event) => {
-      if (event.target === backdrop) close()
+    const close = openAuthModal({
+      root,
+      host,
+      games,
+      getAuthState: () => authState,
+      applyAuth,
+      onClosed: () => {
+        closeAuth = undefined
+      },
     })
-
-    const authAction = (label: string, primary: boolean, run: () => void): HTMLButtonElement => {
-      const node = el("button", `arcade-btn${primary ? " arcade-btn-primary" : ""}`, label)
-      node.type = "button"
-      node.addEventListener("click", run)
-      return node
-    }
-
-    const actionRow = (...buttons: HTMLButtonElement[]): HTMLElement => {
-      const row = el("div", "arcade-overlay-actions")
-      row.append(...buttons)
-      return row
-    }
-
-    const renderSignedOut = (message?: string): void => {
-      card.replaceChildren(
-        el("div", "arcade-overlay-kicker", "ACCOUNT"),
-        el("h2", "arcade-overlay-title", "Sign in to rank"),
-        el(
-          "div",
-          "arcade-overlay-detail",
-          message ??
-            "Play as a guest, or sign in with GitHub to submit verified runs to the shared boards.",
-        ),
-        actionRow(
-          authAction("Sign in with GitHub", true, () => {
-            void startFlow()
-          }),
-          authAction("Close", false, close),
-        ),
-      )
-    }
-
-    const renderFlow = (flow: DeviceFlow): void => {
-      const status = el("div", "arcade-overlay-detail", "Waiting for GitHub…")
-      const verification = safeVerificationUri(flow.verificationUri)
-      const link = el("a", "arcade-auth-link", verification)
-      link.href = verification
-      link.target = "_blank"
-      link.rel = "noreferrer"
-
-      const copy = authAction("Copy code", false, () => {
-        void globalThis.navigator?.clipboard
-          ?.writeText(flow.userCode)
-          .then(() => host.toast("Code copied"))
-          .catch(() => host.toast("Select the code above to copy it"))
-      })
-
-      const step = (
-        number: string,
-        title: string,
-        detail: string,
-        action: HTMLElement,
-      ): HTMLElement => {
-        const item = el("li", "arcade-auth-step")
-        const body = el("div", "arcade-auth-step-body")
-        body.append(
-          el("div", "arcade-auth-step-title", title),
-          el("div", "arcade-auth-step-detail", detail),
-          action,
-        )
-        item.append(el("span", "arcade-auth-step-num", number), body)
-        return item
-      }
-
-      const steps = el("ol", "arcade-auth-steps")
-      steps.append(
-        step("1", "Copy your code", "Use the button or select the code above.", copy),
-        step("2", "Open GitHub and enter it", "Authorize Await Arcade once.", link),
-      )
-
-      card.replaceChildren(
-        el("div", "arcade-overlay-kicker", "GITHUB DEVICE FLOW"),
-        el("h2", "arcade-overlay-title", "Enter this code"),
-        el("div", "arcade-auth-code", flow.userCode),
-        steps,
-        status,
-        actionRow(authAction("Cancel", false, close)),
-      )
-
-      let interval = Math.max(1, flow.interval)
-      let polling = false
-      const schedule = (): void => {
-        if (timer) clearInterval(timer)
-        timer = setInterval(() => {
-          void tick()
-        }, interval * 1000)
-      }
-      const tick = async (): Promise<void> => {
-        if (polling) return
-        polling = true
-        try {
-          const result: AuthPoll = await host.authPoll!(flow.flowId)
-          if (result.status === "complete") {
-            applyAuth(result)
-            close()
-            host.toast("Signed in")
-            return
-          }
-          if (result.interval && result.interval !== interval) {
-            interval = Math.max(1, result.interval)
-            schedule()
-          }
-        } catch (error) {
-          if (timer) clearInterval(timer)
-          timer = undefined
-          status.textContent = errorMessage(error)
-        } finally {
-          polling = false
-        }
-      }
-
-      schedule()
-      void tick()
-    }
-
-    const startFlow = async (): Promise<void> => {
-      try {
-        const flow = await host.authStart!()
-        renderFlow(flow)
-      } catch (error) {
-        renderSignedOut(errorMessage(error))
-      }
-    }
-
-    const renderSignedIn = (state: AuthState): void => {
-      const children: HTMLElement[] = [
-        el("div", "arcade-overlay-kicker", "ACCOUNT"),
-        el("h2", "arcade-overlay-title", state.displayName ?? "Signed in"),
-        el(
-          "div",
-          "arcade-overlay-detail",
-          `GitHub @${state.githubLogin ?? "player"}${state.queued ? ` · ${state.queued} queued` : ""}`,
-        ),
-      ]
-
-      const profileSlot = el("div", "arcade-profile-slot")
-      profileSlot.append(
-        el("div", "arcade-overlay-kicker", "ARCADE XP"),
-        el("div", "arcade-overlay-detail", "Loading arcade rank…"),
-      )
-      children.push(profileSlot)
-
-      if (host.updateName) {
-        const nameInput = el("input", "arcade-input")
-        nameInput.type = "text"
-        nameInput.maxLength = 24
-        nameInput.autocomplete = "off"
-        nameInput.placeholder = "Arcade name"
-        nameInput.setAttribute("aria-label", "Arcade name")
-        nameInput.value = state.displayName ?? ""
-        nameInput.spellcheck = false
-
-        const saveName = authAction("Save name", false, () => {
-          const name = nameInput.value.trim()
-          if (!name) {
-            host.toast("Enter an arcade name.")
-            return
-          }
-          if (name === state.displayName) {
-            host.toast("That is already your arcade name.")
-            return
-          }
-          saveName.disabled = true
-          void host
-            .updateName!(name)
-            .then((next) => {
-              applyAuth(next)
-              host.toast("Arcade name updated")
-              renderSignedIn(next)
-            })
-            .catch((error: unknown) => {
-              saveName.disabled = false
-              host.toast(errorMessage(error))
-            })
-        })
-
-        const nameStatus = el("div", "arcade-name-status", "")
-        let nameTimer: ReturnType<typeof setTimeout> | undefined
-        const checkName = (): void => {
-          if (!host.nameAvailable) return
-          const name = nameInput.value.trim()
-          if (nameTimer) clearTimeout(nameTimer)
-          if (!name) {
-            saveName.disabled = true
-            nameStatus.textContent = "Enter an arcade name."
-            delete nameStatus.dataset.state
-            return
-          }
-          nameTimer = setTimeout(() => {
-            void host
-              .nameAvailable!(name)
-              .then((result) => {
-                if (!nameInput.isConnected) return
-                saveName.disabled = !result.available
-                nameStatus.textContent = result.available ? "Available" : "Taken"
-                nameStatus.dataset.state = result.available ? "ok" : "bad"
-              })
-              .catch((error: unknown) => {
-                if (!nameInput.isConnected) return
-                saveName.disabled = false
-                nameStatus.textContent = errorMessage(error)
-                delete nameStatus.dataset.state
-              })
-          }, 300)
-        }
-        nameInput.addEventListener("input", checkName)
-
-        const nameRow = el("div", "arcade-name-row")
-        nameRow.append(nameInput, saveName)
-        children.push(
-          el("div", "arcade-overlay-kicker", "ARCADE NAME"),
-          nameRow,
-          el(
-            "div",
-            "arcade-overlay-detail",
-            "Shown on leaderboards instead of your GitHub name. Two changes per UTC day.",
-          ),
-          nameStatus,
-        )
-        checkName()
-      }
-
-      children.push(
-        actionRow(
-          authAction("Sign out", false, () => {
-            void host
-              .signOut!()
-              .then((next) => {
-                applyAuth(next)
-                renderSignedOut("Signed out. Guest scores stay local.")
-              })
-              .catch((error: unknown) => {
-                const message = errorMessage(error)
-                if (authState?.signedIn) {
-                  renderSignedIn(authState)
-                  host.toast(message)
-                } else {
-                  renderSignedOut(message)
-                }
-              })
-          }),
-          authAction("Delete account", false, () => {
-            const ok =
-              typeof globalThis.confirm === "function"
-                ? globalThis.confirm("Delete your player, sessions, and leaderboard entries?")
-                : false
-            if (!ok) return
-            void host
-              .deleteAccount!()
-              .then((next) => {
-                applyAuth(next)
-                renderSignedOut("Account deleted.")
-              })
-              .catch((error: unknown) => {
-                const message = errorMessage(error)
-                if (authState?.signedIn) {
-                  renderSignedIn(authState)
-                  host.toast(message)
-                } else {
-                  renderSignedOut(message)
-                }
-              })
-          }),
-          authAction("Close", true, close),
-        ),
-      )
-
-      card.replaceChildren(...children)
-
-      if (host.profile) {
-        void host
-          .profile()
-          .then((profile) => {
-            if (!profileSlot.isConnected) return
-            profileSlot.replaceChildren(
-              profileNode(
-                profile,
-                (gameId) =>
-                  games.find((candidate) => candidate.meta.id === gameId)?.meta.title ?? gameId,
-              ),
-            )
-          })
-          .catch((error: unknown) => {
-            if (!profileSlot.isConnected) return
-            profileSlot.replaceChildren(
-              el("div", "arcade-overlay-detail", errorMessage(error)),
-            )
-          })
-      }
-    }
-
-    if (authState?.signedIn) {
-      renderSignedIn(authState)
-      return
-    }
-
-    renderSignedOut()
-    void host
-      .authState()
-      .then((state) => {
-        applyAuth(state)
-        if (state.signedIn) renderSignedIn(state)
-      })
-      .catch(() => undefined)
+    if (close) closeAuth = close
   }
 
   if (host.authState) {
@@ -1080,355 +497,45 @@ export function createArcade(options: ArcadeOptions): Arcade {
     main.append(launcher)
   }
 
-  let boardsGame = games[0]!.meta.id
-  let boardsMode = games[0]!.meta.modes[0]!.id
-  let boardsEpoch = 0
-  let boardsDaily: DailyChallenge | undefined
+  const boardsState: BoardsState = {
+    gameId: games[0]!.meta.id,
+    modeId: games[0]!.meta.modes[0]!.id,
+    epoch: 0,
+  }
 
-  const showBoards = async (
+  const showBoards = (
     gameId?: string,
     modeId?: string,
     daily?: DailyChallenge,
-  ): Promise<void> => {
-    const loadBoard = host.board?.bind(host)
-    if (!loadBoard) return
-    homeButton.hidden = false
-
-    playGeneration += 1
-    clearDailyUi()
-    boardsDaily = daily
-    destroyActive()
-    main.replaceChildren()
-
-    const entry =
-      games.find((candidate) => candidate.meta.id === (daily?.gameId ?? gameId)) ??
-      games.find((candidate) => candidate.meta.id === boardsGame) ??
-      games[0]!
-    const rankedModes = entry.meta.modes.filter((candidate) => candidate.ranked !== false)
-    const availableModes = rankedModes.length > 0 ? rankedModes : entry.meta.modes
-    const mode =
-      availableModes.find((candidate) => candidate.id === (daily?.modeId ?? modeId)) ??
-      availableModes.find((candidate) => candidate.id === boardsMode) ??
-      availableModes[0]!
-    boardsGame = entry.meta.id
-    boardsMode = mode.id
-
-    const epoch = ++boardsEpoch
-    const section = el("section", "arcade-boards")
-    section.style.setProperty("--game-accent-dark", entry.meta.theme?.accent ?? "#22d3ee")
-    section.style.setProperty("--game-accent-2-dark", entry.meta.theme?.accent2 ?? "#f472b6")
-    section.dataset.mode = entry.meta.theme?.mode ?? "neon"
-
-    const back = el("button", "arcade-btn arcade-btn-ghost", "← Lobby")
-    back.type = "button"
-    back.addEventListener("click", showLauncher)
-
-    const heading = el("div", "arcade-boards-heading")
-    heading.append(
-      el(
-        "div",
-        "arcade-kicker",
-        daily ? `DAILY · ${daily.date}` : "ALL TIME · TOP 50",
-      ),
-      el("h1", "arcade-hero-title", daily ? "Daily leaderboard" : "Leaderboards"),
-      el(
-        "p",
-        "arcade-hero-sub",
-        daily
-          ? "One fixed seed, three attempts, best of three. Everyone plays the same board."
-          : "Verified runs from every player. Pick a cartridge and mode.",
-      ),
-    )
-    const head = el("header", "arcade-boards-head")
-    head.append(back, heading)
-
-    const tabs = el("div", "arcade-boards-tabs")
-    if (host.daily) {
-      const allTime = el(
-        "button",
-        `arcade-tab${daily ? "" : " arcade-tab-active"}`,
-        "All time",
-      )
-      allTime.type = "button"
-      allTime.addEventListener("click", () => {
-        void showBoards(entry.meta.id, mode.id)
-      })
-
-      const dailyTab = el(
-        "button",
-        `arcade-tab${daily ? " arcade-tab-active" : ""}`,
-        "Daily",
-      )
-      dailyTab.type = "button"
-      dailyTab.addEventListener("click", () => {
-        const atEpoch = boardsEpoch
-        const atGeneration = playGeneration
-        void host
-          .daily!()
-          .then((challenge) => {
-            if (atEpoch !== boardsEpoch || atGeneration !== playGeneration) return
-            void showBoards(challenge.gameId, challenge.modeId, challenge)
-          })
-          .catch((error: unknown) => {
-            host.toast(errorMessage(error))
-          })
-      })
-      tabs.append(allTime, dailyTab)
-    }
-
-    const controls = el("div", "arcade-boards-controls")
-    const gameSelect = el("select", "arcade-select")
-    gameSelect.setAttribute("aria-label", "Game")
-    for (const candidate of games) {
-      const option = el("option", "", candidate.meta.title)
-      option.value = candidate.meta.id
-      gameSelect.append(option)
-    }
-    gameSelect.value = entry.meta.id
-    gameSelect.disabled = Boolean(daily)
-    gameSelect.addEventListener("change", () => {
-      const next = games.find((candidate) => candidate.meta.id === gameSelect.value)
-      const nextRanked = next?.meta.modes.filter((candidate) => candidate.ranked !== false)
-      const nextModeId = (nextRanked && nextRanked.length > 0 ? nextRanked[0] : next?.meta.modes[0])?.id
-      void showBoards(gameSelect.value, nextModeId)
+  ): Promise<void> =>
+    renderBoardsView({
+      main,
+      host,
+      games,
+      state: boardsState,
+      gameId,
+      modeId,
+      daily,
+      isActive: (epoch, section) => epoch === boardsState.epoch && section.parentNode === main,
+      onPrepare: () => {
+        homeButton.hidden = false
+        playGeneration += 1
+        clearDailyUi()
+        destroyActive()
+      },
+      onShowLauncher: showLauncher,
+      onRememberMode: rememberMode,
+      onPlayGame: (entry, modeId, challenge) => {
+        void playGame(entry, modeId, challenge)
+      },
+      onStartPractice: (entry, item) => {
+        void startPractice(entry, item)
+      },
+      onOpenAuth: openAuth,
+      onNavigate: (nextGameId, nextModeId, nextDaily) => {
+        void showBoards(nextGameId, nextModeId, nextDaily)
+      },
     })
-
-    const variants = entry.meta.variants ?? []
-    let modeHint: HTMLElement | undefined
-
-    if (variants.length > 0) {
-      const groups = new Map<string, Mode[]>()
-      for (const candidate of availableModes) {
-        const key = candidate.group ?? candidate.id
-        const list = groups.get(key) ?? []
-        list.push(candidate)
-        groups.set(key, list)
-      }
-      const currentGroup = mode.group ?? mode.id
-      const currentVariant = mode.variant ?? variants[0]!.id
-
-      const groupSelect = el("select", "arcade-select")
-      groupSelect.setAttribute("aria-label", "Difficulty")
-      for (const [key, list] of groups) {
-        const primary =
-          list.find((candidate) => candidate.variant === variants[0]?.id) ?? list[0]!
-        const option = el("option", "", primary.title)
-        option.value = key
-        groupSelect.append(option)
-      }
-      groupSelect.value = currentGroup
-      groupSelect.disabled = Boolean(daily)
-
-      const variantSelect = el("select", "arcade-select")
-      variantSelect.setAttribute("aria-label", "Board type")
-      for (const variant of variants) {
-        const option = el("option", "", variant.title)
-        option.value = variant.id
-        variantSelect.append(option)
-      }
-      variantSelect.value = currentVariant
-      variantSelect.disabled = Boolean(daily)
-
-      const choose = (groupKey: string, variantId: string): void => {
-        const list = groups.get(groupKey) ?? []
-        const next =
-          list.find((candidate) => (candidate.variant ?? variants[0]!.id) === variantId) ??
-          list[0]
-        if (next) void showBoards(entry.meta.id, next.id, daily)
-      }
-      groupSelect.addEventListener("change", () => {
-        choose(groupSelect.value, variantSelect.value)
-      })
-      variantSelect.addEventListener("change", () => {
-        choose(groupSelect.value, variantSelect.value)
-      })
-
-      modeHint = el(
-        "div",
-        "arcade-mode-hint",
-        variants.find((variant) => variant.id === currentVariant)?.description ?? "",
-      )
-      controls.append(gameSelect, groupSelect, variantSelect)
-    } else {
-      const modeSelect = el("select", "arcade-select")
-      modeSelect.setAttribute("aria-label", "Mode")
-      for (const candidate of availableModes) {
-        const option = el("option", "", candidate.title)
-        option.value = candidate.id
-        modeSelect.append(option)
-      }
-      modeSelect.value = mode.id
-      modeSelect.disabled = Boolean(daily)
-      modeSelect.addEventListener("change", () => {
-        void showBoards(entry.meta.id, modeSelect.value)
-      })
-      controls.append(gameSelect, modeSelect)
-    }
-
-    const play = el(
-      "button",
-      "arcade-btn arcade-btn-primary",
-      daily ? "Play daily" : "Play",
-    )
-    play.type = "button"
-    play.addEventListener("click", () => {
-      if (daily) void playGame(entry, mode.id, daily)
-      else {
-        rememberMode(entry, mode.id)
-        playGame(entry, mode.id)
-      }
-    })
-
-    const refresh = el("button", "arcade-btn", "Refresh")
-    refresh.type = "button"
-    refresh.addEventListener("click", () => {
-      void showBoards(entry.meta.id, mode.id, daily)
-    })
-
-    controls.append(play, refresh)
-
-    const scoringHint =
-      daily && entry.meta.id === "mineflag"
-        ? el(
-            "div",
-            "arcade-mode-hint",
-            "Daily rank: moves, then server time. Attempts are shown only.",
-          )
-        : undefined
-
-    const you = el("div", "arcade-boards-you")
-    const youLabel = el("div", "arcade-boards-you-label", "YOUR RANK")
-    const youRank = el("div", "arcade-boards-you-rank", "—")
-    const youScore = el("div", "arcade-boards-you-score", "")
-    you.append(youLabel, youRank, youScore)
-
-    const list = el("div", "arcade-board-list arcade-boards-list")
-    list.append(el("div", "arcade-empty", "Loading…"))
-
-    section.append(
-      head,
-      tabs,
-      controls,
-      ...(modeHint ? [modeHint] : []),
-      ...(scoringHint ? [scoringHint] : []),
-      you,
-      list,
-    )
-    main.append(section)
-
-    try {
-      const loadEntries =
-        daily && host.dailyBoard
-          ? host.dailyBoard(daily.challengeId)
-          : loadBoard(entry.meta.id, mode.id)
-      const [entries, mineResult, auth, freshDaily] = await Promise.all([
-        loadEntries,
-        !daily && host.playerBest
-          ? host.playerBest(entry.meta.id, mode.id).then(
-              (value) => ({ ok: true as const, value }),
-              () => ({ ok: false as const }),
-            )
-          : Promise.resolve({ ok: true as const, value: undefined }),
-        host.authState ? host.authState().catch(() => undefined) : Promise.resolve(undefined),
-        daily && host.daily ? host.daily().catch(() => undefined) : Promise.resolve(undefined),
-      ])
-      if (epoch !== boardsEpoch || section.parentNode !== main) return
-      if (!Array.isArray(entries)) throw new Error("The host returned an invalid leaderboard.")
-
-      const mine = mineResult.ok ? mineResult.value : undefined
-      const playerId = mine?.playerId ?? auth?.playerId
-      const dailyIndex =
-        daily && playerId
-          ? entries.findIndex((item) => item.playerId === playerId)
-          : -1
-
-      if (daily) {
-        youLabel.textContent = auth?.signedIn
-          ? `YOUR DAILY · ${auth.displayName ?? `@${auth.githubLogin ?? "player"}`}`
-          : "YOUR DAILY"
-        if (dailyIndex >= 0) {
-          const entryAt = entries[dailyIndex]!
-          applyRank(youRank, dailyIndex + 1)
-          youScore.textContent = `${formatDailyScore(entryAt.score, entry.meta)}${xpSummaryNote(entryAt.xpLevel, entryAt.xpRank)}`
-        } else if (auth && !auth.signedIn) {
-          applyRank(youRank)
-          youScore.textContent = "Sign in with GitHub to play the daily."
-        } else {
-          applyRank(youRank)
-          youScore.textContent = `No daily run yet. ${freshDaily?.attemptsLeft ?? daily.attemptsLeft} of 3 attempts left.`
-        }
-      } else if (auth?.signedIn) {
-        youLabel.textContent = `YOUR RANK · ${auth.displayName ?? `@${auth.githubLogin ?? "player"}`}`
-      }
-
-      if (!daily) {
-        if (!mineResult.ok) {
-          applyRank(youRank)
-          youScore.textContent = "Rank unavailable. Refresh to retry."
-        } else if (mine?.rank !== undefined) {
-          applyRank(youRank, mine.rank)
-          youScore.textContent = mine.score
-            ? `${scoreLabel(entry.meta)}: ${formatScore(mine.score, entry.meta)}${xpSummaryNote(mine.xpLevel, mine.xpRank)}`
-            : ""
-        } else if (auth && !auth.signedIn) {
-          applyRank(youRank)
-          youScore.textContent = "Sign in with GitHub to rank on this board."
-        } else {
-          applyRank(youRank)
-          youScore.textContent = "No ranked run yet. Play to set one."
-        }
-      }
-
-      if (auth && !auth.signedIn) {
-        const signIn = el("button", "arcade-btn arcade-btn-ghost arcade-boards-signin", "Sign in")
-        signIn.type = "button"
-        signIn.addEventListener("click", openAuth)
-        you.append(signIn)
-      }
-
-      list.replaceChildren()
-      if (entries.length === 0) {
-        const empty = el(
-          "div",
-          "arcade-empty",
-          daily ? "No daily runs yet. Be the first." : "No ranked runs yet. Be the first.",
-        )
-        const first = el("button", "arcade-btn arcade-btn-primary", "Play now")
-        first.type = "button"
-        first.addEventListener("click", () => {
-          if (daily) void playGame(entry, mode.id, daily)
-          else playGame(entry, mode.id)
-        })
-        empty.append(first)
-        list.append(empty)
-        return
-      }
-
-      entries.forEach((item, index) => {
-        list.append(
-          renderBoardRow(
-            item,
-            index,
-            entry.meta,
-            playerId,
-            "arcade-boards-row",
-            daily ? formatDailyScore : formatScore,
-            host.ghost ? (ghostItem) => void startPractice(entry, ghostItem) : undefined,
-          ),
-        )
-      })
-    } catch (error) {
-      if (epoch !== boardsEpoch || section.parentNode !== main) return
-      const empty = el("div", "arcade-empty", errorMessage(error))
-      const retry = el("button", "arcade-btn", "Retry")
-      retry.type = "button"
-      retry.addEventListener("click", () => {
-        void showBoards(entry.meta.id, mode.id, daily)
-      })
-      empty.append(retry)
-      list.replaceChildren(empty)
-    }
-  }
 
   const startPractice = async (
     entry: GameEntry,
@@ -2011,6 +1118,14 @@ export function createArcade(options: ArcadeOptions): Arcade {
           showGameOver(result, { ok: false, reason: "" }, previousBest, true)
           return
         }
+        if (!result.score.ranked) {
+          showGameOver(
+            result,
+            { ok: false, reason: "This run is not eligible for the leaderboard." },
+            previousBest,
+          )
+          return
+        }
         void host
           .submit(result)
           .then((submit) => showGameOver(result, submit, previousBest))
@@ -2160,6 +1275,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
   return {
     destroy() {
       playGeneration += 1
+      boardsState.epoch += 1
       closeAuth?.()
       clearDailyUi()
       destroyActive()
