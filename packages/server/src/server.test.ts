@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { playRealtime, playTurn } from "@await-arcade/framework"
 import { createArcadeServer, type ArcadeServer } from "./index"
 import { MemoryStore } from "./store"
@@ -701,5 +701,59 @@ describe("daily challenge", () => {
 
     const invalid = await fetch(`${base}/v1/runs/not-a-run-id/ghost`)
     expect(invalid.status).toBe(400)
+  })
+
+  it("answers OPTIONS preflight with allowed auth/player headers and omits CORS on POST errors", async () => {
+    const preflight = await fetch(`${base}/v1/me`, { method: "OPTIONS" })
+    expect(preflight.status).toBe(204)
+    expect(preflight.headers.get("access-control-allow-origin")).toBe("*")
+    expect(preflight.headers.get("access-control-allow-methods")).toBe("GET, OPTIONS")
+    const allowHeaders = preflight.headers.get("access-control-allow-headers") ?? ""
+    expect(allowHeaders).toContain("content-type")
+    expect(allowHeaders).toContain("x-arcade-player")
+    expect(allowHeaders).toContain("authorization")
+
+    const unauthPatch = await fetch(`${base}/v1/me`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ displayName: "tester" }),
+    })
+    expect(unauthPatch.status).toBe(401)
+    expect(unauthPatch.headers.get("access-control-allow-origin")).toBeNull()
+    expect(unauthPatch.headers.get("access-control-allow-headers")).toBeNull()
+    expect(unauthPatch.headers.get("access-control-allow-methods")).toBeNull()
+  })
+
+  it("returns 400 invalid JSON body for malformed JSON without wildcard CORS", async () => {
+    const res = await fetch(`${base}/v1/runs`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{not valid json",
+    })
+    expect(res.status).toBe(400)
+    expect(res.headers.get("access-control-allow-origin")).toBeNull()
+    const body = (await res.json()) as { error: string }
+    expect(body).toEqual({ error: "invalid JSON body" })
+  })
+
+  it("sanitizes unhandled 500 errors instead of leaking internal error messages", async () => {
+    const failingStore = new MemoryStore()
+    failingStore.top = async () => {
+      throw new Error("secret firestore connection string leaked")
+    }
+    const failingServer = createArcadeServer({ store: failingStore })
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => undefined)
+    try {
+      const port = await failingServer.listen(0)
+      const res = await fetch(`http://127.0.0.1:${port}/v1/boards/light-cycles/solo`)
+      expect(res.status).toBe(500)
+      expect(res.headers.get("access-control-allow-origin")).toBeNull()
+      const body = (await res.json()) as { error: string }
+      expect(body).toEqual({ error: "internal server error" })
+      expect(consoleSpy).toHaveBeenCalled()
+    } finally {
+      consoleSpy.mockRestore()
+      await failingServer.close()
+    }
   })
 })

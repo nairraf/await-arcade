@@ -555,6 +555,10 @@ export class FirestoreStore implements ArcadeStore {
     for (const record of xp.docs) writer.delete(record.ref)
 
     const allBoardIds = new Set<string>(boardIds)
+    const boards = await this.db.collection("boards").listDocuments()
+    for (const board of boards) {
+      allBoardIds.add(board.id)
+    }
     for (const attempt of attempts.docs) {
       const challengeId = attempt.get("challengeId")
       if (typeof challengeId === "string" && challengeId) {
@@ -566,5 +570,7 @@ export class FirestoreStore implements ArcadeStore {
     }
 
     await writer.close()
+    this.xpCacheGeneration += 1
+    this.xpSummaryCache = undefined
   }
 }

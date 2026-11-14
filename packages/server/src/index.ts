@@ -78,20 +78,23 @@ function json(
     "content-type": "application/json; charset=utf-8",
     "content-length": String(Buffer.byteLength(payload)),
     "cache-control": cacheControl,
-    "access-control-allow-headers": "content-type, x-arcade-player, authorization",
-    "access-control-allow-methods": "GET, POST, DELETE, OPTIONS",
   }
-  if (cors) headers["access-control-allow-origin"] = "*"
+  if (cors) {
+    headers["access-control-allow-origin"] = "*"
+    headers["access-control-allow-headers"] = "content-type, x-arcade-player, authorization"
+    headers["access-control-allow-methods"] = "GET, OPTIONS"
+  }
   res.writeHead(status, headers)
   res.end(payload)
 }
 
 function noContent(res: ServerResponse, cors = false): void {
-  const headers: Record<string, string> = {
-    "access-control-allow-headers": "content-type, x-arcade-player, authorization",
-    "access-control-allow-methods": "GET, POST, DELETE, OPTIONS",
+  const headers: Record<string, string> = {}
+  if (cors) {
+    headers["access-control-allow-origin"] = "*"
+    headers["access-control-allow-headers"] = "content-type, x-arcade-player, authorization"
+    headers["access-control-allow-methods"] = "GET, OPTIONS"
   }
-  if (cors) headers["access-control-allow-origin"] = "*"
   res.writeHead(204, headers)
   res.end()
 }
@@ -281,7 +284,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
     if (req.method === "OPTIONS") {
       res.writeHead(204, {
         "access-control-allow-origin": "*",
-        "access-control-allow-headers": "content-type",
+        "access-control-allow-headers": "content-type, x-arcade-player, authorization",
         "access-control-allow-methods": "GET, OPTIONS",
       })
       res.end()
@@ -1018,11 +1021,16 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
         json(res, error.status, { error: error.message }, false)
         return
       }
+      if (error instanceof SyntaxError) {
+        json(res, 400, { error: "invalid JSON body" }, false)
+        return
+      }
       if (error instanceof Error && error.message === "request body is too large") {
         json(res, 413, { error: error.message }, false)
         return
       }
-      json(res, 500, { error: error instanceof Error ? error.message : String(error) }, false)
+      console.error("[await-arcade] unhandled error", error)
+      json(res, 500, { error: "internal server error" }, false)
     }
   })
 
