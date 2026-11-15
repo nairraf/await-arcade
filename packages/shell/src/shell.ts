@@ -37,6 +37,8 @@ export interface ArcadeOptions {
   readonly title?: string
   /** Set false when the host injects the styles itself (e.g. OpenCode's Style). */
   readonly injectStyles?: boolean
+  /** Show "Download replay" on Game Over (enabled in standalone browser mode). */
+  readonly downloadReplay?: boolean
 }
 
 export interface Arcade {
@@ -54,6 +56,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
   const root = options.root
   const title = options.title ?? "Await Arcade"
+  const allowReplayDownload = options.downloadReplay === true
   const games = [...options.games]
 
   if (games.length === 0) throw new Error("Await Arcade: at least one game is required")
@@ -1028,22 +1031,25 @@ export function createArcade(options: ArcadeOptions): Arcade {
         cartridgeBest.textContent = `${bestLabel}: ${bestText}`
       }
 
-      const download = button("Download replay", false, () => {
-        const blob = new Blob([JSON.stringify(result.replay, null, 2)], { type: "application/json" })
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement("a")
-        link.href = url
-        link.download = `${entry.meta.id}-${result.modeId}-${Date.now()}.json`
-        link.click()
-        URL.revokeObjectURL(url)
-      })
-
       const again = button("Play again", true, restartRun)
       if (daily && (session.attemptsLeft ?? 0) <= 0) {
         again.disabled = true
         again.textContent = "Daily attempts used"
       }
-      const actions = [again, button("Lobby", false, showLauncher), download]
+      const actions = [again, button("Lobby", false, showLauncher)]
+      if (allowReplayDownload) {
+        actions.push(
+          button("Download replay", false, () => {
+            const blob = new Blob([JSON.stringify(result.replay, null, 2)], { type: "application/json" })
+            const url = URL.createObjectURL(blob)
+            const link = document.createElement("a")
+            link.href = url
+            link.download = `${entry.meta.id}-${result.modeId}-${Date.now()}.json`
+            link.click()
+            URL.revokeObjectURL(url)
+          }),
+        )
+      }
       if (practice) {
         actions.push(
           button("Leaderboard", false, () => {

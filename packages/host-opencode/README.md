@@ -53,7 +53,7 @@ Rebuild after changing anything under `packages/shell`, `packages/framework`, or
 
 - Pinned **Await Arcade** tab in every session’s side region.
 - `Await Arcade` command in the palette and a titlebar pill.
-- Launcher, four cartridges, local bests, pause, restart, replay download.
+- Launcher, four cartridges, local bests, pause, restart.
 - GitHub Device Flow sign-in, per-host session, account panel, and deletion.
 - Shared boards, daily challenge, XP/medals/rank, and ghost practice.
 

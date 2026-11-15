@@ -9,4 +9,5 @@ createArcade({
   root,
   games,
   host: new LocalHost("await-arcade"),
+  downloadReplay: true,
 })
