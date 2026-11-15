@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark" />
     <meta name="robots" content="noindex" />
-    <title>Await Arcade — a tiny arcade for the wait</title>
+    <title>Await Arcade — something good to play while your agent thinks</title>
     <meta
       name="description"
-      content="Await Arcade is a tiny, replay-verified arcade for OpenCode Desktop and Antigravity. Four cartridges, shared boards, daily challenges, XP, medals, and ghost practice."
+      content="Something good to play while your coding agent is thinking. Four quick arcade games built directly into OpenCode Desktop and Antigravity, with offline guest play and replay-verified shared boards."
     />
     <link rel="canonical" href="https://awaitarcade.com/" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
@@ -16,7 +16,7 @@
     <meta property="og:title" content="Await Arcade" />
     <meta
       property="og:description"
-      content="A tiny arcade for the wait. Four deterministic cartridges inside OpenCode Desktop and Antigravity."
+      content="Something good to play while your coding agent is thinking. Four quick arcade games inside OpenCode Desktop and Antigravity."
     />
     <meta property="og:url" content="https://awaitarcade.com/" />
     <meta property="og:image" content="https://awaitarcade.com/assets/og.png" />
@@ -44,19 +44,21 @@
 
     <main id="main">
       <section class="wrap hero">
-        <p class="kicker">Insert coin · Beta-2 in progress</p>
+        <p class="kicker">Insert coin · Public Beta 2 · Open source</p>
         <h1>Await Arcade</h1>
         <p class="lede">
-          A tiny arcade for the wait. Four deterministic cartridges inside OpenCode Desktop
-          and Antigravity. Play while the agent works, then submit a replay-verified score to
-          the shared boards.
+          Something good to play while your coding agent is thinking. Four quick arcade games
+          built directly into OpenCode Desktop and Antigravity — so waiting on a big diff,
+          test suite, or refactor doesn’t turn into opening a browser tab and losing your train
+          of thought. Play offline as a guest, or sign in with GitHub to compare scores on
+          shared boards.
         </p>
         <div class="actions">
           <a class="btn btn-primary" href="install.html">Install</a>
           <a class="btn" href="https://github.com/nairraf/await-arcade">View source</a>
         </div>
         <p class="tiny">
-          Replay-verified scores · Shared boards · Daily challenge · XP, medals, ghost practice
+          Play offline or signed in · Replay-verified boards · Daily challenge · XP, medals, ghost practice
         </p>
       </section>
 
@@ -66,7 +68,7 @@
             <p class="kicker">The shelf</p>
             <h2 id="cartridges">Four cartridges</h2>
           </div>
-          <p class="section-sub">One core, two hosts, no runtime plugins.</p>
+          <p class="section-sub">Turn-based when you only have ten seconds. Action runs for longer builds.</p>
         </div>
         <div class="grid grid-4">
           <article class="card" data-accent="brick">
@@ -74,7 +76,10 @@
 --##--
  [##]</pre>
             <h3>Brickstorm</h3>
-            <p>Endless walls, rising speed, and more gold per level. Keep one run alive.</p>
+            <p>
+              Smash through multi-tier walls as the ball speeds up and gold armor bricks stack
+              higher. One life, endless levels — see how long you can keep a run alive.
+            </p>
             <div class="tags"><span class="tag">Action</span><span class="tag">Endless</span></div>
           </article>
           <article class="card" data-accent="neon">
@@ -82,7 +87,10 @@
  _`\&lt;,_
 (*)/ (*)</pre>
             <h3>Neon Cycles</h3>
-            <p>Cut off the AI, level up, and face a sharper rider each round on an endless grid.</p>
+            <p>
+              Classic light-cycle duels on a tight grid. Box in an AI rider that anticipates your
+              turns, face a faster one next round, or play local 2-player.
+            </p>
             <div class="tags"><span class="tag">Action</span><span class="tag">Solo vs AI</span></div>
           </article>
           <article class="card" data-accent="merge">
@@ -91,7 +99,10 @@
 +--+--+
 |8 |16|</pre>
             <h3>Mergegrid</h3>
-            <p>Slide the grid, merge matching tiles, and reach 2048 before the board fills.</p>
+            <p>
+              Quick, keyboard-friendly 2048 for short waits. Stops cleanly whenever your agent asks
+              a question, and picks right back up when it runs again.
+            </p>
             <div class="tags"><span class="tag">Turn-based</span><span class="tag">Classic</span></div>
           </article>
           <article class="card" data-accent="mine">
@@ -99,7 +110,10 @@
 --*--
 / | \</pre>
             <h3>Mineflag</h3>
-            <p>Clear the field without detonating the mines. Random or no-guess logic boards.</p>
+            <p>
+              Fast Minesweeper with a safe first click and keyboard chording. Pick classic random
+              boards, or switch to Logic mode for puzzles solved purely by deduction.
+            </p>
             <div class="tags"><span class="tag">Turn-based</span><span class="tag">Logic</span></div>
           </article>
         </div>
@@ -115,7 +129,10 @@
         <div class="grid grid-4">
           <div class="feature">
             <h3>Replay-verified</h3>
-            <p>The server replays the seed and input log. Client scores are never trusted.</p>
+            <p>
+              Every ranked game sends your seed and keystrokes, not a raw number. The server
+              replays your exact run so high scores actually mean something.
+            </p>
           </div>
           <div class="feature">
             <h3>Shared boards</h3>
@@ -127,7 +144,10 @@
           </div>
           <div class="feature">
             <h3>XP, medals, ghosts</h3>
-            <p>Best per game per UTC day, level and medal progression, and unranked ghost practice.</p>
+            <p>
+              Earn XP from your best run each day, collect medals as you level up, or click
+              Practice beside any top score to replay that exact board unranked.
+            </p>
           </div>
         </div>
       </section>
@@ -138,16 +158,54 @@
             <p class="kicker">Two hosts, one arcade</p>
             <h2 id="hosts">Play where the agent works</h2>
           </div>
-          <p class="section-sub">Thin host adapters, one shared shell and game core.</p>
+          <p class="section-sub">
+            Keyboard input stays scoped to the game pane so it never hijacks your chat box — and
+            your player profile follows you between editors.
+          </p>
         </div>
         <div class="hosts">
           <div class="host">
             <h3>OpenCode Desktop</h3>
-            <p>A GUI plugin with a native tab, per-host sessions, and the same shared boards.</p>
+            <p>
+              Lives in a native OpenCode tab with a header pill to jump in and out while a session
+              runs. Uses OpenCode’s experimental plugin GUI API.
+            </p>
           </div>
           <div class="host">
             <h3>Antigravity</h3>
-            <p>A sidecar with an auxiliary pane and a single-file page. Same player, same boards.</p>
+            <p>
+              Runs in an auxiliary sidecar pane right beside your editor. Same GitHub login, same
+              XP, same boards. Currently macOS-first.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="wrap section" aria-labelledby="story">
+        <div class="section-head">
+          <div>
+            <p class="kicker">Why we built it</p>
+            <h2 id="story">Built in Montreal · No catch</h2>
+          </div>
+        </div>
+        <div class="hosts">
+          <div class="host">
+            <h3>For the 90-second wait</h3>
+            <p>
+              We got tired of Alt-Tabbing to social feeds every time an AI coding run took a
+              minute or two, only to realize ten minutes had disappeared. Await Arcade keeps the
+              pause inside your workspace — light enough to close in half a second when your agent
+              finishes.
+            </p>
+          </div>
+          <div class="host">
+            <h3>What we leave out</h3>
+            <p>
+              No ads, no analytics scripts, no tracking cookies, and no account required just to
+              play. Guest scores stay on your machine; GitHub Device Flow is only there if you
+              want your name on the boards. Made by <a href="https://farrworks.com">Farrworks</a>
+              in Montreal under the MIT license.
+            </p>
           </div>
         </div>
       </section>
@@ -160,8 +218,8 @@
           </div>
         </div>
         <p class="section-sub section-sub-narrow">
-          Beta-2 packaging is in progress. Until the one-command installer lands, build both
-          hosts from source with the steps in the install guide.
+          Download the Beta 2 release archive, verify the checksum, and run one Node install
+          script — or clone the repo and build both hosts from source.
         </p>
         <div class="actions actions-spaced">
           <a class="btn btn-primary" href="install.html">Read the install guide</a>
@@ -175,11 +233,11 @@
         <div>
           <h2>Await Arcade</h2>
           <p class="foot-note">
-            A tiny, replay-verified arcade for OpenCode Desktop and Antigravity. Built in the
-            open under the MIT license.
+            A tiny, replay-verified arcade for OpenCode Desktop and Antigravity. Built in
+            Montreal under the MIT license.
           </p>
           <p class="foot-status">
-            <span class="status-pill">Beta-2 in progress</span>
+            <span class="status-pill">Public Beta 2</span>
           </p>
         </div>
         <div>

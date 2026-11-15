@@ -30,13 +30,18 @@
     </header>
 
     <main id="main" class="wrap policy">
-      <p class="kicker">Beta-2 · install</p>
+      <p class="kicker">Beta 2 · install</p>
       <h1>Install Await Arcade</h1>
-      <p class="updated">Last updated: 12 November 2026</p>
+      <p class="updated">Last updated: 14 November 2026</p>
+
+      <p>
+        Takes about a minute. Guest play works immediately without signing in, and the same
+        installer includes a one-command clean uninstall if you decide it’s not for you.
+      </p>
 
       <p class="draft">
-        The beta-2 release installer is the normal path. Antigravity’s sidecar SDK is
-        currently macOS-first; the policies remain drafts for review.
+        Public Beta 2 uses the release installer below. Antigravity’s sidecar SDK is
+        currently macOS-first; the site policies remain drafts for review.
       </p>
 
       <h2>What you need</h2>
@@ -57,15 +62,15 @@
 tar -xzf await-arcade-beta-2.tar.gz
 node await-arcade-beta-2/install.mjs --verify</code></pre>
       <p>
-        The installer installs both hosts, merges the Antigravity config, preserves existing
-        auth/state, and writes <code>https://api.awaitarcade.com</code> as the API URL. Use
-        <code>--opencode-only</code> or <code>--antigravity-only</code> for one host,
-        <code>--home &lt;dir&gt;</code> for a throwaway install, or <code>--dry-run</code> to
-        preview.
+        It copies self-contained bundles into OpenCode Desktop and/or Antigravity, preserves any
+        existing logins and config, won’t touch your projects, and sets
+        <code>https://api.awaitarcade.com</code> as the API URL. Use <code>--opencode-only</code>
+        or <code>--antigravity-only</code> for one host, <code>--home &lt;dir&gt;</code> for a
+        throwaway install, or <code>--dry-run</code> to preview first.
       </p>
 
       <h2>From source</h2>
-      <p>For contributors who want to build the hosts from the checkout:</p>
+      <p>If you plan to tweak a cartridge or build the hosts directly from a git checkout:</p>
       <pre class="code"><code>git clone https://github.com/nairraf/await-arcade.git
 cd await-arcade
 npm install
@@ -74,8 +79,8 @@ npm run build:hosts
 AWAIT_ARCADE_API_URL=https://api.awaitarcade.com \
   ./scripts/install-hosts.sh</code></pre>
       <p class="tiny">
-        The source installer symlinks the packages into place. The release installer copies
-        self-contained files instead.
+        The source installer symlinks your working tree into place so rebuilds show up right away;
+        the release installer copies self-contained files instead.
       </p>
 
       <h2>Open the arcade</h2>
@@ -86,13 +91,15 @@ AWAIT_ARCADE_API_URL=https://api.awaitarcade.com \
 
       <h2>Sign in</h2>
       <p>
-        Open the account panel and choose <strong>Sign in</strong>. GitHub Device Flow shows a
-        short code; enter it at <code>github.com/login/device</code>. Each host keeps its own
-        session, and both resolve to the same player.
+        Open the account panel and choose <strong>Sign in</strong>. It uses GitHub Device Flow
+        with minimal identity scope — just enough to verify your handle. Enter the short code at
+        <code>github.com/login/device</code>, and pick any arcade display name in the panel if
+        you’d rather not show your GitHub username on boards. Each host keeps its own session,
+        and both resolve to the same player.
       </p>
       <p>
-        Guest play stays local. Sign in to submit replay-verified runs, appear on the shared
-        boards, play the daily challenge, and earn arcade XP.
+        Guest play stays completely local on your machine. Sign in when you want replay-verified
+        runs on the shared boards, the daily challenge, and global XP.
       </p>
 
       <h2>Troubleshooting</h2>
