@@ -1,15 +1,34 @@
 import { createHash } from "node:crypto"
-import { readFileSync, readdirSync, statSync } from "node:fs"
+import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { dirname, join, relative } from "node:path"
 import { fileURLToPath } from "node:url"
 import { gzipSync } from "node:zlib"
+
+function readFirebasercDefault(path) {
+  if (!existsSync(path)) return undefined
+  let parsed
+  try {
+    parsed = JSON.parse(readFileSync(path, "utf8"))
+  } catch (error) {
+    throw new Error(`failed to parse ${path}: ${error instanceof Error ? error.message : String(error)}`)
+  }
+  const project = parsed?.projects?.default
+  return typeof project === "string" && project.trim() ? project.trim() : undefined
+}
 
 const here = dirname(fileURLToPath(import.meta.url))
 const root = join(here, "..")
 const siteDir = join(root, "site")
 const firebase = JSON.parse(readFileSync(join(root, "firebase.json"), "utf8"))
 const hosting = firebase.hosting
-const site = process.env.FIREBASE_SITE ?? "await-arcade"
+const site = process.env.FIREBASE_SITE?.trim() || "await-arcade"
+// Setting FIREBASE_QUOTA_PROJECT="" explicitly omits x-goog-user-project.
+const quotaProject =
+  process.env.FIREBASE_QUOTA_PROJECT !== undefined
+    ? process.env.FIREBASE_QUOTA_PROJECT.trim()
+    : (process.env.GOOGLE_CLOUD_PROJECT?.trim() ||
+        readFirebasercDefault(join(root, ".firebaserc")) ||
+        site)
 const token = process.env.FIREBASE_ACCESS_TOKEN
 const dryRun = process.env.HOSTING_DRY_RUN === "1"
 
@@ -56,6 +75,7 @@ async function call(path, init = {}) {
     headers: {
       authorization: `Bearer ${token}`,
       "content-type": "application/json",
+      ...(quotaProject ? { "x-goog-user-project": quotaProject } : {}),
       ...init.headers,
     },
   })
@@ -122,7 +142,13 @@ const config = {
 }
 
 if (dryRun) {
-  console.log(JSON.stringify({ site, files: upload.map(({ path, bytes }) => ({ path, bytes })), config }, null, 2))
+  console.log(
+    JSON.stringify(
+      { site, quotaProject: quotaProject || null, files: upload.map(({ path, bytes }) => ({ path, bytes })), config },
+      null,
+      2,
+    ),
+  )
   process.exit(0)
 }
 
@@ -158,6 +184,7 @@ for (const hash of populated.uploadRequiredHashes ?? []) {
         headers: {
           authorization: `Bearer ${token}`,
           "content-type": "application/octet-stream",
+          ...(quotaProject ? { "x-goog-user-project": quotaProject } : {}),
         },
         body: file.gz,
       })
