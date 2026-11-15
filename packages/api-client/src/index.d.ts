@@ -113,7 +113,7 @@ export interface HostSession {
   deleteAccount(): Promise<Record<string, unknown>>
 }
 
-export declare function stateDir(): string
+export declare function stateDir(appName?: string): string
 export declare function apiUrl(dir?: string): string
 export declare function createHostSession(options: HostSessionOptions): HostSession
 export declare function createArcadeClient(options: ArcadeClientOptions): ArcadeClient

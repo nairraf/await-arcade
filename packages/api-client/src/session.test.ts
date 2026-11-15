@@ -1,9 +1,9 @@
-import { mkdtempSync, rmSync } from "node:fs"
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { basename, join } from "node:path"
 import { afterAll, describe, expect, it } from "vitest"
 import type { Replay } from "@await-arcade/contract"
-import { createHostSession } from "./index.js"
+import { apiUrl, createHostSession, stateDir } from "./index.js"
 
 const dirs: string[] = []
 
@@ -59,5 +59,38 @@ describe("host session queue", () => {
     await session.flush()
     expect(queue).toHaveLength(0)
     expect(submitCalls).toBe(2)
+  })
+
+  it("isolates stateDir by appName and resolves apiUrl from custom stateDir", async () => {
+    const dir = tempDir()
+    writeFileSync(join(dir, "config.json"), JSON.stringify({ apiUrl: "https://dev.arcade.test" }))
+
+    const prevState = process.env.AWAIT_ARCADE_STATE_DIR
+    const prevApi = process.env.AWAIT_ARCADE_API_URL
+    delete process.env.AWAIT_ARCADE_STATE_DIR
+    delete process.env.AWAIT_ARCADE_API_URL
+    try {
+      expect(basename(stateDir("await-arcade-dev"))).toBe("await-arcade-dev")
+      expect(apiUrl(dir)).toBe("https://dev.arcade.test")
+
+      const calls: string[] = []
+      const session = createHostSession({
+        host: "test",
+        playerId: "p1",
+        stateDir: dir,
+        fetchImpl: async (url) => {
+          calls.push(String(url))
+          return new Response(JSON.stringify({ mode: "online", playerId: "p1" }), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          })
+        },
+      })
+      await session.profile()
+      expect(calls[0]).toBe("https://dev.arcade.test/v1/me/profile")
+    } finally {
+      if (prevState !== undefined) process.env.AWAIT_ARCADE_STATE_DIR = prevState
+      if (prevApi !== undefined) process.env.AWAIT_ARCADE_API_URL = prevApi
+    }
   })
 })

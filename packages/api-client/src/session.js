@@ -3,15 +3,15 @@ import { homedir } from "node:os"
 import { join } from "node:path"
 import { createArcadeClient } from "./index.js"
 
-export function stateDir() {
+export function stateDir(appName = "await-arcade") {
   if (process.env.AWAIT_ARCADE_STATE_DIR) return process.env.AWAIT_ARCADE_STATE_DIR
   if (process.platform === "darwin") {
-    return join(homedir(), "Library", "Application Support", "await-arcade")
+    return join(homedir(), "Library", "Application Support", appName)
   }
   if (process.platform === "win32") {
-    return join(process.env.LOCALAPPDATA ?? homedir(), "await-arcade")
+    return join(process.env.LOCALAPPDATA ?? homedir(), appName)
   }
-  return join(process.env.XDG_STATE_HOME ?? join(homedir(), ".local", "state"), "await-arcade")
+  return join(process.env.XDG_STATE_HOME ?? join(homedir(), ".local", "state"), appName)
 }
 
 export function apiUrl(dir = stateDir()) {
@@ -46,8 +46,8 @@ async function retryAuth(run) {
 export function createHostSession(options) {
   const host = options.host
   const playerId = options.playerId
-  const baseUrl = options.baseUrl ?? apiUrl()
   const baseDir = options.stateDir ?? stateDir()
+  const baseUrl = options.baseUrl ?? apiUrl(baseDir)
   const authFile = join(baseDir, `auth.${host}.json`)
 
   function readAuth() {

@@ -6,10 +6,12 @@ coverage/
 
 # generated host bundles
 packages/host-opencode/gui-experimental.cjs
+packages/host-opencode/.dev/
 packages/host-antigravity/index.html
 packages/host-antigravity/app.js
 packages/host-antigravity/app.css
 packages/host-antigravity/.data/
+packages/host-antigravity/.data-*/
 
 # workspace link created by scripts/install-hosts.sh
 packages/host-opencode/node_modules

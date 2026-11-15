@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto"
-import { createHostSession } from "@await-arcade/api-client"
+import { createHostSession, stateDir } from "@await-arcade/api-client"
+import { pluginId } from "./src/profile.js"
 import { Api } from "./src/rpc.js"
 
 /**
@@ -10,9 +11,10 @@ import { Api } from "./src/rpc.js"
  */
 const QUEUE_KEY = "submit.queue"
 const HOST = "opencode"
+const STATE_DIR = stateDir(pluginId)
 
 export default {
-  id: "await-arcade",
+  id: pluginId,
   async setup(ctx) {
     let playerId = await ctx.storage.get("playerId")
     if (typeof playerId !== "string" || !playerId) {
@@ -23,6 +25,7 @@ export default {
     const session = createHostSession({
       host: HOST,
       playerId,
+      stateDir: STATE_DIR,
       readQueue: async () => (await ctx.storage.get(QUEUE_KEY)) ?? [],
       writeQueue: async (items) => {
         await ctx.storage.set(QUEUE_KEY, items)

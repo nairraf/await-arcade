@@ -32,7 +32,8 @@
     "sync": "tsx tools/cli/src/cli.ts sync",
     "fixtures": "tsx scripts/make-fixtures.ts",
     "check": "npm run typecheck && npm run typecheck:host && npm test && npm run aa -- check",
-    "build:hosts": "npm run build --workspace @await-arcade/host-opencode && npm run build --workspace @await-arcade/host-antigravity"
+    "build:hosts": "npm run build --workspace @await-arcade/host-opencode && npm run build --workspace @await-arcade/host-antigravity",
+    "build:hosts:dev": "npm run build:dev --workspace @await-arcade/host-opencode && npm run build --workspace @await-arcade/host-antigravity"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

@@ -11,13 +11,14 @@ import { onCleanup, onMount } from "solid-js"
 import { createArcade, styles } from "@await-arcade/shell"
 import { games } from "@await-arcade/shell/registry"
 import { OpenCodeHost } from "./host"
+import { commandId, displayName } from "./profile.js"
 
 const ID = "main"
 
 const tab: PanelTab = {
   id: ID,
   get title() {
-    return "Await Arcade"
+    return displayName
   },
   pinned: true,
   closable: false,
@@ -67,7 +68,7 @@ export default Plugin.define({
       id: ID,
       region: "side",
       wide: true,
-      mobile: { title: "Await Arcade", order: 46, kind: "menu", icon: "status", cached: true },
+      mobile: { title: displayName, order: 46, kind: "menu", icon: "status", cached: true },
       list: () => [tab],
       render: () => <ArcadePanel />,
     })
@@ -75,11 +76,11 @@ export default Plugin.define({
     ctx.add(
       Command,
       (): Command => ({
-        id: "open",
-        title: "Await Arcade",
-        description: "Open Await Arcade",
+        id: commandId,
+        title: displayName,
+        description: `Open ${displayName}`,
         keywords: "arcade game brickstorm light cycles mergegrid mineflag",
-        group: "Await Arcade",
+        group: displayName,
         section: "navigation",
         enabled: !!current(),
         run: toggle,
@@ -91,7 +92,7 @@ export default Plugin.define({
 
       return {
         id: ID,
-        label: "Await Arcade",
+        label: displayName,
         icon: "status",
         pressed: shown(),
         run: toggle,

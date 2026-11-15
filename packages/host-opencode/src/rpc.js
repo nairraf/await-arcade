@@ -1,3 +1,5 @@
+import { apiId } from "./profile.js"
+
 /**
  * The OpenCode RPC contract. It is plain JavaScript so the server entry can
  * import it at runtime without pulling in `@opencode/plugin`.
@@ -5,7 +7,7 @@
 const define = (definition) => definition
 
 export const Api = define({
-  id: "await-arcade.api",
+  id: apiId,
   methods: {
     start: {
       input: {

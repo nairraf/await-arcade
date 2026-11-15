@@ -13,6 +13,7 @@ import type {
 } from "@await-arcade/contract"
 import { LocalHost, normaliseBoard } from "@await-arcade/shell"
 import { Api } from "./rpc.js"
+import { hostName } from "./profile.js"
 
 interface RpcClient {
   rpc(contract: any): any
@@ -25,7 +26,7 @@ interface RpcClient {
  */
 export class OpenCodeHost extends LocalHost {
   constructor(private readonly client: RpcClient) {
-    super({ prefix: "opencode", name: "opencode" })
+    super({ prefix: hostName, name: hostName })
   }
 
   async start(input: { gameId: string; modeId: string }): Promise<{ seed: number; runId?: string }> {

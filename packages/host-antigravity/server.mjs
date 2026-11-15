@@ -3,7 +3,21 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { homedir } from "node:os"
 import { dirname, join } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
-import { createHostSession } from "@await-arcade/api-client"
+import { apiUrl, createHostSession, stateDir } from "@await-arcade/api-client"
+
+function readStateName(argv) {
+  const index = argv.indexOf("--state-name")
+  if (index === -1) return "await-arcade"
+  const value = argv[index + 1]
+  if (!value || !/^[a-z0-9][a-z0-9-]*$/.test(value)) {
+    throw new Error(`Invalid --state-name: ${value ?? "(missing)"}`)
+  }
+  return value
+}
+
+const stateName = readStateName(process.argv.slice(2))
+const hostStateDir = stateDir(stateName)
+const hostApiUrl = apiUrl(hostStateDir)
 
 // Defaults so the sidecar can be run by hand for a quick check.
 if (!process.env.ANTIGRAVITY_SIDECAR_WEB_PORT) {
@@ -37,7 +51,9 @@ page("/", "index.html", "text/html; charset=utf-8")
 page("/app.js", "app.js", "application/javascript; charset=utf-8")
 page("/app.css", "app.css", "text/css; charset=utf-8")
 
-const dataDir = process.env.ANTIGRAVITY_EXECUTABLE_DATA_DIR ?? join(here, ".data")
+const dataDir =
+  process.env.ANTIGRAVITY_EXECUTABLE_DATA_DIR ??
+  join(here, stateName === "await-arcade" ? ".data" : `.data-${stateName}`)
 mkdirSync(dataDir, { recursive: true, mode: 0o700 })
 
 const playerFile = join(dataDir, "player.json")
@@ -61,6 +77,8 @@ const playerId = player.playerId
 const session = createHostSession({
   host: "antigravity",
   playerId,
+  baseUrl: hostApiUrl,
+  stateDir: hostStateDir,
   readQueue: () => {
     const value = readJson(queueFile, [])
     return Array.isArray(value) ? value : []
@@ -107,4 +125,4 @@ app.api("/api/auth/name", (data) => session.updateName(data.displayName), "POST"
 app.api("/api/auth/name-available", (data) => session.nameAvailable(data.displayName), "POST")
 
 await app.run()
-console.log("[await-arcade] sidecar running")
+console.log(`[${stateName}] sidecar running`)
