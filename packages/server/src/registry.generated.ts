@@ -5,14 +5,17 @@ import { core as core0 } from "../../../games/brickstorm/src/core"
 import { meta as meta0 } from "../../../games/brickstorm/src/meta"
 import { core as core1 } from "../../../games/light-cycles/src/core"
 import { meta as meta1 } from "../../../games/light-cycles/src/meta"
-import { core as core2 } from "../../../games/mergegrid/src/core"
-import { meta as meta2 } from "../../../games/mergegrid/src/meta"
-import { core as core3 } from "../../../games/mineflag/src/core"
-import { meta as meta3 } from "../../../games/mineflag/src/meta"
+import { core as core2 } from "../../../games/lockstep/src/core"
+import { meta as meta2 } from "../../../games/lockstep/src/meta"
+import { core as core3 } from "../../../games/mergegrid/src/core"
+import { meta as meta3 } from "../../../games/mergegrid/src/meta"
+import { core as core4 } from "../../../games/mineflag/src/core"
+import { meta as meta4 } from "../../../games/mineflag/src/meta"
 
 export const verifiers: Record<string, VerifierEntry> = {
   [meta0.id]: { meta: meta0, core: core0 },
   [meta1.id]: { meta: meta1, core: core1 },
   [meta2.id]: { meta: meta2, core: core2 },
   [meta3.id]: { meta: meta3, core: core3 },
+  [meta4.id]: { meta: meta4, core: core4 },
 }

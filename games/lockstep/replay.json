@@ -1,0 +1,253 @@
+{
+  "version": 1,
+  "gameId": "lockstep",
+  "gameVersion": "1.1.0",
+  "frameworkVersion": "0.1.0",
+  "modeId": "skirmish",
+  "seed": 10,
+  "kind": "turn",
+  "durationMs": 12000,
+  "inputs": [
+    {
+      "tick": 0,
+      "input": {
+        "action": "move",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 1,
+      "input": {
+        "action": "move",
+        "dx": 0,
+        "dy": -1
+      }
+    },
+    {
+      "tick": 2,
+      "input": {
+        "action": "pulse"
+      }
+    },
+    {
+      "tick": 3,
+      "input": {
+        "action": "move",
+        "dx": -1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 4,
+      "input": {
+        "action": "move",
+        "dx": 0,
+        "dy": -1
+      }
+    },
+    {
+      "tick": 5,
+      "input": {
+        "action": "move",
+        "dx": 0,
+        "dy": 1
+      }
+    },
+    {
+      "tick": 6,
+      "input": {
+        "action": "move",
+        "dx": 0,
+        "dy": -1
+      }
+    },
+    {
+      "tick": 7,
+      "input": {
+        "action": "move",
+        "dx": 0,
+        "dy": 1
+      }
+    },
+    {
+      "tick": 8,
+      "input": {
+        "action": "move",
+        "dx": 0,
+        "dy": 1
+      }
+    },
+    {
+      "tick": 9,
+      "input": {
+        "action": "move",
+        "dx": -1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 10,
+      "input": {
+        "action": "move",
+        "dx": -1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 11,
+      "input": {
+        "action": "move",
+        "dx": 0,
+        "dy": -1
+      }
+    },
+    {
+      "tick": 12,
+      "input": {
+        "action": "move",
+        "dx": -1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 13,
+      "input": {
+        "action": "move",
+        "dx": 0,
+        "dy": -1
+      }
+    },
+    {
+      "tick": 14,
+      "input": {
+        "action": "move",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 15,
+      "input": {
+        "action": "move",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 16,
+      "input": {
+        "action": "move",
+        "dx": 0,
+        "dy": 1
+      }
+    },
+    {
+      "tick": 17,
+      "input": {
+        "action": "wait"
+      }
+    },
+    {
+      "tick": 18,
+      "input": {
+        "action": "pulse"
+      }
+    },
+    {
+      "tick": 19,
+      "input": {
+        "action": "move",
+        "dx": 0,
+        "dy": -1
+      }
+    },
+    {
+      "tick": 20,
+      "input": {
+        "action": "move",
+        "dx": 0,
+        "dy": -1
+      }
+    },
+    {
+      "tick": 21,
+      "input": {
+        "action": "move",
+        "dx": -1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 22,
+      "input": {
+        "action": "move",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 23,
+      "input": {
+        "action": "move",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 24,
+      "input": {
+        "action": "move",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 25,
+      "input": {
+        "action": "move",
+        "dx": 0,
+        "dy": 1
+      }
+    },
+    {
+      "tick": 26,
+      "input": {
+        "action": "move",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 27,
+      "input": {
+        "action": "pulse"
+      }
+    },
+    {
+      "tick": 28,
+      "input": {
+        "action": "move",
+        "dx": 0,
+        "dy": -1
+      }
+    },
+    {
+      "tick": 29,
+      "input": {
+        "action": "move",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 30,
+      "input": {
+        "action": "move",
+        "dx": 1,
+        "dy": 0
+      }
+    }
+  ],
+  "stateHash": "23585275"
+}

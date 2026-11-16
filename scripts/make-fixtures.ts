@@ -12,6 +12,9 @@ import { meta as mergeMeta } from "../games/mergegrid/src/meta"
 import type { MergeInput } from "../games/mergegrid/src/core"
 import { core as brickstormCore } from "../games/brickstorm/src/core"
 import { meta as brickstormMeta } from "../games/brickstorm/src/meta"
+import { core as lockCore } from "../games/lockstep/src/core"
+import { meta as lockMeta } from "../games/lockstep/src/meta"
+import { greedySolve } from "../games/lockstep/solver"
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 
@@ -77,17 +80,27 @@ const brickstorm = playRealtime(brickstormCore, brickstormMeta, {
   ],
 })
 
+const lock = playTurn(lockCore, lockMeta, {
+  seed: 10,
+  mode: lockMeta.modes[0]!,
+  inputs: greedySolve(10, lockMeta.modes[0]!, 200),
+  durationMs: 12_000,
+})
+
 if (!mines.verified.ok) throw new Error(`mineflag fixture failed: ${mines.verified.reason}`)
 if (!cycles.verified.ok) throw new Error(`light-cycles fixture failed: ${cycles.verified.reason}`)
 if (!merge.verified.ok) throw new Error(`mergegrid fixture failed: ${merge.verified.reason}`)
 if (!brickstorm.verified.ok) throw new Error(`brickstorm fixture failed: ${brickstorm.verified.reason}`)
+if (!lock.verified.ok) throw new Error(`lockstep fixture failed: ${lock.verified.reason}`)
 
 writeFileSync(path.join(root, "games/mineflag/replay.json"), `${JSON.stringify(mines.replay, null, 2)}\n`)
 writeFileSync(path.join(root, "games/light-cycles/replay.json"), `${JSON.stringify(cycles.replay, null, 2)}\n`)
 writeFileSync(path.join(root, "games/mergegrid/replay.json"), `${JSON.stringify(merge.replay, null, 2)}\n`)
 writeFileSync(path.join(root, "games/brickstorm/replay.json"), `${JSON.stringify(brickstorm.replay, null, 2)}\n`)
+writeFileSync(path.join(root, "games/lockstep/replay.json"), `${JSON.stringify(lock.replay, null, 2)}\n`)
 
 console.log(`mineflag: ${mines.state.phase} score=${mines.score.value} verified=${mines.verified.ok}`)
 console.log(`light-cycles: ${cycles.state.phase} score=${cycles.score.value} verified=${cycles.verified.ok}`)
 console.log(`mergegrid: ${merge.state.phase} score=${merge.score.value} verified=${merge.verified.ok}`)
 console.log(`brickstorm: ${brickstorm.state.phase} score=${brickstorm.score.value} verified=${brickstorm.verified.ok}`)
+console.log(`lockstep: ${lock.state.phase} score=${lock.score.value} verified=${lock.verified.ok}`)
