@@ -53,6 +53,20 @@ talking to the backend.
 - `DELETE /v1/me` removes the player, sessions, and board entries.
 - Firestore rules deny client writes; rate limits and a budget alert are configured.
 
+## beta-3 — Auto-Pause & Turn-Based Lineup
+
+**Goal:** make *Await Arcade* respond cleanly to agent turns and expand the library with turn-friendly cartridges designed around 30–90 second interruptions.
+
+**In scope**
+
+- **Auto-pause on agent attention (done on `development`):** user-togglable `Auto-pause: On / Off` setting in the shell, backed by native `running -> idle` / `permission.asked` listeners in OpenCode and a `Stop` lifecycle hook + long-poll bridge in Antigravity.
+- **Five new turn-based cartridges:**
+  1. **Telegraphed Micro-Tactics** — 5×5 / 6×6 grid survival with telegraphed enemy attacks and tactical moves/pushes/abilities.
+  2. **Nonogram / Picross** — deterministic, solvable logic-grid puzzles with row/column clues.
+  3. **Tile Chain Drop** — Drop7-style numbered column drops triggering deterministic chain cascades.
+  4. **Circuit / Signal Router** — tile-rotation power routing puzzle (`Netwalk`-style).
+  5. **Symbolic Codebreaker** — compact 4/5-symbol deduction (`Mastermind`-style, zero dictionary bloat).
+
 ## Later
 
 - Async **Missile Defense**: attacker builds a wave, defender plays it.
