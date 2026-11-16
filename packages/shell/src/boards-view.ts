@@ -6,7 +6,7 @@ import type {
   Mode,
 } from "@await-arcade/contract"
 import { el } from "@await-arcade/framework"
-import { formatDailyScore, formatScore, scoreLabel } from "./format"
+import { formatBoardScore, formatDailyScore, scoreLabel } from "./format"
 import { applyRank, errorMessage, renderBoardRow, xpSummaryNote } from "./ui"
 
 export interface BoardsState {
@@ -327,7 +327,7 @@ export async function renderBoardsView(options: ShowBoardsOptions): Promise<void
       } else if (mine?.rank !== undefined) {
         applyRank(youRank, mine.rank)
         youScore.textContent = mine.score
-          ? `${scoreLabel(entry.meta)}: ${formatScore(mine.score, entry.meta)}${xpSummaryNote(mine.xpLevel, mine.xpRank)}`
+          ? `${scoreLabel(entry.meta)}: ${formatBoardScore(mine.score, entry.meta)}${xpSummaryNote(mine.xpLevel, mine.xpRank)}`
           : ""
       } else if (auth && !auth.signedIn) {
         applyRank(youRank)
@@ -371,7 +371,7 @@ export async function renderBoardsView(options: ShowBoardsOptions): Promise<void
           entry.meta,
           playerId,
           "arcade-boards-row",
-          daily ? formatDailyScore : formatScore,
+          daily ? formatDailyScore : formatBoardScore,
           host.ghost ? (ghostItem) => onStartPractice(entry, ghostItem) : undefined,
         ),
       )

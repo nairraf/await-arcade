@@ -2,6 +2,8 @@ import type { GameEntry, GameMeta, Score } from "@await-arcade/contract"
 import { describe, expect, it } from "vitest"
 import {
   compareScores,
+  depthLabel,
+  formatBoardScore,
   formatDailyScore,
   formatDuration,
   formatScore,
@@ -186,6 +188,41 @@ describe("shell format and board normalisation helpers", () => {
         movesMeta,
       ),
     ).toBe("18 mv · 12.5s · try 2")
+  })
+
+  it("appends the depth a run reached to board-row scores", () => {
+    const pointsMeta = makeMeta({ score: { type: "higher", min: 0, max: 999_999, unit: "points" } })
+
+    const lockstep: Score = {
+      value: 1610,
+      type: "higher",
+      won: false,
+      ranked: true,
+      detail: { sector: 9 },
+    }
+    expect(formatBoardScore(lockstep, pointsMeta)).toBe(
+      `${formatScore(lockstep, pointsMeta)} · sector 9`,
+    )
+
+    const brickstorm: Score = {
+      value: 4200,
+      type: "higher",
+      won: false,
+      ranked: true,
+      detail: { level: 3 },
+    }
+    expect(formatBoardScore(brickstorm, pointsMeta)).toBe(
+      `${formatScore(brickstorm, pointsMeta)} · L3`,
+    )
+
+    // No depth to show: the plain number, with no dangling separator.
+    const flat: Score = { value: 700, type: "higher", won: true, ranked: true }
+    expect(depthLabel(flat)).toBe("")
+    expect(formatBoardScore(flat, pointsMeta)).toBe(formatScore(flat, pointsMeta))
+
+    // A malformed detail payload from the wire must not leak into the row.
+    const junk = { value: 900, type: "higher", won: true, ranked: true, detail: { sector: "9" } } as Score
+    expect(formatBoardScore(junk, pointsMeta)).toBe(formatScore(junk, pointsMeta))
   })
 
   it("compares lower-is-better and higher-is-better scores accurately", () => {

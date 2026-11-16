@@ -26,6 +26,25 @@ export function scoreLabel(meta: GameMeta): string {
   return "High score"
 }
 
+/**
+ * Depth reached, for endless-style games whose headline number means little on
+ * its own. Lockstep reports `sector`, Brickstorm and Neon Cycles report `level`.
+ */
+export function depthLabel(score: Score): string {
+  const sector = score.detail?.sector
+  if (typeof sector === "number" && Number.isFinite(sector)) return `sector ${sector}`
+  const level = score.detail?.level
+  if (typeof level === "number" && Number.isFinite(level)) return `L${level}`
+  return ""
+}
+
+/** Board-row score: the headline number plus where the run got to. */
+export function formatBoardScore(score: Score, meta: GameMeta): string {
+  const depth = depthLabel(score)
+  const base = formatScore(score, meta)
+  return depth ? `${base} · ${depth}` : base
+}
+
 /** Compact daily Mineflag display: moves, server time, attempt. */
 export function formatDailyScore(score: Score, meta: GameMeta): string {
   const moves = score.detail?.moves
@@ -35,7 +54,7 @@ export function formatDailyScore(score: Score, meta: GameMeta): string {
     const tryLabel = typeof attempt === "number" ? ` · try ${attempt}` : ""
     return `${moves} mv · ${formatDuration(elapsed)}${tryLabel}`
   }
-  return formatScore(score, meta)
+  return formatBoardScore(score, meta)
 }
 
 /** Positive when `candidate` beats `previous`. */
