@@ -85,8 +85,20 @@ ln -sfn "$OPENCODE_SRC" "$TARGET"
 ln -sfn "$ROOT/node_modules" "$OPENCODE_SRC/node_modules"
 echo "OpenCode plugin ($DISPLAY_NAME): $TARGET"
 
+case "$(uname -s)" in
+  Darwin)
+    STATE_DIR="$HOME/Library/Application Support/$APP_ID"
+    ;;
+  MINGW*|MSYS*|CYGWIN*)
+    STATE_DIR="${LOCALAPPDATA:-$HOME/AppData/Local}/$APP_ID"
+    ;;
+  *)
+    STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/$APP_ID"
+    ;;
+esac
+
 mkdir -p "$SIDE"
-for file in server.mjs index.html app.js app.css; do
+for file in server.mjs attention-hook.mjs index.html app.js app.css; do
   src="$ROOT/packages/host-antigravity/$file"
   if [[ -e "$SIDE/$file" && "$SIDE/$file" -ef "$src" ]]; then
     continue
@@ -185,17 +197,46 @@ with open(temporary, "w") as target:
 os.replace(temporary, config_path)
 PY
 
-case "$(uname -s)" in
-  Darwin)
-    STATE_DIR="$HOME/Library/Application Support/$APP_ID"
-    ;;
-  MINGW*|MSYS*|CYGWIN*)
-    STATE_DIR="${LOCALAPPDATA:-$HOME/AppData/Local}/$APP_ID"
-    ;;
-  *)
-    STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/$APP_ID"
-    ;;
-esac
+python3 - "$GEMINI_DIR" "$APP_ID" "$SIDE/attention-hook.mjs" "$STATE_DIR/agent-attention.json" <<'PY'
+import json
+import os
+import shlex
+import shutil
+import sys
+
+gemini_dir, app_id, hook_script, attention_file = sys.argv[1:5]
+hooks_path = os.path.join(gemini_dir, "hooks.json")
+
+hooks = {}
+if os.path.exists(hooks_path):
+    backup = hooks_path + f".bak-{app_id}"
+    if not os.path.exists(backup):
+        shutil.copy2(hooks_path, backup)
+    with open(hooks_path) as source:
+        hooks = json.load(source)
+if not isinstance(hooks, dict):
+    raise SystemExit("refusing: hooks.json must be a JSON object")
+
+hooks[app_id] = {
+    "enabled": True,
+    "Stop": [
+        {
+            "type": "command",
+            "command": f"node {shlex.quote(hook_script)} {shlex.quote(attention_file)}",
+            "timeout": 5,
+        }
+    ],
+}
+
+temporary = hooks_path + f".{os.getpid()}.tmp"
+with open(temporary, "w") as target:
+    json.dump(hooks, target, indent=2)
+    target.write("\n")
+    target.flush()
+    os.fsync(target.fileno())
+os.replace(temporary, hooks_path)
+PY
+echo "Antigravity hook ($DISPLAY_NAME): $GEMINI_DIR/hooks.json ($APP_ID)"
 
 if [[ -n "${AWAIT_ARCADE_API_URL:-}" ]]; then
   mkdir -p "$STATE_DIR"

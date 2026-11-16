@@ -10,11 +10,13 @@ import {
 } from "./format"
 import { normaliseBoard } from "./host"
 import {
+  autoPauseLabel,
   countdownLabel,
   errorMessage,
   modeGroups,
   modeInGroup,
   nextTheme,
+  pauseOverlayCopy,
   safeVerificationUri,
   themeLabel,
   xpSummaryNote,
@@ -64,6 +66,23 @@ describe("shell ui helpers", () => {
     expect(nextTheme("auto")).toBe("light")
     expect(nextTheme("light")).toBe("dark")
     expect(nextTheme("dark")).toBe("auto")
+  })
+
+  it("formats auto-pause labels and pause overlay copy", () => {
+    expect(autoPauseLabel(true)).toBe("Auto-pause: On")
+    expect(autoPauseLabel(false)).toBe("Auto-pause: Off")
+    expect(pauseOverlayCopy()).toEqual({
+      kicker: "PAUSED",
+      detail: "The clock is stopped.",
+    })
+    expect(pauseOverlayCopy("reply")).toEqual({
+      kicker: "AGENT REPLIED",
+      detail: "Your agent responded — clock stopped.",
+    })
+    expect(pauseOverlayCopy("prompt")).toEqual({
+      kicker: "INPUT NEEDED",
+      detail: "Your agent is waiting for your approval — clock stopped.",
+    })
   })
 
   it("formats countdown labels and clamps negative values to zero", () => {

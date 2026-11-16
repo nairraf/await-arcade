@@ -7,7 +7,7 @@ import {
   usePlugin,
   type PanelTab,
 } from "@opencode/plugin/gui"
-import { onCleanup, onMount } from "solid-js"
+import { createEffect, onCleanup, onMount } from "solid-js"
 import { createArcade, styles } from "@await-arcade/shell"
 import { games } from "@await-arcade/shell/registry"
 import { OpenCodeHost } from "./host"
@@ -28,13 +28,51 @@ const tab: PanelTab = {
 
 function ArcadePanel() {
   const ctx = usePlugin()
+  const host = new OpenCodeHost(ctx.client)
   let mount!: HTMLDivElement
+  let lastKey: string | undefined
+  let wasRunning = false
+
+  createEffect(() => {
+    const session = ctx.sessions.current()
+    if (!session || !session.server.connected) {
+      lastKey = undefined
+      wasRunning = false
+      return
+    }
+    const status = session.server.data.session.status(session.id)
+    if (session.key !== lastKey) {
+      lastKey = session.key
+      wasRunning = status === "running"
+      return
+    }
+    if (wasRunning && status === "idle") {
+      host.notifyAttention({ reason: "reply" })
+    }
+    wasRunning = status === "running"
+  })
+
+  createEffect(() => {
+    const session = ctx.sessions.current()
+    if (!session) return
+    const unsub = session.server.data.on("permission.asked", (event) => {
+      const targetSession = event.data?.sessionID
+      if (!targetSession) return
+      if (
+        targetSession === session.id ||
+        session.server.data.session.root(targetSession) === session.id
+      ) {
+        host.notifyAttention({ reason: "prompt" })
+      }
+    })
+    onCleanup(unsub)
+  })
 
   onMount(() => {
     const arcade = createArcade({
       root: mount,
       games,
-      host: new OpenCodeHost(ctx.client),
+      host,
       injectStyles: false,
     })
 

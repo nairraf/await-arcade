@@ -1,5 +1,6 @@
 import { LocalHost, normaliseBoard } from "@await-arcade/shell"
 import type {
+  AgentAttentionEvent,
   ArcadeProfile,
   AuthPoll,
   AuthState,
@@ -14,30 +15,88 @@ import type {
 } from "@await-arcade/contract"
 
 interface SidecarBridge {
+  readonly conversationId?: string | null
   fetch(input: string, init?: RequestInit): Promise<Response>
 }
 
 type SidecarWindow = Window & { sidecar?: SidecarBridge }
+
+interface AttentionPollResponse {
+  readonly seq?: number
+  readonly event?: AgentAttentionEvent
+}
 
 /**
  * The Antigravity side of the game host. The webview only talks to the local
  * sidecar; the sidecar owns the API client and the player identity.
  */
 export class SidecarHost extends LocalHost {
+  private readonly attentionListeners = new Set<(event: AgentAttentionEvent) => void>()
+  private attentionAbort: AbortController | undefined
+
   constructor() {
     super({ prefix: "antigravity", name: "antigravity" })
   }
 
-  private async call<T>(path: string, body: unknown): Promise<T> {
+  private async call<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
     const bridge = (window as SidecarWindow).sidecar
-    const init: RequestInit = { method: "POST", body: JSON.stringify(body) }
+    const init: RequestInit = { method: "POST", body: JSON.stringify(body), ...(signal ? { signal } : {}) }
     const response = bridge ? await bridge.fetch(path, init) : await fetch(path, init)
     const json = (await response.json().catch(() => ({}))) as { error?: string; reason?: string }
 
     if (!response.ok) {
-      throw new Error(json.error ?? json.reason ?? `${response.status} ${response.statusText}`)
+      const error = new Error(json.error ?? json.reason ?? `${response.status} ${response.statusText}`)
+      ;(error as Error & { status?: number }).status = response.status
+      throw error
     }
     return json as T
+  }
+
+  onAgentAttention(listener: (event: AgentAttentionEvent) => void): () => void {
+    this.attentionListeners.add(listener)
+    if (this.attentionListeners.size === 1) this.startAttentionLoop()
+    return () => {
+      this.attentionListeners.delete(listener)
+      if (this.attentionListeners.size === 0) {
+        this.attentionAbort?.abort()
+        this.attentionAbort = undefined
+      }
+    }
+  }
+
+  private startAttentionLoop(): void {
+    this.attentionAbort?.abort()
+    const controller = new AbortController()
+    this.attentionAbort = controller
+    const conversationId =
+      (window as SidecarWindow).sidecar?.conversationId ??
+      new URLSearchParams(window.location.search).get("conversationId") ??
+      ""
+
+    void (async () => {
+      let afterSeq: number | undefined
+      while (!controller.signal.aborted && this.attentionListeners.size > 0) {
+        try {
+          const res = await this.call<AttentionPollResponse>(
+            "/api/attention",
+            {
+              ...(afterSeq !== undefined ? { afterSeq } : {}),
+              ...(conversationId ? { conversationId } : {}),
+            },
+            controller.signal,
+          )
+          if (typeof res.seq === "number") afterSeq = res.seq
+          if (res.event) {
+            for (const listener of this.attentionListeners) listener(res.event)
+          }
+        } catch (error) {
+          if (controller.signal.aborted) break
+          const status = (error as { status?: number } | undefined)?.status
+          if (status === 404 || status === 405) break
+          await new Promise((resolve) => setTimeout(resolve, 1500))
+        }
+      }
+    })()
   }
 
   async start(input: { gameId: string; modeId: string }): Promise<{ seed: number; runId?: string }> {

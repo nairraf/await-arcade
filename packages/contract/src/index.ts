@@ -367,6 +367,12 @@ export type AuthPoll =
  * The capability boundary. Games never get auth tokens or raw network access;
  * the shell owns identity, submission, and anti-cheat.
  */
+export type AgentAttentionReason = "reply" | "prompt"
+
+export interface AgentAttentionEvent {
+  readonly reason: AgentAttentionReason
+}
+
 export interface GameHost {
   readonly name: string
   best(gameId: string, modeId: string): Score | undefined
@@ -417,6 +423,11 @@ export interface GameHost {
   updateName?(displayName: string): Promise<AuthState>
   /** Check whether an arcade name is free (case-insensitive). */
   nameAvailable?(displayName: string): Promise<{ readonly name?: string; readonly available: boolean }>
+  /**
+   * Subscribe to host notifications when the coding agent finishes replying or
+   * pauses waiting for user input. Hosts without agent awareness omit this.
+   */
+  onAgentAttention?(listener: (event: AgentAttentionEvent) => void): () => void
   readonly storage: GameStorage
   readonly audio: AudioBus
   toast(message: string): void

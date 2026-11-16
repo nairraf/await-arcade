@@ -1,4 +1,5 @@
 import type {
+  AgentAttentionEvent,
   ArcadeProfile,
   AuthPoll,
   AuthState,
@@ -25,8 +26,23 @@ interface RpcClient {
  * and any future auth token.
  */
 export class OpenCodeHost extends LocalHost {
+  private readonly attentionListeners = new Set<(event: AgentAttentionEvent) => void>()
+
   constructor(private readonly client: RpcClient) {
     super({ prefix: hostName, name: hostName })
+  }
+
+  onAgentAttention(listener: (event: AgentAttentionEvent) => void): () => void {
+    this.attentionListeners.add(listener)
+    return () => {
+      this.attentionListeners.delete(listener)
+    }
+  }
+
+  notifyAttention(event: AgentAttentionEvent): void {
+    for (const listener of this.attentionListeners) {
+      listener(event)
+    }
   }
 
   async start(input: { gameId: string; modeId: string }): Promise<{ seed: number; runId?: string }> {

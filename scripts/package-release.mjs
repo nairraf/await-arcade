@@ -74,6 +74,7 @@ writeFileSync(
 const antigravity = join(out, "antigravity")
 mkdirSync(antigravity, { recursive: true })
 copy(join(root, "packages/host-antigravity/dist-server/server.mjs"), join(antigravity, "server.mjs"))
+copy(join(root, "packages/host-antigravity/attention-hook.mjs"), join(antigravity, "attention-hook.mjs"))
 copy(join(root, "packages/host-antigravity/index.html"), join(antigravity, "index.html"))
 writeFileSync(
   join(antigravity, "sidecar.json.example"),

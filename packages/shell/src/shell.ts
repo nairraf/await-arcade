@@ -1,4 +1,6 @@
 import type {
+  AgentAttentionEvent,
+  AgentAttentionReason,
   AuthState,
   BoardEntry,
   DailyChallenge,
@@ -18,12 +20,14 @@ import { formatDailyScore, formatDuration, formatScore, isBetter, scoreLabel } f
 import { LocalHost } from "./host"
 import { styles } from "./styles"
 import {
+  autoPauseLabel,
   countdownLabel,
   errorMessage,
   hudCell,
   modeGroups,
   modeInGroup,
   nextTheme,
+  pauseOverlayCopy,
   randomSeed,
   renderBoardRow,
   themeLabel,
@@ -164,6 +168,26 @@ export function createArcade(options: ArcadeOptions): Arcade {
     sound.textContent = muted ? "Muted" : "Sound"
   })
 
+  const autoPauseKey = "ui.autoPauseOnReply"
+  const supportsAutoPause = host.onAgentAttention !== undefined
+  let autoPauseEnabled = supportsAutoPause && host.storage.get<boolean>(autoPauseKey) !== false
+  const autoPauseButton = el("button", "arcade-btn arcade-btn-ghost", autoPauseLabel(autoPauseEnabled))
+  autoPauseButton.type = "button"
+  autoPauseButton.hidden = !supportsAutoPause
+  const syncAutoPauseButton = (): void => {
+    autoPauseButton.textContent = autoPauseLabel(autoPauseEnabled)
+    autoPauseButton.setAttribute("aria-pressed", String(autoPauseEnabled))
+    autoPauseButton.title = autoPauseEnabled
+      ? "Auto-pause when the agent replies or needs input (click to disable)"
+      : "Auto-pause when the agent replies or needs input is disabled (click to enable)"
+  }
+  syncAutoPauseButton()
+  autoPauseButton.addEventListener("click", () => {
+    autoPauseEnabled = !autoPauseEnabled
+    host.storage.set(autoPauseKey, autoPauseEnabled)
+    syncAutoPauseButton()
+  })
+
   const boardsButton = el("button", "arcade-btn arcade-btn-ghost", "Boards")
   boardsButton.type = "button"
   boardsButton.hidden = host.board === undefined
@@ -179,7 +203,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     void showBoards()
   })
 
-  topMeta.append(homeButton, authButton, boardsButton, theme, sound)
+  topMeta.append(homeButton, authButton, boardsButton, autoPauseButton, theme, sound)
   top.append(brand, topMeta)
 
   const main = el("main", "arcade-main")
@@ -245,9 +269,15 @@ export function createArcade(options: ArcadeOptions): Arcade {
   let active: ActiveGame | undefined
   let playGeneration = 0
   let runInProgress = false
+  let onAttentionPause: ((event: AgentAttentionEvent) => void) | undefined
+
+  const unsubscribeAttention = host.onAgentAttention?.((event) => {
+    if (autoPauseEnabled) onAttentionPause?.(event)
+  })
 
   const destroyActive = (): void => {
     runInProgress = false
+    onAttentionPause = undefined
     if (!active) return
     active.cleanup()
     active.runner.stop()
@@ -892,13 +922,14 @@ export function createArcade(options: ArcadeOptions): Arcade {
     let boardPending = false
     let elapsedTimer: ReturnType<typeof setInterval> | undefined
 
-    const showPaused = (): void => {
+    const showPaused = (reason?: AgentAttentionReason): void => {
+      const copy = pauseOverlayCopy(reason)
       showOverlay(() =>
         overlayCard(
-          "PAUSED",
+          copy.kicker,
           entry.meta.title,
           formatScore(entry.core.score(runner.state(), { elapsedMs: runner.elapsedMs(), ticks: lastTicks }), entry.meta),
-          "The clock is stopped.",
+          copy.detail,
           [
             button("Resume", true, () => {
               runner.resume()
@@ -912,6 +943,13 @@ export function createArcade(options: ArcadeOptions): Arcade {
       )
     }
 
+    const pauseRun = (reason?: AgentAttentionReason): void => {
+      if (!runner || runner.paused() || pause.disabled) return
+      runner.pause()
+      pause.textContent = "Resume"
+      showPaused(reason)
+    }
+
     const togglePause = (): void => {
       if (!runner || pause.disabled) return
       if (runner.paused()) {
@@ -919,9 +957,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
         hideOverlay()
         pause.textContent = "Pause"
       } else {
-        runner.pause()
-        pause.textContent = "Resume"
-        showPaused()
+        pauseRun()
       }
     }
 
@@ -942,15 +978,16 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
     const onVisibility = (): void => {
       if (!document.hidden) return
-      if (runner && !runner.paused() && !pause.disabled) {
-        runner.pause()
-        pause.textContent = "Resume"
-        showPaused()
-      }
+      pauseRun()
     }
     document.addEventListener("visibilitychange", onVisibility)
 
+    onAttentionPause = (event) => {
+      pauseRun(event.reason)
+    }
+
     const cleanup = (): void => {
+      if (onAttentionPause) onAttentionPause = undefined
       if (elapsedTimer) {
         clearInterval(elapsedTimer)
         elapsedTimer = undefined
@@ -1282,6 +1319,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     destroy() {
       playGeneration += 1
       boardsState.epoch += 1
+      unsubscribeAttention?.()
       closeAuth?.()
       clearDailyUi()
       destroyActive()

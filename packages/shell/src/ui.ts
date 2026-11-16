@@ -1,4 +1,5 @@
 import type {
+  AgentAttentionReason,
   ArcadeProfile,
   BoardEntry,
   GameEntry,
@@ -17,6 +18,32 @@ export function themeLabel(mode: ThemeMode): string {
 
 export function nextTheme(mode: ThemeMode): ThemeMode {
   return mode === "auto" ? "light" : mode === "light" ? "dark" : "auto"
+}
+
+export function autoPauseLabel(enabled: boolean): string {
+  return enabled ? "Auto-pause: On" : "Auto-pause: Off"
+}
+
+export function pauseOverlayCopy(reason?: AgentAttentionReason): {
+  readonly kicker: string
+  readonly detail: string
+} {
+  if (reason === "reply") {
+    return {
+      kicker: "AGENT REPLIED",
+      detail: "Your agent responded — clock stopped.",
+    }
+  }
+  if (reason === "prompt") {
+    return {
+      kicker: "INPUT NEEDED",
+      detail: "Your agent is waiting for your approval — clock stopped.",
+    }
+  }
+  return {
+    kicker: "PAUSED",
+    detail: "The clock is stopped.",
+  }
 }
 
 export function randomSeed(): number {

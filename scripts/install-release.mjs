@@ -36,6 +36,10 @@ function fail(message) {
 function isPlainObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value)
 }
+function shellQuote(value) {
+  if (platform() === "win32") return `"${String(value).replace(/"/g, '\\"')}"`
+  return `'${String(value).replace(/'/g, "'\\''")}'`
+}
 function log(action, path) {
   console.log(dryRun ? `[dry-run] ${action}: ${path}` : `${action}: ${path}`)
 }
@@ -198,6 +202,7 @@ const geminiDir =
 const pluginTarget = join(pluginsDir, "await-arcade")
 const sidecarTarget = join(geminiDir, "sidecars", "await-arcade")
 const configPath = join(geminiDir, "config.json")
+const hooksPath = join(geminiDir, "hooks.json")
 const projectsDir = join(geminiDir, "projects")
 const apiConfig = join(stateDir(), "config.json")
 
@@ -214,6 +219,7 @@ if (uninstall) {
     if (installAntigravity) {
       console.log(`  ${sidecarTarget}`)
       console.log(`  Antigravity config entry and project (${configPath})`)
+      console.log(`  Antigravity hook entry (${hooksPath})`)
       if (!keepData) console.log(`  ${stateDir()}`)
     }
     console.log("")
@@ -252,9 +258,23 @@ if (uninstall) {
     }
     log("remove", sidecarTarget)
     if (!dryRun) rmSync(sidecarTarget, { recursive: true, force: true })
+    if (existsSync(hooksPath)) {
+      const hooks = readJson(hooksPath, {})
+      if (isPlainObject(hooks) && "await-arcade" in hooks) {
+        delete hooks["await-arcade"]
+        if (Object.keys(hooks).length === 0) {
+          log("remove", hooksPath)
+          if (!dryRun) rmSync(hooksPath, { force: true })
+        } else {
+          writeJson(hooksPath, hooks)
+        }
+      }
+    }
     if (!keepData) {
       log("remove", `${configPath}.bak-await-arcade`)
       if (!dryRun) rmSync(`${configPath}.bak-await-arcade`, { force: true })
+      log("remove", `${hooksPath}.bak-await-arcade`)
+      if (!dryRun) rmSync(`${hooksPath}.bak-await-arcade`, { force: true })
     }
   }
 
@@ -269,7 +289,7 @@ if (uninstall) {
         if (!dryRun) rmSync(path, { force: true })
       }
     } else if (installAntigravity) {
-      for (const file of ["auth.antigravity.json", "queue.antigravity.json"]) {
+      for (const file of ["auth.antigravity.json", "queue.antigravity.json", "agent-attention.json"]) {
         const path = join(stateDir(), file)
         log("remove", path)
         if (!dryRun) rmSync(path, { force: true })
@@ -288,6 +308,7 @@ if (installAntigravity && platform() !== "darwin") {
 }
 
 let antigravityConfig
+let antigravityHooks
 let antigravityProjectId
 
 if (installAntigravity) {
@@ -298,6 +319,20 @@ if (installAntigravity) {
   }
   if (antigravityConfig.sidecars !== undefined && !isPlainObject(antigravityConfig.sidecars)) {
     fail("refusing to modify config.json: sidecars must be an object")
+  }
+  antigravityHooks = readJson(hooksPath, {})
+  if (!isPlainObject(antigravityHooks)) {
+    fail("refusing to modify hooks.json: expected an object")
+  }
+  antigravityHooks["await-arcade"] = {
+    enabled: true,
+    Stop: [
+      {
+        type: "command",
+        command: `node ${shellQuote(join(sidecarTarget, "attention-hook.mjs"))} ${shellQuote(join(stateDir(), "agent-attention.json"))}`,
+        timeout: 5,
+      },
+    ],
   }
   antigravityConfig.sidecars ??= {}
   const entry = antigravityConfig.sidecars["await-arcade"]
@@ -354,6 +389,12 @@ if (installAntigravity) {
     if (!existsSync(backup)) cpSync(configPath, backup, { dereference: true })
   }
   writeJson(configPath, antigravityConfig)
+
+  if (!dryRun && existsSync(hooksPath)) {
+    const backup = `${hooksPath}.bak-await-arcade`
+    if (!existsSync(backup)) cpSync(hooksPath, backup, { dereference: true })
+  }
+  writeJson(hooksPath, antigravityHooks)
 
   const projectPath = join(projectsDir, `${antigravityProjectId}.json`)
   if (!existsSync(projectPath)) {
