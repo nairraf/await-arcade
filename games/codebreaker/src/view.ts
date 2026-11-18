@@ -491,6 +491,10 @@ export function view(ctx: ViewContext<CodebreakerState, CodebreakerInput>): Game
     target instanceof HTMLElement && target.closest("[data-cb-control]") !== null
 
   const onKeyDown = (event: KeyboardEvent): void => {
+    // Leave browser and shell shortcuts alone: Ctrl/Cmd+A must select, not set
+    // symbol A, and Alt+Arrow must navigate, not move the slot cursor.
+    if (event.ctrlKey || event.metaKey || event.altKey) return
+
     const key = event.key
     const letter = key.length === 1 && /[a-eA-E]/.test(key)
     const handled =
@@ -551,6 +555,13 @@ export function view(ctx: ViewContext<CodebreakerState, CodebreakerInput>): Game
   clearBtn.addEventListener("click", () => dispatch({ type: "clear" }))
   submitBtn.addEventListener("click", () => dispatch({ type: "submit" }))
 
+  // A pointer click activates the control, then hands focus back to the board
+  // so the next Enter submits instead of re-activating that button. Keyboard
+  // activation (Enter/Space on a tabbed-to control) keeps native focus.
+  for (const button of controlButtons) {
+    button.addEventListener("pointerup", () => wrap.focus())
+  }
+
   const render = (state: CodebreakerState): void => {
     if (state.slots !== builtSlots) buildActive(state.slots)
 
@@ -568,9 +579,16 @@ export function view(ctx: ViewContext<CodebreakerState, CodebreakerInput>): Game
 
     activeRow.hidden = state.phase === "won"
     activeIndex.textContent = state.phase === "lost" ? "×" : ">"
-    activeCount.textContent = playing
-      ? `${state.draft.filter((slot) => slot !== null).length}/${state.slots}`
-      : "Code"
+    const filled = state.draft.filter((slot) => slot !== null).length
+    activeCount.textContent = playing ? `${filled}/${state.slots}` : "Code"
+
+    if (state.phase === "lost") {
+      activeRow.setAttribute("role", "group")
+      activeRow.setAttribute("aria-label", `The code was ${codeText(state.secret)}`)
+    } else {
+      activeRow.removeAttribute("role")
+      activeRow.removeAttribute("aria-label")
+    }
 
     const showSecret = state.phase === "lost"
     for (let index = 0; index < activeCells.length; index += 1) {
@@ -594,13 +612,6 @@ export function view(ctx: ViewContext<CodebreakerState, CodebreakerInput>): Game
       )
       if (active) cell.setAttribute("aria-current", "true")
       else cell.removeAttribute("aria-current")
-    }
-
-    if (playing) {
-      activeFeedback.setAttribute("aria-hidden", "false")
-      activeCount.textContent = `${state.draft.filter((slot) => slot !== null).length}/${state.slots}`
-    } else if (state.phase === "lost") {
-      activeFeedback.setAttribute("aria-label", `The code was ${codeText(state.secret)}`)
     }
 
     // Guess rows are append-only, so append only the new ones. Newest first.

@@ -117,6 +117,14 @@ describe("codebreaker core", () => {
     expect(state.draft[0]).toBe(SYMBOLS - 1)
   })
 
+  it("seeds an empty slot with A going forward and E going backward", () => {
+    const forward = core.step(core.create(10, classic), [{ type: "cycle", delta: 1 }], 0)
+    expect(forward.draft[0]).toBe(0)
+
+    const backward = core.step(core.create(10, classic), [{ type: "cycle", delta: -1 }], 0)
+    expect(backward.draft[0]).toBe(SYMBOLS - 1)
+  })
+
   it("clears only the active slot", () => {
     let state = core.create(2, classic)
     state = core.step(
@@ -186,6 +194,30 @@ describe("codebreaker core", () => {
     expect(state.guesses[1]!.exact).toBe(fresh.slots)
   })
 
+  it("does not mutate the state passed to step", () => {
+    const fresh = core.create(6, classic)
+    const wrong = wrongGuess(fresh.secret, fresh.slots)
+    const state = run(fresh, guessInputs(fresh.slots, wrong))
+
+    const draft = [...state.draft]
+    const guesses = JSON.stringify(state.guesses)
+    const before = JSON.stringify(core.serialize(state))
+
+    const next = core.step(state, guessInputs(fresh.slots, fresh.secret), 0)
+
+    expect(state.draft).toEqual(draft)
+    expect(JSON.stringify(state.guesses)).toBe(guesses)
+    expect(state.guesses).toHaveLength(1)
+    expect(state.attemptsUsed).toBe(1)
+    expect(state.cursor).toBe(0)
+    expect(state.phase).toBe("playing")
+    expect(JSON.stringify(core.serialize(state))).toBe(before)
+
+    expect(next.draft).not.toBe(state.draft)
+    expect(next.guesses).not.toBe(state.guesses)
+    expect(next.phase).toBe("won")
+  })
+
   it("does not accept input after the run ends", () => {
     const fresh = core.create(8, classic)
     const won = run(fresh, guessInputs(fresh.slots, fresh.secret))
@@ -225,6 +257,21 @@ describe("codebreaker core", () => {
     const frozen = core.serialize(state)
     state = core.step(state, [{ type: "submit" }], 0)
     expect(core.serialize(state)).toEqual(frozen)
+  })
+
+  it("halts a multi-input step as soon as the run resolves", () => {
+    const fresh = core.create(10, classic)
+    const trailing: CodebreakerInput = { type: "cycle", delta: 1 }
+
+    const won = core.step(fresh, [...guessInputs(fresh.slots, fresh.secret), trailing], 0)
+    expect(won.phase).toBe("won")
+    expect(won.guesses).toHaveLength(1)
+    expect(won.draft).toEqual([null, null, null, null])
+
+    const lost = core.step(fresh, [...losingInputs(fresh.secret, fresh.slots), trailing], 0)
+    expect(lost.phase).toBe("lost")
+    expect(lost.guesses).toHaveLength(MAX_ATTEMPTS)
+    expect(lost.draft).toEqual([null, null, null, null])
   })
 })
 
