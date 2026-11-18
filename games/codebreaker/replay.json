@@ -1,0 +1,186 @@
+{
+  "version": 1,
+  "gameId": "codebreaker",
+  "gameVersion": "1.0.0",
+  "frameworkVersion": "0.1.0",
+  "modeId": "classic",
+  "seed": 20260418,
+  "kind": "turn",
+  "durationMs": 24000,
+  "inputs": [
+    {
+      "tick": 0,
+      "input": {
+        "type": "cycle",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 1,
+      "input": {
+        "type": "slot",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 2,
+      "input": {
+        "type": "cycle",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 3,
+      "input": {
+        "type": "cycle",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 4,
+      "input": {
+        "type": "slot",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 5,
+      "input": {
+        "type": "cycle",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 6,
+      "input": {
+        "type": "cycle",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 7,
+      "input": {
+        "type": "cycle",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 8,
+      "input": {
+        "type": "slot",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 9,
+      "input": {
+        "type": "cycle",
+        "delta": -1
+      }
+    },
+    {
+      "tick": 10,
+      "input": {
+        "type": "cycle",
+        "delta": -1
+      }
+    },
+    {
+      "tick": 11,
+      "input": {
+        "type": "submit"
+      }
+    },
+    {
+      "tick": 12,
+      "input": {
+        "type": "cycle",
+        "delta": -1
+      }
+    },
+    {
+      "tick": 13,
+      "input": {
+        "type": "cycle",
+        "delta": -1
+      }
+    },
+    {
+      "tick": 14,
+      "input": {
+        "type": "slot",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 15,
+      "input": {
+        "type": "cycle",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 16,
+      "input": {
+        "type": "slot",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 17,
+      "input": {
+        "type": "cycle",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 18,
+      "input": {
+        "type": "cycle",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 19,
+      "input": {
+        "type": "cycle",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 20,
+      "input": {
+        "type": "slot",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 21,
+      "input": {
+        "type": "cycle",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 22,
+      "input": {
+        "type": "cycle",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 23,
+      "input": {
+        "type": "cycle",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 24,
+      "input": {
+        "type": "submit"
+      }
+    }
+  ],
+  "stateHash": "6f7ad8af"
+}
