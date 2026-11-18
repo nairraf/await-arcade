@@ -4,18 +4,21 @@ import type { GameEntry } from "@await-arcade/contract"
 import { core as core0 } from "../../../games/brickstorm/src/core"
 import { meta as meta0 } from "../../../games/brickstorm/src/meta"
 import { view as view0 } from "../../../games/brickstorm/src/view"
-import { core as core1 } from "../../../games/light-cycles/src/core"
-import { meta as meta1 } from "../../../games/light-cycles/src/meta"
-import { view as view1 } from "../../../games/light-cycles/src/view"
-import { core as core2 } from "../../../games/lockstep/src/core"
-import { meta as meta2 } from "../../../games/lockstep/src/meta"
-import { view as view2 } from "../../../games/lockstep/src/view"
-import { core as core3 } from "../../../games/mergegrid/src/core"
-import { meta as meta3 } from "../../../games/mergegrid/src/meta"
-import { view as view3 } from "../../../games/mergegrid/src/view"
-import { core as core4 } from "../../../games/mineflag/src/core"
-import { meta as meta4 } from "../../../games/mineflag/src/meta"
-import { view as view4 } from "../../../games/mineflag/src/view"
+import { core as core1 } from "../../../games/codebreaker/src/core"
+import { meta as meta1 } from "../../../games/codebreaker/src/meta"
+import { view as view1 } from "../../../games/codebreaker/src/view"
+import { core as core2 } from "../../../games/light-cycles/src/core"
+import { meta as meta2 } from "../../../games/light-cycles/src/meta"
+import { view as view2 } from "../../../games/light-cycles/src/view"
+import { core as core3 } from "../../../games/lockstep/src/core"
+import { meta as meta3 } from "../../../games/lockstep/src/meta"
+import { view as view3 } from "../../../games/lockstep/src/view"
+import { core as core4 } from "../../../games/mergegrid/src/core"
+import { meta as meta4 } from "../../../games/mergegrid/src/meta"
+import { view as view4 } from "../../../games/mergegrid/src/view"
+import { core as core5 } from "../../../games/mineflag/src/core"
+import { meta as meta5 } from "../../../games/mineflag/src/meta"
+import { view as view5 } from "../../../games/mineflag/src/view"
 
 export const games: readonly GameEntry[] = [
   { meta: meta0, core: core0, view: view0 },
@@ -23,4 +26,5 @@ export const games: readonly GameEntry[] = [
   { meta: meta2, core: core2, view: view2 },
   { meta: meta3, core: core3, view: view3 },
   { meta: meta4, core: core4, view: view4 },
+  { meta: meta5, core: core5, view: view5 },
 ]
