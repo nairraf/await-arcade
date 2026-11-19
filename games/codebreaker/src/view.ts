@@ -194,6 +194,7 @@ button.cb-tile:disabled {
   display: inline-flex;
   align-items: center;
   gap: 2px;
+  font-size: 11.5px;
 }
 
 .cb-pip.is-exact {
@@ -258,9 +259,9 @@ button.cb-tile:disabled {
   margin: 0;
   text-align: center;
   color: var(--arcade-muted, #8b98a9);
-  font-size: 9.5px;
-  line-height: 1.4;
-  opacity: 0.9;
+  font-size: 12px;
+  line-height: 1.5;
+  opacity: 0.95;
 }
 
 .cb-sr {
@@ -280,12 +281,14 @@ button.cb-tile:disabled {
 .cb-sym-c { --cb-symbol: #f472b6; }
 .cb-sym-d { --cb-symbol: #60a5fa; }
 .cb-sym-e { --cb-symbol: #4ade80; }
+.cb-sym-f { --cb-symbol: #c084fc; }
 
 .arcade[data-theme="light"] .cb-sym-a { --cb-symbol: #0f766e; }
 .arcade[data-theme="light"] .cb-sym-b { --cb-symbol: #b45309; }
 .arcade[data-theme="light"] .cb-sym-c { --cb-symbol: #be185d; }
 .arcade[data-theme="light"] .cb-sym-d { --cb-symbol: #1d4ed8; }
 .arcade[data-theme="light"] .cb-sym-e { --cb-symbol: #15803d; }
+.arcade[data-theme="light"] .cb-sym-f { --cb-symbol: #7e22ce; }
 
 @media (prefers-color-scheme: light) {
   .arcade[data-theme="auto"] .cb-sym-a { --cb-symbol: #0f766e; }
@@ -293,6 +296,7 @@ button.cb-tile:disabled {
   .arcade[data-theme="auto"] .cb-sym-c { --cb-symbol: #be185d; }
   .arcade[data-theme="auto"] .cb-sym-d { --cb-symbol: #1d4ed8; }
   .arcade[data-theme="auto"] .cb-sym-e { --cb-symbol: #15803d; }
+  .arcade[data-theme="auto"] .cb-sym-f { --cb-symbol: #7e22ce; }
 }
 
 @media (max-width: 360px) {
@@ -400,7 +404,7 @@ export function view(ctx: ViewContext<CodebreakerState, CodebreakerInput>): Game
   const hint = el(
     "p",
     "cb-hint",
-    "← → slot · ↑ ↓ symbol · A–E set · Enter submit · Backspace clear · Feedback: ● right symbol, right slot · ○ right symbol, wrong slot",
+    "← → slot · ↑ ↓ symbol · A–F set · Enter submit · Backspace clear · Feedback: ● right symbol, right slot · ○ right symbol, wrong slot",
   )
   const live = el("div", "cb-sr")
   live.setAttribute("aria-live", "polite")
@@ -498,7 +502,7 @@ export function view(ctx: ViewContext<CodebreakerState, CodebreakerInput>): Game
     if (event.ctrlKey || event.metaKey || event.altKey) return
 
     const key = event.key
-    const letter = key.length === 1 && /[a-eA-E]/.test(key)
+    const letter = key.length === 1 && /[a-fA-F]/.test(key)
     const handled =
       key === "ArrowLeft" ||
       key === "ArrowRight" ||
