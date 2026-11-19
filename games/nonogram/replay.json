@@ -1,0 +1,463 @@
+{
+  "version": 1,
+  "gameId": "nonogram",
+  "gameVersion": "1.0.0",
+  "frameworkVersion": "0.1.0",
+  "modeId": "easy",
+  "seed": 20260419,
+  "kind": "turn",
+  "durationMs": 60000,
+  "inputs": [
+    {
+      "tick": 0,
+      "input": {
+        "type": "check"
+      }
+    },
+    {
+      "tick": 1,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 2,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 3,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 4,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 5,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 6,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 7,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 8,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 9,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 10,
+      "input": {
+        "type": "cursor",
+        "dx": 0,
+        "dy": 1
+      }
+    },
+    {
+      "tick": 11,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 12,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 13,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 14,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 15,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 16,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 17,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 18,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 19,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 20,
+      "input": {
+        "type": "cursor",
+        "dx": 0,
+        "dy": 1
+      }
+    },
+    {
+      "tick": 21,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 22,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 23,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 24,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 25,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 26,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 27,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 28,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 29,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 30,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 31,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 32,
+      "input": {
+        "type": "cursor",
+        "dx": 0,
+        "dy": 1
+      }
+    },
+    {
+      "tick": 33,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 34,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 35,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 36,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 37,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 38,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 39,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 40,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 41,
+      "input": {
+        "type": "cursor",
+        "dx": 0,
+        "dy": 1
+      }
+    },
+    {
+      "tick": 42,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 43,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 44,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 45,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 46,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 47,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 48,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 49,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 50,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 51,
+      "input": {
+        "type": "cursor",
+        "dx": 0,
+        "dy": 1
+      }
+    },
+    {
+      "tick": 52,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 53,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 54,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 55,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 56,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 57,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 58,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 59,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 60,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 61,
+      "input": {
+        "type": "check"
+      }
+    }
+  ],
+  "stateHash": "d526a161"
+}

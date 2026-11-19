@@ -18,6 +18,9 @@ import { greedySolve } from "../games/lockstep/solver"
 import { core as codeCore } from "../games/codebreaker/src/core"
 import { meta as codeMeta } from "../games/codebreaker/src/meta"
 import type { CodebreakerInput } from "../games/codebreaker/src/core"
+import { core as nonogramCore } from "../games/nonogram/src/core"
+import { meta as nonogramMeta } from "../games/nonogram/src/meta"
+import type { NonogramInput } from "../games/nonogram/src/core"
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 
@@ -124,15 +127,79 @@ const code = playTurn(codeCore, codeMeta, {
   durationMs: 24_000,
 })
 
+/**
+ * Nonogram fixture: one deliberate failed check on the empty board, then the
+ * solution's cells are marked and checked for a clean win. Two checks cost 100
+ * points, so the verified fixture scores 900 and exercises the check path.
+ */
+function nonogramInputs(seed: number): NonogramInput[] {
+  const mode = nonogramMeta.modes[0]!
+  let state = nonogramCore.create(seed, mode)
+  const inputs: NonogramInput[] = []
+
+  const push = (input: NonogramInput): void => {
+    inputs.push(input)
+    state = nonogramCore.step(state, [input], 0)
+  }
+
+  const moveTo = (target: number): void => {
+    while (state.cursor !== target) {
+      const width = state.width
+      const height = state.height
+      const x = state.cursor % width
+      const y = Math.floor(state.cursor / width)
+      const tx = target % width
+      const ty = Math.floor(target / width)
+
+      if (x !== tx) {
+        const right = (tx - x + width) % width
+        const left = width - right
+        push({ type: "cursor", dx: right <= left ? 1 : -1, dy: 0 })
+      } else {
+        const down = (ty - y + height) % height
+        const up = height - down
+        push({ type: "cursor", dx: 0, dy: down <= up ? 1 : -1 })
+      }
+    }
+  }
+
+  push({ type: "check" })
+
+  for (let index = 0; index < state.solution.length; index += 1) {
+    if (state.solution[index] !== 1) continue
+    moveTo(index)
+    push({ type: "mark" })
+  }
+
+  push({ type: "check" })
+  return inputs
+}
+
+const NONOGRAM_SEED = 20260419
+const nonogramScript = nonogramInputs(NONOGRAM_SEED)
+const nonogram = playTurn(nonogramCore, nonogramMeta, {
+  seed: NONOGRAM_SEED,
+  mode: nonogramMeta.modes[0]!,
+  inputs: nonogramScript,
+  durationMs: 60_000,
+})
+
 if (!mines.verified.ok) throw new Error(`mineflag fixture failed: ${mines.verified.reason}`)
 if (!cycles.verified.ok) throw new Error(`light-cycles fixture failed: ${cycles.verified.reason}`)
 if (!merge.verified.ok) throw new Error(`mergegrid fixture failed: ${merge.verified.reason}`)
 if (!brickstorm.verified.ok) throw new Error(`brickstorm fixture failed: ${brickstorm.verified.reason}`)
 if (!lock.verified.ok) throw new Error(`lockstep fixture failed: ${lock.verified.reason}`)
 if (!code.verified.ok) throw new Error(`codebreaker fixture failed: ${code.verified.reason}`)
+if (!nonogram.verified.ok) throw new Error(`nonogram fixture failed: ${nonogram.verified.reason}`)
 if (code.state.attemptsUsed !== 2 || code.score.value !== 900) {
   throw new Error(
     `codebreaker fixture shape drifted: attempts=${code.state.attemptsUsed} score=${code.score.value}`,
+  )
+}
+const nonogramChecks = nonogramScript.filter((input) => input.type === "check").length
+if (nonogramChecks !== 2 || nonogram.state.checksUsed !== 2 || nonogram.score.value !== 900) {
+  throw new Error(
+    `nonogram fixture shape drifted: attempts=${nonogramChecks} checksUsed=${nonogram.state.checksUsed} score=${nonogram.score.value}`,
   )
 }
 
@@ -142,6 +209,7 @@ writeFileSync(path.join(root, "games/mergegrid/replay.json"), `${JSON.stringify(
 writeFileSync(path.join(root, "games/brickstorm/replay.json"), `${JSON.stringify(brickstorm.replay, null, 2)}\n`)
 writeFileSync(path.join(root, "games/lockstep/replay.json"), `${JSON.stringify(lock.replay, null, 2)}\n`)
 writeFileSync(path.join(root, "games/codebreaker/replay.json"), `${JSON.stringify(code.replay, null, 2)}\n`)
+writeFileSync(path.join(root, "games/nonogram/replay.json"), `${JSON.stringify(nonogram.replay, null, 2)}\n`)
 
 console.log(`mineflag: ${mines.state.phase} score=${mines.score.value} verified=${mines.verified.ok}`)
 console.log(`light-cycles: ${cycles.state.phase} score=${cycles.score.value} verified=${cycles.verified.ok}`)
@@ -149,3 +217,4 @@ console.log(`mergegrid: ${merge.state.phase} score=${merge.score.value} verified
 console.log(`brickstorm: ${brickstorm.state.phase} score=${brickstorm.score.value} verified=${brickstorm.verified.ok}`)
 console.log(`lockstep: ${lock.state.phase} score=${lock.score.value} verified=${lock.verified.ok}`)
 console.log(`codebreaker: ${code.state.phase} score=${code.score.value} verified=${code.verified.ok}`)
+console.log(`nonogram: ${nonogram.state.phase} score=${nonogram.score.value} verified=${nonogram.verified.ok}`)
