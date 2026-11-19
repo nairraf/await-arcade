@@ -22,7 +22,8 @@ pre-verified puzzle for the mode, so `create()` always returns a playable board.
 - `src/core.test.ts` — solver unit cases, generator quality over 40 seeds per
   mode, win/fail/loss paths, input hardening, serialization, and the replay
   fixture.
-- `replay.json` — a verified 900-point win that fails one check before solving.
+- `replay.json` — a verified 900-point hard win that fails one check before
+  solving.
 - `arcade.config.ts` — tells `aa sync` where the three parts live.
 
 ## Controls
@@ -35,10 +36,11 @@ pre-verified puzzle for the mode, so `create()` always returns a playable board.
 | `Enter` | Check the board |
 | Click / Tap | Move the cursor there, then cycle the cell |
 
-Crosses are a player’s own notes. They are never part of the solution check, so
-a crossed cell is treated exactly like an empty one. Keys are scoped to the
-cartridge surface, modifier combinations are left alone, and held keys never
-repeat a move.
+The on-screen **Cross** and **Check** buttons mirror `X` and `Enter` for
+pointer-only and touch-only play. Crosses are a player’s own notes. They are
+never part of the solution check, so a crossed cell is treated exactly like an
+empty one. Keys are scoped to the cartridge surface, modifier combinations are
+left alone, and held keys never repeat a move.
 
 ## Scoring
 

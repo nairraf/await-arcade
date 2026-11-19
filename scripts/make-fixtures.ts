@@ -128,13 +128,15 @@ const code = playTurn(codeCore, codeMeta, {
 })
 
 /**
- * Nonogram fixture: one deliberate failed check on the empty board, then the
- * solution's cells are marked and checked for a clean win. Two checks cost 100
- * points, so the verified fixture scores 900 and exercises the check path.
+ * Nonogram fixture: one deliberate failed check on the empty hard board, then
+ * the solution's cells are marked and checked for a clean win. Two checks cost
+ * 100 points, so the verified fixture scores 900 and exercises both the check
+ * path and the 10 × 10 board.
  */
+const NONOGRAM_MODE = nonogramMeta.modes.find((mode) => mode.id === "hard")!
+
 function nonogramInputs(seed: number): NonogramInput[] {
-  const mode = nonogramMeta.modes[0]!
-  let state = nonogramCore.create(seed, mode)
+  let state = nonogramCore.create(seed, NONOGRAM_MODE)
   const inputs: NonogramInput[] = []
 
   const push = (input: NonogramInput): void => {
@@ -179,7 +181,7 @@ const NONOGRAM_SEED = 20260419
 const nonogramScript = nonogramInputs(NONOGRAM_SEED)
 const nonogram = playTurn(nonogramCore, nonogramMeta, {
   seed: NONOGRAM_SEED,
-  mode: nonogramMeta.modes[0]!,
+  mode: NONOGRAM_MODE,
   inputs: nonogramScript,
   durationMs: 60_000,
 })

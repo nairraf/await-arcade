@@ -68,9 +68,13 @@ const css = `
   grid-template-columns: auto auto;
   grid-template-rows: auto auto;
   justify-content: center;
+  justify-content: safe center;
   align-items: end;
   width: 100%;
   min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  overscroll-behavior-x: contain;
 }
 
 .ng-corner {
@@ -163,20 +167,69 @@ button.ng-cell.is-filled:not(:disabled):hover {
 }
 
 .ng-cell.is-cursor {
+  /* A panel-coloured separator keeps the cursor ring legible on a filled cell,
+     where the cartridge accent would otherwise blend into its own fill. */
   box-shadow:
     inset -1px -1px 0 var(--ng-line),
-    inset 0 0 0 2px var(--game-accent-2, #38bdf8);
+    inset 0 0 0 1px var(--arcade-panel, #0b1118),
+    inset 0 0 0 3px var(--game-label-2, var(--game-accent-2, #38bdf8));
   z-index: 1;
 }
 
 button.ng-cell:focus-visible {
-  outline: 2px solid var(--game-accent, #f472b6);
-  outline-offset: -3px;
+  /* Two-tone focus: an accent ring inside a panel-coloured band, so it stays
+     visible on both an empty cell and a cell filled with the same accent. */
+  outline: 2px solid var(--game-label-2, var(--game-accent-2, #38bdf8));
+  outline-offset: -4px;
+  box-shadow:
+    inset -1px -1px 0 var(--ng-line),
+    inset 0 0 0 2px var(--arcade-panel, #0b1118);
 }
 
 button.ng-cell:disabled {
   cursor: default;
   opacity: 1;
+}
+
+.ng-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 5px;
+}
+
+.ng-btn {
+  appearance: none;
+  padding: 5px 9px;
+  border: 1px solid var(--ng-line);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--arcade-fg, #e6edf3) 7%, transparent);
+  color: var(--arcade-fg, #e6edf3);
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 100ms ease, border-color 100ms ease;
+}
+
+.ng-btn:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--game-accent, #f472b6) 55%, transparent);
+  background: color-mix(in srgb, var(--game-accent, #f472b6) 14%, transparent);
+}
+
+.ng-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ng-btn.is-primary {
+  border-color: color-mix(in srgb, var(--game-accent, #f472b6) 60%, transparent);
+  color: var(--game-accent, #f472b6);
+}
+
+.ng-btn:focus-visible {
+  outline: 2px solid var(--game-accent, #f472b6);
+  outline-offset: 2px;
 }
 
 .ng-hint {
@@ -207,7 +260,8 @@ button.ng-cell:disabled {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ng-cell {
+  .ng-cell,
+  .ng-btn {
     transition: none;
   }
 }
@@ -236,7 +290,7 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
   wrap.setAttribute("aria-roledescription", "nonogram board")
   wrap.setAttribute(
     "aria-label",
-    "Nonogram. Arrow keys move the cursor. Space cycles a cell from empty to filled to crossed. X marks the cell crossed. Enter checks the board. Use the row and column clues to fill every required cell without filling an empty one.",
+    "Nonogram. Arrow keys move the cursor. Space cycles a cell from empty to filled to crossed. X marks the cell crossed. Enter checks the board. The Cross and Check buttons do the same for pointer and touch play. Use the row and column clues to fill every required cell without filling an empty one.",
   )
 
   const bar = el("div", "ng-bar")
@@ -258,16 +312,28 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
   grid.setAttribute("aria-label", "Nonogram cells")
   board.append(corner, colClues, rowClues, grid)
 
+  const controls = el("div", "ng-controls")
+  const crossButton = el("button", "ng-btn", "Cross")
+  const checkButton = el("button", "ng-btn is-primary", "Check")
+  const controlButtons = [crossButton, checkButton]
+  for (const button of controlButtons) {
+    button.type = "button"
+    button.dataset.ngControl = "true"
+  }
+  crossButton.setAttribute("aria-label", "Mark the cursor cell crossed")
+  checkButton.setAttribute("aria-label", "Check the board")
+  controls.append(crossButton, checkButton)
+
   const hint = el(
     "p",
     "ng-hint",
-    "Arrows move · Space mark · X cross · Enter check · Crosses are notes and never part of the solution",
+    "Arrows move · Space mark · X cross · Enter check · Cross / Check buttons for touch",
   )
   const live = el("div", "ng-sr")
   live.setAttribute("aria-live", "polite")
   live.setAttribute("aria-atomic", "true")
 
-  wrap.append(bar, board, hint, live)
+  wrap.append(bar, board, controls, hint, live)
   ctx.container.append(wrap)
 
   let builtWidth = 0
@@ -310,7 +376,9 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
       column.setAttribute("role", "listitem")
       column.setAttribute("aria-label", clueLabel("Column", x + 1, clue))
       for (const run of clue.length === 0 ? [0] : clue) {
-        column.append(el("span", undefined, String(run)))
+        const runText = el("span", undefined, String(run))
+        runText.setAttribute("aria-hidden", "true")
+        column.append(runText)
       }
       colClues.append(column)
     }
@@ -370,6 +438,9 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
     if (mark !== MARK_FILLED) dispatch({ type: "mark" })
   }
 
+  const isControl = (target: EventTarget | null): boolean =>
+    target instanceof HTMLElement && target.closest("[data-ng-control]") !== null
+
   const onKeyDown = (event: KeyboardEvent): void => {
     // Leave browser and shell shortcuts alone: Ctrl/Cmd+X must cut, not cross,
     // and Alt+Arrow must navigate history, not the grid.
@@ -386,6 +457,10 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
     const isCheck = key === "Enter"
 
     if (!isMove && !isMark && !isCross && !isCheck) return
+
+    // A focused on-screen control keeps its native Enter/Space activation.
+    if (isControl(event.target) && (isMark || isCheck)) return
+
     event.preventDefault()
     // Held keys never repeat a mutating action; one press, one turn.
     if (event.repeat) return
@@ -416,8 +491,22 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
   wrap.addEventListener("pointerdown", (event) => {
     const target = event.target
     if (target instanceof HTMLElement && target.closest(".ng-cell") !== null) return
+    if (isControl(target)) return
     wrap.focus({ preventScroll: true })
   })
+
+  crossButton.addEventListener("click", () => crossCursor())
+  checkButton.addEventListener("click", () => dispatch({ type: "check" }))
+
+  // Pointer activation hands focus back to the board so the next Enter checks
+  // instead of re-activating a button. Keyboard activation keeps native focus.
+  for (const button of controlButtons) {
+    button.addEventListener("pointerup", () => {
+      const cell = cells[ctx.state().cursor]
+      if (cell) cell.focus({ preventScroll: true })
+      else wrap.focus({ preventScroll: true })
+    })
+  }
 
   const render = (state: NonogramState): void => {
     if (state.width !== builtWidth || state.height !== builtHeight) build(state)
@@ -451,6 +540,8 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
       if (cursor) cell.setAttribute("aria-current", "true")
       else cell.removeAttribute("aria-current")
     }
+
+    for (const button of controlButtons) button.disabled = !playing
 
     if (state.phase !== lastPhase) {
       if (state.phase === "won") {

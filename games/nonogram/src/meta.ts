@@ -29,8 +29,8 @@ export const meta: GameMeta = {
   controls: [
     { keys: "Arrows", action: "Move the cursor" },
     { keys: "Space", action: "Cycle empty → filled → crossed → empty" },
-    { keys: "X", action: "Mark the cell crossed" },
-    { keys: "Enter", action: "Check the board" },
+    { keys: "X / Cross", action: "Mark the cell crossed" },
+    { keys: "Enter / Check", action: "Check the board" },
     { keys: "Click / Tap", action: "Move the cursor, then cycle the cell" },
   ],
   display: { surface: "dom", width: 10, height: 10 },

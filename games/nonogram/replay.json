@@ -3,7 +3,7 @@
   "gameId": "nonogram",
   "gameVersion": "1.0.0",
   "frameworkVersion": "0.1.0",
-  "modeId": "easy",
+  "modeId": "hard",
   "seed": 20260419,
   "kind": "turn",
   "durationMs": 60000,
@@ -45,9 +45,7 @@
     {
       "tick": 5,
       "input": {
-        "type": "cursor",
-        "dx": 1,
-        "dy": 0
+        "type": "mark"
       }
     },
     {
@@ -61,15 +59,15 @@
     {
       "tick": 7,
       "input": {
-        "type": "mark"
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
       }
     },
     {
       "tick": 8,
       "input": {
-        "type": "cursor",
-        "dx": 1,
-        "dy": 0
+        "type": "mark"
       }
     },
     {
@@ -84,14 +82,16 @@
       "tick": 10,
       "input": {
         "type": "cursor",
-        "dx": 0,
-        "dy": 1
+        "dx": 1,
+        "dy": 0
       }
     },
     {
       "tick": 11,
       "input": {
-        "type": "mark"
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
       }
     },
     {
@@ -105,9 +105,7 @@
     {
       "tick": 13,
       "input": {
-        "type": "cursor",
-        "dx": 1,
-        "dy": 0
+        "type": "mark"
       }
     },
     {
@@ -121,15 +119,17 @@
     {
       "tick": 15,
       "input": {
-        "type": "mark"
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
       }
     },
     {
       "tick": 16,
       "input": {
         "type": "cursor",
-        "dx": 1,
-        "dy": 0
+        "dx": 0,
+        "dy": 1
       }
     },
     {
@@ -149,17 +149,15 @@
     {
       "tick": 19,
       "input": {
-        "type": "cursor",
-        "dx": 1,
-        "dy": 0
+        "type": "mark"
       }
     },
     {
       "tick": 20,
       "input": {
         "type": "cursor",
-        "dx": 0,
-        "dy": 1
+        "dx": 1,
+        "dy": 0
       }
     },
     {
@@ -215,15 +213,15 @@
     {
       "tick": 28,
       "input": {
-        "type": "cursor",
-        "dx": 1,
-        "dy": 0
+        "type": "mark"
       }
     },
     {
       "tick": 29,
       "input": {
-        "type": "mark"
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
       }
     },
     {
@@ -246,22 +244,22 @@
       "tick": 32,
       "input": {
         "type": "cursor",
-        "dx": 0,
-        "dy": 1
+        "dx": 1,
+        "dy": 0
       }
     },
     {
       "tick": 33,
       "input": {
-        "type": "mark"
+        "type": "cursor",
+        "dx": 0,
+        "dy": 1
       }
     },
     {
       "tick": 34,
       "input": {
-        "type": "cursor",
-        "dx": 1,
-        "dy": 0
+        "type": "mark"
       }
     },
     {
@@ -275,15 +273,15 @@
     {
       "tick": 36,
       "input": {
-        "type": "cursor",
-        "dx": 1,
-        "dy": 0
+        "type": "mark"
       }
     },
     {
       "tick": 37,
       "input": {
-        "type": "mark"
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
       }
     },
     {
@@ -314,8 +312,8 @@
       "tick": 41,
       "input": {
         "type": "cursor",
-        "dx": 0,
-        "dy": 1
+        "dx": 1,
+        "dy": 0
       }
     },
     {
@@ -357,15 +355,17 @@
     {
       "tick": 47,
       "input": {
-        "type": "mark"
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
       }
     },
     {
       "tick": 48,
       "input": {
         "type": "cursor",
-        "dx": 1,
-        "dy": 0
+        "dx": 0,
+        "dy": 1
       }
     },
     {
@@ -385,57 +385,57 @@
     {
       "tick": 51,
       "input": {
-        "type": "cursor",
-        "dx": 0,
-        "dy": 1
+        "type": "mark"
       }
     },
     {
       "tick": 52,
       "input": {
-        "type": "mark"
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
       }
     },
     {
       "tick": 53,
       "input": {
-        "type": "cursor",
-        "dx": 1,
-        "dy": 0
+        "type": "mark"
       }
     },
     {
       "tick": 54,
       "input": {
-        "type": "mark"
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
       }
     },
     {
       "tick": 55,
       "input": {
-        "type": "cursor",
-        "dx": 1,
-        "dy": 0
+        "type": "mark"
       }
     },
     {
       "tick": 56,
       "input": {
-        "type": "mark"
-      }
-    },
-    {
-      "tick": 57,
-      "input": {
         "type": "cursor",
         "dx": 1,
         "dy": 0
       }
     },
     {
-      "tick": 58,
+      "tick": 57,
       "input": {
         "type": "mark"
+      }
+    },
+    {
+      "tick": 58,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
       }
     },
     {
@@ -449,15 +449,709 @@
     {
       "tick": 60,
       "input": {
-        "type": "mark"
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
       }
     },
     {
       "tick": 61,
       "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 62,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 63,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 64,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 65,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 66,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 67,
+      "input": {
+        "type": "cursor",
+        "dx": 0,
+        "dy": 1
+      }
+    },
+    {
+      "tick": 68,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 69,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 70,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 71,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 72,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 73,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 74,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 75,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 76,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 77,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 78,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 79,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 80,
+      "input": {
+        "type": "cursor",
+        "dx": 0,
+        "dy": 1
+      }
+    },
+    {
+      "tick": 81,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 82,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 83,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 84,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 85,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 86,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 87,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 88,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 89,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 90,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 91,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 92,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 93,
+      "input": {
+        "type": "cursor",
+        "dx": -1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 94,
+      "input": {
+        "type": "cursor",
+        "dx": -1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 95,
+      "input": {
+        "type": "cursor",
+        "dx": -1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 96,
+      "input": {
+        "type": "cursor",
+        "dx": 0,
+        "dy": 1
+      }
+    },
+    {
+      "tick": 97,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 98,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 99,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 100,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 101,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 102,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 103,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 104,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 105,
+      "input": {
+        "type": "cursor",
+        "dx": 0,
+        "dy": 1
+      }
+    },
+    {
+      "tick": 106,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 107,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 108,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 109,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 110,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 111,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 112,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 113,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 114,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 115,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 116,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 117,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 118,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 119,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 120,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 121,
+      "input": {
+        "type": "cursor",
+        "dx": 0,
+        "dy": 1
+      }
+    },
+    {
+      "tick": 122,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 123,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 124,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 125,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 126,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 127,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 128,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 129,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 130,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 131,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 132,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 133,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 134,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 135,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 136,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 137,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 138,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 139,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 140,
+      "input": {
+        "type": "cursor",
+        "dx": 0,
+        "dy": 1
+      }
+    },
+    {
+      "tick": 141,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 142,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 143,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 144,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 145,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 146,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 147,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 148,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 149,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 150,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 151,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 152,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 153,
+      "input": {
+        "type": "cursor",
+        "dx": 1,
+        "dy": 0
+      }
+    },
+    {
+      "tick": 154,
+      "input": {
+        "type": "mark"
+      }
+    },
+    {
+      "tick": 155,
+      "input": {
         "type": "check"
       }
     }
   ],
-  "stateHash": "d526a161"
+  "stateHash": "5fd1e941"
 }
