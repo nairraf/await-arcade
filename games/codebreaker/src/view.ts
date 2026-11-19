@@ -352,7 +352,7 @@ export function view(ctx: ViewContext<CodebreakerState, CodebreakerInput>): Game
   wrap.setAttribute("aria-roledescription", "codebreaker board")
   wrap.setAttribute(
     "aria-label",
-    "Codebreaker. Left and right arrows select a slot. Up and down arrows cycle its symbol. Letters A through E set a symbol. Enter submits. Backspace clears the slot.",
+    "Codebreaker. Left and right arrows select a slot. Up and down arrows cycle its symbol. Letters A through E set a symbol. Enter submits. Backspace clears the slot. Each guess reports two counts: the solid dot counts symbols in the right slot, the hollow dot counts symbols that are in the code but in a different slot.",
   )
 
   const bar = el("div", "cb-bar")
@@ -400,7 +400,7 @@ export function view(ctx: ViewContext<CodebreakerState, CodebreakerInput>): Game
   const hint = el(
     "p",
     "cb-hint",
-    "← → slot · ↑ ↓ symbol · A–E set · Enter submit · Backspace clear",
+    "← → slot · ↑ ↓ symbol · A–E set · Enter submit · Backspace clear · Feedback: ● right symbol, right slot · ○ right symbol, wrong slot",
   )
   const live = el("div", "cb-sr")
   live.setAttribute("aria-live", "polite")
@@ -472,7 +472,9 @@ export function view(ctx: ViewContext<CodebreakerState, CodebreakerInput>): Game
     const feedback = el("div", "cb-feedback")
     feedback.setAttribute("aria-hidden", "true")
     const exact = el("span", "cb-pip is-exact", `● ${guess.exact}`)
+    exact.setAttribute("title", "Right symbol, right slot")
     const near = el("span", "cb-pip is-near", `○ ${guess.near}`)
+    near.setAttribute("title", "Right symbol, wrong slot")
     feedback.append(exact, near)
 
     row.append(index, tiles, feedback)
