@@ -1,12 +1,12 @@
 import type { GameCore, Mode, Phase, Score, ScoreContext } from "@await-arcade/contract"
 import { createRng } from "@await-arcade/framework"
 
-/** Alphabet size. Symbols are rendered as the letters A–E by the view. */
-export const SYMBOLS = 5
+/** Alphabet size. Symbols are rendered as the letters A–F by the view. */
+export const SYMBOLS = 6
 /** Attempts per run, win or lose. */
 export const MAX_ATTEMPTS = 10
 /** The rendered alphabet, indexed by symbol id. */
-export const LETTERS = ["A", "B", "C", "D", "E"] as const
+export const LETTERS = ["A", "B", "C", "D", "E", "F"] as const
 
 export interface CodebreakerGuess {
   /** Symbol ids, left to right. */

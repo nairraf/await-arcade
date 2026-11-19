@@ -1,10 +1,11 @@
 # Codebreaker
 
 A compact, deterministic deduction game. Crack a hidden code of four
-(`classic`) or five (`expert`) symbols drawn from `A B C D E`. Repeats are
+(`classic`) or five (`expert`) symbols drawn from `A B C D E F`. Repeats are
 allowed, in the secret and in guesses. Ten attempts per run.
 
-Each guess reports two numbers:
+Each guess reports two numbers — totals across the whole row, not per-slot
+markers:
 
 - **exact** — the same symbol in the same slot.
 - **near** — the symbol is in the code but in a different slot. Only symbol

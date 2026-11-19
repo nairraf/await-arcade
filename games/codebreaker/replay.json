@@ -1,7 +1,7 @@
 {
   "version": 1,
   "gameId": "codebreaker",
-  "gameVersion": "1.0.0",
+  "gameVersion": "1.1.0",
   "frameworkVersion": "0.1.0",
   "modeId": "classic",
   "seed": 20260418,
@@ -18,7 +18,7 @@
     {
       "tick": 1,
       "input": {
-        "type": "slot",
+        "type": "cycle",
         "delta": 1
       }
     },
@@ -39,7 +39,7 @@
     {
       "tick": 4,
       "input": {
-        "type": "slot",
+        "type": "cycle",
         "delta": 1
       }
     },
@@ -53,7 +53,7 @@
     {
       "tick": 6,
       "input": {
-        "type": "cycle",
+        "type": "slot",
         "delta": 1
       }
     },
@@ -67,62 +67,63 @@
     {
       "tick": 8,
       "input": {
-        "type": "slot",
+        "type": "cycle",
         "delta": 1
       }
     },
     {
       "tick": 9,
       "input": {
-        "type": "cycle",
-        "delta": -1
+        "type": "slot",
+        "delta": 1
       }
     },
     {
       "tick": 10,
       "input": {
         "type": "cycle",
-        "delta": -1
+        "delta": 1
       }
     },
     {
       "tick": 11,
       "input": {
-        "type": "submit"
+        "type": "cycle",
+        "delta": 1
       }
     },
     {
       "tick": 12,
       "input": {
         "type": "cycle",
-        "delta": -1
+        "delta": 1
       }
     },
     {
       "tick": 13,
       "input": {
         "type": "cycle",
-        "delta": -1
-      }
-    },
-    {
-      "tick": 14,
-      "input": {
-        "type": "slot",
         "delta": 1
       }
     },
     {
-      "tick": 15,
+      "tick": 14,
       "input": {
         "type": "cycle",
         "delta": 1
       }
     },
     {
-      "tick": 16,
+      "tick": 15,
       "input": {
         "type": "slot",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 16,
+      "input": {
+        "type": "cycle",
         "delta": 1
       }
     },
@@ -150,8 +151,7 @@
     {
       "tick": 20,
       "input": {
-        "type": "slot",
-        "delta": 1
+        "type": "submit"
       }
     },
     {
@@ -178,9 +178,99 @@
     {
       "tick": 24,
       "input": {
+        "type": "cycle",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 25,
+      "input": {
+        "type": "cycle",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 26,
+      "input": {
+        "type": "slot",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 27,
+      "input": {
+        "type": "cycle",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 28,
+      "input": {
+        "type": "slot",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 29,
+      "input": {
+        "type": "cycle",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 30,
+      "input": {
+        "type": "cycle",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 31,
+      "input": {
+        "type": "cycle",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 32,
+      "input": {
+        "type": "cycle",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 33,
+      "input": {
+        "type": "slot",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 34,
+      "input": {
+        "type": "cycle",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 35,
+      "input": {
+        "type": "cycle",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 36,
+      "input": {
+        "type": "cycle",
+        "delta": 1
+      }
+    },
+    {
+      "tick": 37,
+      "input": {
         "type": "submit"
       }
     }
-  ],
-  "stateHash": "6f7ad8af"
+  ]
 }

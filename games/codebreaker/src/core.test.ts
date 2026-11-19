@@ -117,7 +117,7 @@ describe("codebreaker core", () => {
     expect(state.draft[0]).toBe(SYMBOLS - 1)
   })
 
-  it("seeds an empty slot with A going forward and E going backward", () => {
+  it("seeds an empty slot with A going forward and F going backward", () => {
     const forward = core.step(core.create(10, classic), [{ type: "cycle", delta: 1 }], 0)
     expect(forward.draft[0]).toBe(0)
 
