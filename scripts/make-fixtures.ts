@@ -15,6 +15,9 @@ import { meta as brickstormMeta } from "../games/brickstorm/src/meta"
 import { core as lockCore } from "../games/lockstep/src/core"
 import { meta as lockMeta } from "../games/lockstep/src/meta"
 import { greedySolve } from "../games/lockstep/solver"
+import { core as codeCore } from "../games/codebreaker/src/core"
+import { meta as codeMeta } from "../games/codebreaker/src/meta"
+import type { CodebreakerInput } from "../games/codebreaker/src/core"
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 
@@ -87,20 +90,62 @@ const lock = playTurn(lockCore, lockMeta, {
   durationMs: 12_000,
 })
 
+/**
+ * Codebreaker fixture: a two-attempt solve. The opener is a guaranteed miss
+ * (every slot shifted off the secret), so the log carries real feedback, then
+ * the secret is typed in exactly.
+ *
+ * A symbol costs `symbol + 1` forward cycles from an empty slot (empty starts
+ * at A on `cycle +1`), so the input log stays readable.
+ */
+function codebreakerInputs(seed: number): CodebreakerInput[] {
+  const mode = codeMeta.modes[0]!
+  const state = codeCore.create(seed, mode)
+  const inputs: CodebreakerInput[] = []
+
+  const enterRow = (symbols: readonly number[]): void => {
+    symbols.forEach((symbol, slot) => {
+      for (let step = 0; step <= symbol; step += 1) inputs.push({ type: "cycle", delta: 1 })
+      if (slot < symbols.length - 1) inputs.push({ type: "slot", delta: 1 })
+    })
+    inputs.push({ type: "submit" })
+  }
+
+  enterRow(state.secret.map((symbol) => (symbol + 1) % state.symbols))
+  enterRow(state.secret)
+  return inputs
+}
+
+const CODE_SEED = 20260418
+const code = playTurn(codeCore, codeMeta, {
+  seed: CODE_SEED,
+  mode: codeMeta.modes[0]!,
+  inputs: codebreakerInputs(CODE_SEED),
+  durationMs: 24_000,
+})
+
 if (!mines.verified.ok) throw new Error(`mineflag fixture failed: ${mines.verified.reason}`)
 if (!cycles.verified.ok) throw new Error(`light-cycles fixture failed: ${cycles.verified.reason}`)
 if (!merge.verified.ok) throw new Error(`mergegrid fixture failed: ${merge.verified.reason}`)
 if (!brickstorm.verified.ok) throw new Error(`brickstorm fixture failed: ${brickstorm.verified.reason}`)
 if (!lock.verified.ok) throw new Error(`lockstep fixture failed: ${lock.verified.reason}`)
+if (!code.verified.ok) throw new Error(`codebreaker fixture failed: ${code.verified.reason}`)
+if (code.state.attemptsUsed !== 2 || code.score.value !== 900) {
+  throw new Error(
+    `codebreaker fixture shape drifted: attempts=${code.state.attemptsUsed} score=${code.score.value}`,
+  )
+}
 
 writeFileSync(path.join(root, "games/mineflag/replay.json"), `${JSON.stringify(mines.replay, null, 2)}\n`)
 writeFileSync(path.join(root, "games/light-cycles/replay.json"), `${JSON.stringify(cycles.replay, null, 2)}\n`)
 writeFileSync(path.join(root, "games/mergegrid/replay.json"), `${JSON.stringify(merge.replay, null, 2)}\n`)
 writeFileSync(path.join(root, "games/brickstorm/replay.json"), `${JSON.stringify(brickstorm.replay, null, 2)}\n`)
 writeFileSync(path.join(root, "games/lockstep/replay.json"), `${JSON.stringify(lock.replay, null, 2)}\n`)
+writeFileSync(path.join(root, "games/codebreaker/replay.json"), `${JSON.stringify(code.replay, null, 2)}\n`)
 
 console.log(`mineflag: ${mines.state.phase} score=${mines.score.value} verified=${mines.verified.ok}`)
 console.log(`light-cycles: ${cycles.state.phase} score=${cycles.score.value} verified=${cycles.verified.ok}`)
 console.log(`mergegrid: ${merge.state.phase} score=${merge.score.value} verified=${merge.verified.ok}`)
 console.log(`brickstorm: ${brickstorm.state.phase} score=${brickstorm.score.value} verified=${brickstorm.verified.ok}`)
 console.log(`lockstep: ${lock.state.phase} score=${lock.score.value} verified=${lock.verified.ok}`)
+console.log(`codebreaker: ${code.state.phase} score=${code.score.value} verified=${code.verified.ok}`)
