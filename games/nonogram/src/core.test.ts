@@ -283,6 +283,30 @@ describe("nonogram rules and scoring", () => {
     expect(result.verified.ok).toBe(true)
   })
 
+  it("wins on the tenth check after nine misses and scores the 100-point floor", () => {
+    const fresh = core.create(51, hard)
+    const inputs: NonogramInput[] = [
+      ...Array.from({ length: MAX_CHECKS - 1 }, () => ({ type: "check" }) as NonogramInput),
+      ...solutionInputs(fresh),
+      { type: "check" },
+    ]
+    const result = playTurn(core, meta, { seed: 51, mode: hard, inputs, durationMs: 90_000 })
+
+    expect(result.state.phase).toBe("won")
+    expect(result.state.checksUsed).toBe(MAX_CHECKS)
+    expect(result.score.value).toBe(100)
+    expect(result.score.ranked).toBe(true)
+    expect(result.score.detail).toMatchObject({
+      mode: "hard",
+      width: 10,
+      height: 10,
+      checksUsed: MAX_CHECKS,
+      solved: true,
+    })
+    expect(result.verified.ok).toBe(true)
+    expect(result.verified.score?.value).toBe(100)
+  })
+
   it("consumes a failed check without exposing which cells were wrong", () => {
     const fresh = core.create(43, hard)
     let state = run(fresh, wrongFillInputs(fresh))
@@ -332,7 +356,7 @@ describe("nonogram rules and scoring", () => {
     expect(state.phase).toBe("lost")
     expect(state.checksUsed).toBe(MAX_CHECKS)
     const score = core.score(state, { elapsedMs: 0, ticks: MAX_CHECKS })
-    expect(score).toMatchObject({ won: false, ranked: false, type: "higher" })
+    expect(score).toMatchObject({ value: 0, won: false, ranked: false, type: "higher" })
     expect(score.detail).toMatchObject({ checksUsed: MAX_CHECKS, solved: false })
 
     const result = playTurn(core, meta, {
@@ -344,6 +368,68 @@ describe("nonogram rules and scoring", () => {
     expect(result.state.phase).toBe("lost")
     expect(result.verified.ok).toBe(false)
     expect(result.verified.reason).toContain("not eligible")
+  })
+
+  it("still wins when only empty solution cells are crossed", () => {
+    const fresh = core.create(52, easy)
+    const emptyIndex = fresh.solution.findIndex((cell) => cell === 0)
+    if (emptyIndex < 0) throw new Error("test needs an empty solution cell")
+
+    let state = run(fresh, solutionInputs(fresh))
+    state = run(state, [
+      ...moveTo(state.cursor, emptyIndex, state.width, state.height),
+      { type: "mark" },
+      { type: "mark" },
+    ])
+    expect(state.draft[emptyIndex]).toBe(MARK_CROSSED)
+
+    state = core.step(state, [{ type: "check" }], 0)
+    expect(state.phase).toBe("won")
+    expect(state.checksUsed).toBe(1)
+    expect(core.score(state, { elapsedMs: 0, ticks: 0 }).value).toBe(1000)
+  })
+
+  it("fails when a required solution cell is crossed", () => {
+    const fresh = core.create(53, hard)
+    const requiredIndex = fresh.solution.findIndex((cell) => cell === 1)
+    if (requiredIndex < 0) throw new Error("test needs a filled solution cell")
+
+    let state = run(fresh, solutionInputs(fresh))
+    state = run(state, [
+      ...moveTo(state.cursor, requiredIndex, state.width, state.height),
+      { type: "mark" },
+    ])
+    expect(state.draft[requiredIndex]).toBe(MARK_CROSSED)
+
+    state = core.step(state, [{ type: "check" }], 0)
+    expect(state.phase).toBe("playing")
+    expect(state.checksUsed).toBe(1)
+    expect(core.score(state, { elapsedMs: 0, ticks: 0 })).toMatchObject({
+      value: 0,
+      won: false,
+      ranked: false,
+    })
+  })
+
+  it("stops a batch as soon as the winning check resolves", () => {
+    const fresh = core.create(54, hard)
+    const solved = run(fresh, solutionInputs(fresh))
+    const before = core.serialize(solved) as { draft: number[] }
+
+    const next = core.step(
+      solved,
+      [
+        { type: "check" },
+        { type: "mark" },
+        { type: "cursor", dx: 1, dy: 0 },
+      ],
+      0,
+    )
+
+    expect(next.phase).toBe("won")
+    expect(next.checksUsed).toBe(1)
+    expect(next.draft).toEqual(before.draft)
+    expect(next.cursor).toBe(solved.cursor)
   })
 
   it("cycles marks empty → filled → crossed → empty and ignores zero moves", () => {
@@ -485,21 +571,37 @@ describe("nonogram rules and scoring", () => {
     expect(meta.version).toBe("1.0.0")
     expect(meta.modes.map((mode) => mode.id)).toEqual(["easy", "hard"])
     expect(meta.modes.every((mode) => mode.ranked !== false)).toBe(true)
+    expect(meta.controls.map((control) => control.keys)).toContain("X / Cross")
+    expect(meta.controls.map((control) => control.keys)).toContain("Enter / Check")
   })
 })
 
 describe("nonogram replay fixture", () => {
-  it("verifies the committed 900-point two-check win", () => {
+  it("verifies the committed 900-point two-check hard win", () => {
     const replay = fixture as unknown as Replay<NonogramInput>
     const result = verifyReplay(core, meta, replay)
 
     expect(result.ok).toBe(true)
     expect(result.score).toMatchObject({ value: 900, won: true, ranked: true })
-    expect(result.score?.detail).toMatchObject({ checksUsed: 2, solved: true })
+    expect(result.score?.detail).toMatchObject({
+      mode: "hard",
+      width: 10,
+      height: 10,
+      checksUsed: 2,
+      solved: true,
+    })
 
-    const state = result.state as { checksUsed: number; phase: string }
+    const state = result.state as {
+      checksUsed: number
+      phase: string
+      width: number
+      height: number
+    }
     expect(state.phase).toBe("won")
     expect(state.checksUsed).toBe(2)
+    expect(state.width).toBe(10)
+    expect(state.height).toBe(10)
+    expect(replay.modeId).toBe("hard")
     expect(replay.inputs.filter((event) => event.input.type === "check")).toHaveLength(2)
   })
 })
