@@ -6,6 +6,11 @@ export const MARK_EMPTY = 0
 export const MARK_FILLED = 1
 export const MARK_CROSSED = 2
 
+export type NonogramMark =
+  | typeof MARK_EMPTY
+  | typeof MARK_FILLED
+  | typeof MARK_CROSSED
+
 /** A check is the only way to find out whether the board is right. */
 export const MAX_CHECKS = 10
 
@@ -25,46 +30,47 @@ export interface NonogramState {
    * `MARK_CROSSED`. Crosses are an aid and never satisfy the solution.
    */
   draft: number[]
-  /** Row-major index of the cursor. */
-  cursor: number
   /** Checks consumed, including the check that won the run. */
   checksUsed: number
   phase: Phase
 }
 
 export type NonogramInput =
-  | { readonly type: "cursor"; readonly dx: number; readonly dy: number }
-  | { readonly type: "mark" }
+  | {
+      readonly type: "set"
+      readonly x: number
+      readonly y: number
+      readonly mark: NonogramMark
+    }
   | { readonly type: "check" }
 
-function wrap(value: number, size: number): number {
-  return ((value % size) + size) % size
+function isMark(value: unknown): value is NonogramMark {
+  return value === MARK_EMPTY || value === MARK_FILLED || value === MARK_CROSSED
 }
 
-function isDelta(value: unknown): value is -1 | 0 | 1 {
-  return value === -1 || value === 0 || value === 1
-}
+function setCell(
+  state: NonogramState,
+  x: number,
+  y: number,
+  mark: NonogramMark,
+): NonogramState {
+  if (
+    !Number.isInteger(x) ||
+    !Number.isInteger(y) ||
+    x < 0 ||
+    x >= state.width ||
+    y < 0 ||
+    y >= state.height ||
+    !isMark(mark)
+  ) {
+    return state
+  }
 
-function moveCursor(state: NonogramState, dx: number, dy: number): NonogramState {
-  const x = state.cursor % state.width
-  const y = Math.floor(state.cursor / state.width)
-  const nx = wrap(x + dx, state.width)
-  const ny = wrap(y + dy, state.height)
-  const cursor = ny * state.width + nx
-  if (cursor === state.cursor) return state
-  return { ...state, cursor }
-}
+  const at = y * state.width + x
+  if (state.draft[at] === mark) return state
 
-function cycleMark(state: NonogramState): NonogramState {
-  const current = state.draft[state.cursor] ?? MARK_EMPTY
-  const next =
-    current === MARK_EMPTY
-      ? MARK_FILLED
-      : current === MARK_FILLED
-        ? MARK_CROSSED
-        : MARK_EMPTY
   const draft = [...state.draft]
-  draft[state.cursor] = next
+  draft[at] = mark
   return { ...state, draft }
 }
 
@@ -98,14 +104,8 @@ function apply(state: NonogramState, input: NonogramInput): NonogramState {
   if (state.phase !== "playing") return state
 
   switch (input.type) {
-    case "cursor": {
-      const dx = input.dx
-      const dy = input.dy
-      if (!isDelta(dx) || !isDelta(dy) || (dx === 0 && dy === 0)) return state
-      return moveCursor(state, dx, dy)
-    }
-    case "mark":
-      return cycleMark(state)
+    case "set":
+      return setCell(state, input.x, input.y, input.mark)
     case "check":
       return checkBoard(state)
     default:
@@ -126,7 +126,6 @@ export const core: GameCore<NonogramState, NonogramInput> = {
       rowClues: puzzle.rowClues,
       colClues: puzzle.colClues,
       draft: Array<number>(puzzle.width * puzzle.height).fill(MARK_EMPTY),
-      cursor: 0,
       checksUsed: 0,
       phase: "playing",
     }
@@ -183,7 +182,6 @@ export const core: GameCore<NonogramState, NonogramInput> = {
       rowClues: state.rowClues.map((clue) => [...clue]),
       colClues: state.colClues.map((clue) => [...clue]),
       draft: [...state.draft],
-      cursor: state.cursor,
       checksUsed: state.checksUsed,
       phase: state.phase,
     }

@@ -42,26 +42,43 @@ export function depthLabel(score: Score): string {
 export function formatBoardScore(score: Score, meta: GameMeta): string {
   const depth = depthLabel(score)
   const base = formatScore(score, meta)
-  return depth ? `${base} · ${depth}` : base
+  if (depth) return `${base} · ${depth}`
+  const elapsed = score.detail?.elapsedMs
+  if (meta.id === "nonogram" && typeof elapsed === "number" && Number.isFinite(elapsed) && elapsed >= 0) {
+    return `${base} · ${formatDuration(elapsed)}`
+  }
+  return base
 }
 
-/** Compact daily Mineflag display: moves, server time, attempt. */
+/** Compact daily Mineflag/Nonogram display: headline score, server time, attempt. */
 export function formatDailyScore(score: Score, meta: GameMeta): string {
   const moves = score.detail?.moves
   const elapsed = score.detail?.elapsedMs
   const attempt = score.detail?.attempt
+  const tryLabel = typeof attempt === "number" ? ` · try ${attempt}` : ""
   if (typeof moves === "number" && typeof elapsed === "number") {
-    const tryLabel = typeof attempt === "number" ? ` · try ${attempt}` : ""
     return `${moves} mv · ${formatDuration(elapsed)}${tryLabel}`
+  }
+  if (meta.id === "nonogram" && typeof elapsed === "number" && Number.isFinite(elapsed) && elapsed >= 0) {
+    return `${formatScore(score, meta)} · ${formatDuration(elapsed)}${tryLabel}`
   }
   return formatBoardScore(score, meta)
 }
 
 /** Positive when `candidate` beats `previous`. */
 export function compareScores(candidate: Score, previous: Score): number {
-  return candidate.type === "lower"
-    ? previous.value - candidate.value
-    : candidate.value - previous.value
+  const primary =
+    candidate.type === "lower"
+      ? previous.value - candidate.value
+      : candidate.value - previous.value
+  if (primary !== 0) return primary
+
+  const left = candidate.detail?.rankKey
+  const right = previous.detail?.rankKey
+  if (typeof left === "string" && typeof right === "string" && left.length > 0 && right.length > 0) {
+    return right < left ? -1 : right > left ? 1 : 0
+  }
+  return 0
 }
 
 export function isBetter(candidate: Score, previous: Score | undefined): boolean {

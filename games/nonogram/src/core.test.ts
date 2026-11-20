@@ -34,44 +34,17 @@ function run(state: NonogramState, inputs: readonly NonogramInput[]): NonogramSt
   return next
 }
 
-/** Shortest wrapped cursor path from `from` to `target`. */
-function moveTo(from: number, target: number, width: number, height: number): NonogramInput[] {
-  const inputs: NonogramInput[] = []
-  let cursor = from
-
-  while (cursor !== target) {
-    const x = cursor % width
-    const y = Math.floor(cursor / width)
-    const tx = target % width
-    const ty = Math.floor(target / width)
-
-    if (x !== tx) {
-      const right = (tx - x + width) % width
-      const left = width - right
-      const nx = right <= left ? (x + 1) % width : (x - 1 + width) % width
-      inputs.push({ type: "cursor", dx: right <= left ? 1 : -1, dy: 0 })
-      cursor = y * width + nx
-    } else {
-      const down = (ty - y + height) % height
-      const up = height - down
-      const ny = down <= up ? (y + 1) % height : (y - 1 + height) % height
-      inputs.push({ type: "cursor", dx: 0, dy: down <= up ? 1 : -1 })
-      cursor = ny * width + x
-    }
-  }
-
-  return inputs
-}
-
 /** Fill every solution cell, leaving everything else empty. */
 function solutionInputs(state: NonogramState): NonogramInput[] {
   const inputs: NonogramInput[] = []
-  let cursor = 0
   for (let index = 0; index < state.solution.length; index += 1) {
     if (state.solution[index] !== 1) continue
-    inputs.push(...moveTo(cursor, index, state.width, state.height))
-    cursor = index
-    inputs.push({ type: "mark" })
+    inputs.push({
+      type: "set",
+      x: index % state.width,
+      y: Math.floor(index / state.width),
+      mark: MARK_FILLED,
+    })
   }
   return inputs
 }
@@ -79,7 +52,14 @@ function solutionInputs(state: NonogramState): NonogramInput[] {
 function wrongFillInputs(state: NonogramState): NonogramInput[] {
   const index = state.solution.findIndex((cell) => cell === 0)
   if (index < 0) throw new Error("test needs an empty solution cell")
-  return [...moveTo(0, index, state.width, state.height), { type: "mark" }]
+  return [
+    {
+      type: "set",
+      x: index % state.width,
+      y: Math.floor(index / state.width),
+      mark: MARK_FILLED,
+    },
+  ]
 }
 
 function solvedGrid(puzzle: {
@@ -333,7 +313,6 @@ describe("nonogram rules and scoring", () => {
       [
         "checksUsed",
         "colClues",
-        "cursor",
         "draft",
         "height",
         "mode",
@@ -376,11 +355,18 @@ describe("nonogram rules and scoring", () => {
     if (emptyIndex < 0) throw new Error("test needs an empty solution cell")
 
     let state = run(fresh, solutionInputs(fresh))
-    state = run(state, [
-      ...moveTo(state.cursor, emptyIndex, state.width, state.height),
-      { type: "mark" },
-      { type: "mark" },
-    ])
+    state = core.step(
+      state,
+      [
+        {
+          type: "set",
+          x: emptyIndex % state.width,
+          y: Math.floor(emptyIndex / state.width),
+          mark: MARK_CROSSED,
+        },
+      ],
+      0,
+    )
     expect(state.draft[emptyIndex]).toBe(MARK_CROSSED)
 
     state = core.step(state, [{ type: "check" }], 0)
@@ -395,10 +381,18 @@ describe("nonogram rules and scoring", () => {
     if (requiredIndex < 0) throw new Error("test needs a filled solution cell")
 
     let state = run(fresh, solutionInputs(fresh))
-    state = run(state, [
-      ...moveTo(state.cursor, requiredIndex, state.width, state.height),
-      { type: "mark" },
-    ])
+    state = core.step(
+      state,
+      [
+        {
+          type: "set",
+          x: requiredIndex % state.width,
+          y: Math.floor(requiredIndex / state.width),
+          mark: MARK_CROSSED,
+        },
+      ],
+      0,
+    )
     expect(state.draft[requiredIndex]).toBe(MARK_CROSSED)
 
     state = core.step(state, [{ type: "check" }], 0)
@@ -420,8 +414,8 @@ describe("nonogram rules and scoring", () => {
       solved,
       [
         { type: "check" },
-        { type: "mark" },
-        { type: "cursor", dx: 1, dy: 0 },
+        { type: "set", x: 0, y: 0, mark: MARK_CROSSED },
+        { type: "set", x: 1, y: 0, mark: MARK_FILLED },
       ],
       0,
     )
@@ -429,54 +423,53 @@ describe("nonogram rules and scoring", () => {
     expect(next.phase).toBe("won")
     expect(next.checksUsed).toBe(1)
     expect(next.draft).toEqual(before.draft)
-    expect(next.cursor).toBe(solved.cursor)
   })
 
-  it("cycles marks empty → filled → crossed → empty and ignores zero moves", () => {
+  it("sets empty, filled, and crossed marks directly and ignores idempotent sets", () => {
     let state = core.create(45, easy)
-    expect(state.cursor).toBe(0)
     expect(state.draft[0]).toBe(MARK_EMPTY)
 
-    state = core.step(state, [{ type: "cursor", dx: -1, dy: 0 }], 0)
-    expect(state.cursor).toBe(state.width - 1)
-    state = core.step(state, [{ type: "cursor", dx: 1, dy: 0 }], 0)
-    expect(state.cursor).toBe(0)
-    state = core.step(state, [{ type: "cursor", dx: 0, dy: -1 }], 0)
-    expect(state.cursor).toBe((state.height - 1) * state.width)
-    state = core.step(state, [{ type: "cursor", dx: 0, dy: 1 }], 0)
-    expect(state.cursor).toBe(0)
+    const idle = core.step(state, [{ type: "set", x: 0, y: 0, mark: MARK_EMPTY }], 0)
+    expect(idle).toBe(state)
 
-    const before = core.serialize(state)
-    state = core.step(state, [{ type: "cursor", dx: 0, dy: 0 }], 0)
-    expect(core.serialize(state)).toEqual(before)
-
-    state = core.step(state, [{ type: "mark" }], 0)
+    state = core.step(state, [{ type: "set", x: 0, y: 0, mark: MARK_FILLED }], 0)
     expect(state.draft[0]).toBe(MARK_FILLED)
-    state = core.step(state, [{ type: "mark" }], 0)
+    expect(core.step(state, [{ type: "set", x: 0, y: 0, mark: MARK_FILLED }], 0)).toBe(state)
+
+    state = core.step(state, [{ type: "set", x: 0, y: 0, mark: MARK_CROSSED }], 0)
     expect(state.draft[0]).toBe(MARK_CROSSED)
-    state = core.step(state, [{ type: "mark" }], 0)
+    expect(core.step(state, [{ type: "set", x: 0, y: 0, mark: MARK_CROSSED }], 0)).toBe(state)
+
+    state = core.step(state, [{ type: "set", x: 0, y: 0, mark: MARK_EMPTY }], 0)
     expect(state.draft[0]).toBe(MARK_EMPTY)
     expect(state.draft.slice(1).every((mark) => mark === MARK_EMPTY)).toBe(true)
+
+    state = core.step(state, [{ type: "set", x: state.width - 1, y: state.height - 1, mark: MARK_FILLED }], 0)
+    expect(state.draft[state.width * state.height - 1]).toBe(MARK_FILLED)
   })
 
-  it("treats malformed, unknown, and non-finite inputs as no-ops", () => {
+  it("treats malformed, out-of-bounds, non-integer, and invalid-mark inputs as no-ops", () => {
     const fresh = core.create(46, hard)
     const before = core.serialize(fresh)
     const bad: unknown[] = [
       null,
       undefined,
       0,
-      "cursor",
+      "set",
       [],
       { type: "nope" },
-      { type: "cursor", dx: Number.NaN, dy: 0 },
-      { type: "cursor", dx: 0, dy: Number.POSITIVE_INFINITY },
-      { type: "cursor", dx: -1, dy: Number.NEGATIVE_INFINITY },
-      { type: "cursor", dx: 2, dy: 0 },
-      { type: "cursor", dx: 0, dy: -2 },
-      { type: "cursor", dx: 0, dy: 0 },
-      { type: "cursor" },
-      { type: "cursor", dx: "1", dy: 0 },
+      { type: "set", x: -1, y: 0, mark: MARK_FILLED },
+      { type: "set", x: 0, y: -1, mark: MARK_FILLED },
+      { type: "set", x: fresh.width, y: 0, mark: MARK_FILLED },
+      { type: "set", x: 0, y: fresh.height, mark: MARK_FILLED },
+      { type: "set", x: 1.5, y: 0, mark: MARK_FILLED },
+      { type: "set", x: 0, y: Number.NaN, mark: MARK_FILLED },
+      { type: "set", x: 0, y: Number.POSITIVE_INFINITY, mark: MARK_FILLED },
+      { type: "set", x: "0", y: 0, mark: MARK_FILLED },
+      { type: "set", x: 0, y: 0, mark: 3 },
+      { type: "set", x: 0, y: 0, mark: -1 },
+      { type: "set", x: 0, y: 0, mark: "1" },
+      { type: "set", x: 0, y: 0 },
     ]
 
     let state = fresh
@@ -487,7 +480,7 @@ describe("nonogram rules and scoring", () => {
 
     state = core.step(fresh, null as unknown as NonogramInput[], 0)
     expect(core.serialize(state)).toEqual(before)
-    state = core.step(fresh, "mark" as unknown as NonogramInput[], 0)
+    state = core.step(fresh, "set" as unknown as NonogramInput[], 0)
     expect(core.serialize(state)).toEqual(before)
   })
 
@@ -500,8 +493,7 @@ describe("nonogram rules and scoring", () => {
     const after = core.step(
       won,
       [
-        { type: "cursor", dx: 1, dy: 0 },
-        { type: "mark" },
+        { type: "set", x: 0, y: 0, mark: MARK_CROSSED },
         { type: "check" },
       ],
       0,
@@ -513,13 +505,13 @@ describe("nonogram rules and scoring", () => {
       lost = core.step(lost, [{ type: "check" }], 0)
     }
     const lostBefore = core.serialize(lost)
-    lost = core.step(lost, [{ type: "mark" }, { type: "check" }], 0)
+    lost = core.step(lost, [{ type: "set", x: 0, y: 0, mark: MARK_FILLED }, { type: "check" }], 0)
     expect(core.serialize(lost)).toEqual(lostBefore)
   })
 
   it("serializes every play-affecting field and round-trips it", () => {
     let state = core.create(49, hard)
-    state = run(state, [...moveTo(0, 7, state.width, state.height), { type: "mark" }])
+    state = core.step(state, [{ type: "set", x: 3, y: 2, mark: MARK_FILLED }], 0)
     state = core.step(state, [{ type: "check" }], 0)
 
     const serialized = core.serialize(state) as {
@@ -530,7 +522,6 @@ describe("nonogram rules and scoring", () => {
       rowClues: number[][]
       colClues: number[][]
       draft: number[]
-      cursor: number
       checksUsed: number
       phase: NonogramState["phase"]
     }
@@ -539,7 +530,6 @@ describe("nonogram rules and scoring", () => {
       mode: "hard",
       width: 10,
       height: 10,
-      cursor: 7,
       checksUsed: 1,
       phase: "playing",
     })
@@ -557,7 +547,6 @@ describe("nonogram rules and scoring", () => {
       rowClues: serialized.rowClues,
       colClues: serialized.colClues,
       draft: [...serialized.draft],
-      cursor: serialized.cursor,
       checksUsed: serialized.checksUsed,
       phase: serialized.phase,
     }
@@ -571,7 +560,8 @@ describe("nonogram rules and scoring", () => {
     expect(meta.version).toBe("1.0.0")
     expect(meta.modes.map((mode) => mode.id)).toEqual(["easy", "hard"])
     expect(meta.modes.every((mode) => mode.ranked !== false)).toBe(true)
-    expect(meta.controls.map((control) => control.keys)).toContain("X / Cross")
+    expect(meta.controls.map((control) => control.keys)).toContain("Click / Drag")
+    expect(meta.controls.map((control) => control.keys)).toContain("1 / 2 · P / C")
     expect(meta.controls.map((control) => control.keys)).toContain("Enter / Check")
   })
 })

@@ -4,6 +4,7 @@ export { view } from "./view"
 export { generate, solveGrid } from "./generate"
 export type {
   NonogramInput,
+  NonogramMark,
   NonogramState,
 } from "./core"
 export type {

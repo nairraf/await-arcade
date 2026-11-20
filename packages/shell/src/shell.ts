@@ -6,6 +6,7 @@ import type {
   DailyChallenge,
   GameEntry,
   GameHost,
+  GameMeta,
   GhostRun,
   Mode,
   RunAnchor,
@@ -54,6 +55,12 @@ interface ActiveGame {
   runner: GameRunner<any, any>
   cleanup: () => void
 }
+
+const isTimedTurn = (meta: GameMeta): boolean =>
+  meta.id === "mineflag" || meta.id === "nonogram"
+
+const showsElapsedTimer = (meta: GameMeta): boolean =>
+  meta.kind === "realtime" || isTimedTurn(meta)
 
 export function createArcade(options: ArcadeOptions): Arcade {
   if (options.injectStyles !== false) ensureStyle("arcade-shell-styles", styles)
@@ -319,6 +326,10 @@ export function createArcade(options: ArcadeOptions): Arcade {
     if (entry.meta.id === "mineflag") {
       body.append(
         el("div", "arcade-mode-hint", "Daily rank: moves, then server time. Attempts are shown only."),
+      )
+    } else if (entry.meta.id === "nonogram") {
+      body.append(
+        el("div", "arcade-mode-hint", "Daily rank: score, then server time. Attempts are shown only."),
       )
     }
 
@@ -808,8 +819,8 @@ export function createArcade(options: ArcadeOptions): Arcade {
     )
     const bestCell = hudCell(bestLabel, best ? formatScore(best, entry.meta) : "—")
     const time = hudCell(
-      entry.meta.kind === "realtime" || entry.meta.id === "mineflag" ? "Elapsed" : "Status",
-      entry.meta.kind === "realtime" || entry.meta.id === "mineflag" ? "0.0s" : "Playing",
+      showsElapsedTimer(entry.meta) ? "Elapsed" : "Status",
+      showsElapsedTimer(entry.meta) ? "0.0s" : "Playing",
     )
     const hud = el("div", "arcade-hud")
     hud.append(score.root, bestCell.root, time.root)
@@ -1008,9 +1019,12 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
       const currentKey = submit.score?.detail?.rankKey
       const bestKey = submit.best?.detail?.rankKey
+      const previousKey = previousBest?.detail?.rankKey
       const improved = daily
         ? typeof currentKey === "string" && currentKey === bestKey
-        : submit.best !== undefined && isBetter(submit.best, previousBest)
+        : typeof currentKey === "string" && typeof bestKey === "string"
+          ? currentKey === bestKey && currentKey !== previousKey
+          : submit.best !== undefined && isBetter(submit.best, previousBest)
       const kicker = practice
         ? "PRACTICE · UNRANKED"
         : daily
@@ -1056,9 +1070,20 @@ export function createArcade(options: ArcadeOptions): Arcade {
           detailParts.push(
             `Attempt ${attempt} · server ${formatDuration(elapsed)} · ${moves} moves.`,
           )
+        } else if (elapsed !== undefined && entry.meta.id === "nonogram") {
+          detailParts.push(
+            `Attempt ${attempt} · server ${formatDuration(elapsed)}.`,
+          )
         }
       } else if (!daily && entry.meta.id === "mineflag") {
         detailParts.push(`Time ${formatDuration(result.replay.durationMs)}.`)
+      } else if (!daily && entry.meta.id === "nonogram") {
+        const serverElapsed = submit.score?.detail?.elapsedMs
+        detailParts.push(
+          typeof serverElapsed === "number"
+            ? `Server ${formatDuration(serverElapsed)}.`
+            : `Time ${formatDuration(result.replay.durationMs)}.`,
+        )
       }
       if (submit.best) {
         const bestText = daily
@@ -1139,7 +1164,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
         lastTicks = ticks
         const preview = entry.core.score(state, { elapsedMs, ticks })
         score.value.textContent = formatScore(preview, entry.meta)
-        if (entry.meta.kind === "realtime" || entry.meta.id === "mineflag") {
+        if (showsElapsedTimer(entry.meta)) {
           time.value.textContent = formatDuration(elapsedMs)
         } else {
           time.value.textContent = entry.core.phase(state) === "playing" ? "Playing" : "Finished"
@@ -1151,7 +1176,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
           clearInterval(elapsedTimer)
           elapsedTimer = undefined
         }
-        if (entry.meta.id === "mineflag") {
+        if (isTimedTurn(entry.meta)) {
           time.value.textContent = formatDuration(result.replay.durationMs)
         } else if (entry.meta.kind === "turn") {
           time.value.textContent = result.score.won ? "Won" : "Lost"
@@ -1300,9 +1325,9 @@ export function createArcade(options: ArcadeOptions): Arcade {
       }
     }
 
-    if (entry.meta.id === "mineflag") {
+    if (isTimedTurn(entry.meta)) {
       elapsedTimer = setInterval(() => {
-        if (runner && entry.core.phase(runner.state()) === "playing") {
+        if (runner && !runner.paused() && entry.core.phase(runner.state()) === "playing") {
           time.value.textContent = formatDuration(runner.elapsedMs())
         }
       }, 1000)

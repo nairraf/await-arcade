@@ -756,4 +756,181 @@ describe("daily challenge", () => {
       await failingServer.close()
     }
   })
+
+  it("ranks nonogram runs by accuracy first and server elapsed time second", async () => {
+    let now = Date.UTC(2026, 10, 19, 12, 0, 0)
+    const nowSpy = vi.spyOn(Date, "now").mockImplementation(() => now)
+    const local = createArcadeServer()
+    const port = await local.listen(0)
+    const root = `http://127.0.0.1:${port}`
+
+    const start = async (playerId: string) => {
+      const res = await fetch(`${root}/v1/runs`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ gameId: "nonogram", modeId: "easy", playerId }),
+      })
+      expect(res.status).toBe(201)
+      return (await res.json()) as { runId: string; seed: number }
+    }
+
+    const entry = verifiers["nonogram"]!
+    const easyMode = entry.meta.modes.find((candidate) => candidate.id === "easy")!
+
+    const buildInputs = (seed: number, failFirstCheck: boolean) => {
+      const state = entry.core.create(seed, easyMode) as {
+        width: number
+        solution: readonly number[]
+      }
+      const inputs: Array<
+        { type: "set"; x: number; y: number; mark: 1 } | { type: "check" }
+      > = []
+      if (failFirstCheck) inputs.push({ type: "check" })
+      for (let index = 0; index < state.solution.length; index += 1) {
+        if (state.solution[index] !== 1) continue
+        inputs.push({
+          type: "set",
+          x: index % state.width,
+          y: Math.floor(index / state.width),
+          mark: 1,
+        })
+      }
+      inputs.push({ type: "check" })
+      return inputs
+    }
+
+    try {
+      const fastMissRun = await start("fast-miss")
+      const slowCleanRun = await start("slow-clean")
+      const fastCleanRun = await start("fast-clean")
+
+      now += 5_000
+      const fastMissSub = await submitReplay(
+        root,
+        fastMissRun.runId,
+        playTurn(entry.core, entry.meta, {
+          seed: fastMissRun.seed,
+          mode: easyMode,
+          inputs: buildInputs(fastMissRun.seed, true),
+        }).replay,
+      )
+      expect(fastMissSub.status).toBe(200)
+      const fastMissBody = (await fastMissSub.json()) as {
+        score: { value: number; detail?: Record<string, unknown> }
+      }
+      expect(fastMissBody.score.value).toBe(900)
+      expect(fastMissBody.score.detail?.elapsedMs).toBe(5_000)
+      expect(fastMissBody.score.detail?.rankKey).toBe("000100|0000005000")
+
+      now += 5_000
+      const fastCleanSub = await submitReplay(
+        root,
+        fastCleanRun.runId,
+        playTurn(entry.core, entry.meta, {
+          seed: fastCleanRun.seed,
+          mode: easyMode,
+          inputs: buildInputs(fastCleanRun.seed, false),
+        }).replay,
+      )
+      expect(fastCleanSub.status).toBe(200)
+      const fastCleanBody = (await fastCleanSub.json()) as {
+        rank: number
+        score: { value: number; detail?: Record<string, unknown> }
+      }
+      expect(fastCleanBody.rank).toBe(1)
+      expect(fastCleanBody.score.value).toBe(1000)
+      expect(fastCleanBody.score.detail?.rankKey).toBe("000000|0000010000")
+
+      now += 20_000
+      const slowCleanSub = await submitReplay(
+        root,
+        slowCleanRun.runId,
+        playTurn(entry.core, entry.meta, {
+          seed: slowCleanRun.seed,
+          mode: easyMode,
+          inputs: buildInputs(slowCleanRun.seed, false),
+        }).replay,
+      )
+      expect(slowCleanSub.status).toBe(200)
+      const slowCleanBody = (await slowCleanSub.json()) as {
+        rank: number
+        score: { value: number; detail?: Record<string, unknown> }
+      }
+      expect(slowCleanBody.rank).toBe(2)
+      expect(slowCleanBody.score.value).toBe(1000)
+      expect(slowCleanBody.score.detail?.rankKey).toBe("000000|0000030000")
+
+      const board = (await fetch(`${root}/v1/boards/nonogram/easy`).then((res) =>
+        res.json(),
+      )) as {
+        entries: Array<{ playerId: string; score: { value: number }; rankKey?: string }>
+      }
+      expect(board.entries.map((item) => item.playerId)).toEqual([
+        "fast-clean",
+        "slow-clean",
+        "fast-miss",
+      ])
+
+      const missRank = (await fetch(`${root}/v1/boards/nonogram/easy/player/fast-miss`).then(
+        (res) => res.json(),
+      )) as { rank?: number }
+      expect(missRank.rank).toBe(3)
+
+      // A faster 1000-point win replaces slow-clean's personal best and moves to #1.
+      now += 60_000
+      const rematch = await start("slow-clean")
+      now += 4_000
+      const rematchSub = await submitReplay(
+        root,
+        rematch.runId,
+        playTurn(entry.core, entry.meta, {
+          seed: rematch.seed,
+          mode: easyMode,
+          inputs: buildInputs(rematch.seed, false),
+        }).replay,
+      )
+      expect(rematchSub.status).toBe(200)
+      const rematchBody = (await rematchSub.json()) as {
+        rank: number
+        best?: { detail?: Record<string, unknown> }
+      }
+      expect(rematchBody.rank).toBe(1)
+      expect(rematchBody.best?.detail?.elapsedMs).toBe(4_000)
+      expect(rematchBody.best?.detail?.rankKey).toBe("000000|0000004000")
+
+      // A slower 1000-point win does not overwrite the 4s personal best.
+      const slowerRun = await start("slow-clean")
+      now += 15_000
+      const slowerSub = await submitReplay(
+        root,
+        slowerRun.runId,
+        playTurn(entry.core, entry.meta, {
+          seed: slowerRun.seed,
+          mode: easyMode,
+          inputs: buildInputs(slowerRun.seed, false),
+        }).replay,
+      )
+      expect(slowerSub.status).toBe(200)
+      const slowerBody = (await slowerSub.json()) as {
+        rank: number
+        best?: { detail?: Record<string, unknown> }
+      }
+      expect(slowerBody.rank).toBe(1)
+      expect(slowerBody.best?.detail?.elapsedMs).toBe(4_000)
+
+      const updatedBoard = (await fetch(`${root}/v1/boards/nonogram/easy`).then((res) =>
+        res.json(),
+      )) as {
+        entries: Array<{ playerId: string }>
+      }
+      expect(updatedBoard.entries.map((item) => item.playerId)).toEqual([
+        "slow-clean",
+        "fast-clean",
+        "fast-miss",
+      ])
+    } finally {
+      nowSpy.mockRestore()
+      await local.close()
+    }
+  })
 })

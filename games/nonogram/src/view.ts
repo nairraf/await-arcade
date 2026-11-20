@@ -2,16 +2,34 @@ import type { GameView, ViewContext } from "@await-arcade/contract"
 import { el, ensureStyle } from "@await-arcade/framework"
 import {
   MARK_CROSSED,
+  MARK_EMPTY,
   MARK_FILLED,
   MAX_CHECKS,
   type NonogramInput,
+  type NonogramMark,
   type NonogramState,
 } from "./core"
 
+const NOTE_A = 1
+const NOTE_B = 2
+const NOTE_BOTH = NOTE_A | NOTE_B
+
+type Tool = "fill" | "cross" | "noteA" | "noteB"
+
 const css = `
 .ng-wrap {
-  --ng-cell: clamp(30px, 9.5vw, 46px);
-  --ng-line: var(--arcade-line, rgba(148, 163, 184, 0.3));
+  --ng-cell: clamp(28px, 11cqi, 44px);
+  --ng-line: var(--arcade-line, rgba(148, 163, 184, 0.24));
+  --ng-line-strong: var(--arcade-line-strong, rgba(148, 163, 184, 0.42));
+  --ng-line-major: color-mix(in srgb, var(--arcade-fg, #e8eef5) 44%, transparent);
+  --ng-cell-bg: color-mix(in srgb, var(--arcade-fg, #e8eef5) 5%, transparent);
+  --ng-cross-bg: color-mix(in srgb, var(--arcade-fg, #e8eef5) 3%, transparent);
+  --ng-filled-seam: color-mix(in srgb, var(--arcade-panel, #0b1118) 58%, transparent);
+  --ng-clue-fg: color-mix(in srgb, var(--arcade-fg, #e8eef5) 76%, var(--arcade-muted, #8f9bac));
+  --ng-note-a: #38bdf8;
+  --ng-note-b: #fbbf24;
+  --ng-note-both: #c084fc;
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -19,15 +37,46 @@ const css = `
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
+  padding: 10px;
+  border: 1px solid var(--ng-line);
+  border-radius: 8px;
+  background: var(--arcade-panel, #0b1118);
   outline: none;
   user-select: none;
   touch-action: manipulation;
 }
 
+.arcade[data-theme="light"] .ng-wrap {
+  --ng-line: rgba(38, 42, 48, 0.2);
+  --ng-line-strong: rgba(38, 42, 48, 0.42);
+  --ng-line-major: rgba(27, 31, 36, 0.56);
+  --ng-cell-bg: var(--arcade-elevated, #fffdf7);
+  --ng-cross-bg: #f3eee3;
+  --ng-filled-seam: rgba(251, 248, 239, 0.55);
+  --ng-clue-fg: #333b45;
+  --ng-note-a: #0369a1;
+  --ng-note-b: #b45309;
+  --ng-note-both: #7c3aed;
+}
+
+@media (prefers-color-scheme: light) {
+  .arcade[data-theme="auto"] .ng-wrap {
+    --ng-line: rgba(38, 42, 48, 0.2);
+    --ng-line-strong: rgba(38, 42, 48, 0.42);
+    --ng-line-major: rgba(27, 31, 36, 0.56);
+    --ng-cell-bg: var(--arcade-elevated, #fffdf7);
+    --ng-cross-bg: #f3eee3;
+    --ng-filled-seam: rgba(251, 248, 239, 0.55);
+    --ng-clue-fg: #333b45;
+    --ng-note-a: #0369a1;
+    --ng-note-b: #b45309;
+    --ng-note-both: #7c3aed;
+  }
+}
+
 .ng-wrap:focus-visible {
   outline: 2px solid var(--game-accent, #f472b6);
-  outline-offset: 3px;
-  border-radius: 6px;
+  outline-offset: 2px;
 }
 
 .ng-bar {
@@ -36,7 +85,7 @@ const css = `
   align-items: center;
   justify-content: center;
   gap: 6px;
-  color: var(--arcade-muted, #8b98a9);
+  color: var(--arcade-muted, #8f9bac);
   font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -49,23 +98,23 @@ const css = `
   padding: 2px 8px;
   border: 1px solid var(--ng-line);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--arcade-fg, #e6edf3) 6%, transparent);
+  background: color-mix(in srgb, var(--arcade-fg, #e8eef5) 5%, transparent);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 .ng-stat.is-accent {
   color: var(--game-accent, #f472b6);
-  border-color: color-mix(in srgb, var(--game-accent, #f472b6) 38%, transparent);
+  border-color: color-mix(in srgb, var(--game-accent, #f472b6) 40%, transparent);
 }
 
 .ng-stat.is-status {
-  color: var(--arcade-fg, #e6edf3);
+  color: var(--arcade-fg, #e8eef5);
 }
 
 .ng-board {
   display: grid;
-  grid-template-columns: auto auto;
+  grid-template-columns: max-content auto;
   grid-template-rows: auto auto;
   justify-content: center;
   justify-content: safe center;
@@ -95,11 +144,14 @@ const css = `
   align-items: center;
   gap: 1px;
   width: var(--ng-cell);
-  padding-bottom: 4px;
-  color: var(--arcade-muted, #8b98a9);
-  font-size: clamp(9px, 2.5vw, 11px);
+  padding: 3px 0 4px;
+  border-radius: 4px 4px 0 0;
+  color: var(--ng-clue-fg);
+  font-size: clamp(9.5px, 2.7cqi, 11.5px);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
+  transition: color 90ms ease, opacity 90ms ease, background 90ms ease;
 }
 
 .ng-row-clues {
@@ -116,11 +168,26 @@ const css = `
   gap: 4px;
   height: var(--ng-cell);
   min-width: 2.2em;
-  padding-right: 6px;
-  color: var(--arcade-muted, #8b98a9);
-  font-size: clamp(9px, 2.5vw, 11px);
+  padding: 0 7px 0 4px;
+  border-radius: 4px 0 0 4px;
+  color: var(--ng-clue-fg);
+  font-size: clamp(9.5px, 2.7cqi, 11.5px);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+  white-space: nowrap;
+  transition: color 90ms ease, opacity 90ms ease, background 90ms ease;
+}
+
+.ng-col-clue.is-active-line,
+.ng-row-clue.is-active-line {
+  color: var(--arcade-fg, #e8eef5);
+  background: color-mix(in srgb, var(--game-accent, #f472b6) 11%, transparent);
+}
+
+.ng-col-clue.is-satisfied,
+.ng-row-clue.is-satisfied {
+  opacity: 0.4;
 }
 
 .ng-grid {
@@ -128,11 +195,16 @@ const css = `
   display: grid;
   grid-template-columns: repeat(var(--ng-w, 6), var(--ng-cell));
   grid-template-rows: repeat(var(--ng-h, 6), var(--ng-cell));
-  border-top: 1px solid var(--ng-line);
-  border-left: 1px solid var(--ng-line);
+  border-top: 1px solid var(--ng-line-strong);
+  border-left: 1px solid var(--ng-line-strong);
+  touch-action: none;
 }
 
 .ng-cell {
+  --ng-major-x: 0 0 0 0 transparent;
+  --ng-major-y: 0 0 0 0 transparent;
+  --ng-ring: 0 0 0 0 transparent;
+  position: relative;
   appearance: none;
   display: grid;
   place-items: center;
@@ -141,49 +213,129 @@ const css = `
   margin: 0;
   padding: 0;
   border: 0;
+  border-right: 1px solid var(--ng-line);
+  border-bottom: 1px solid var(--ng-line);
   border-radius: 0;
-  box-shadow: inset -1px -1px 0 var(--ng-line);
-  background: color-mix(in srgb, var(--arcade-fg, #e6edf3) 4%, transparent);
-  color: var(--arcade-muted, #8b98a9);
+  box-shadow: var(--ng-ring), var(--ng-major-x), var(--ng-major-y);
+  background: var(--ng-cell-bg);
+  color: var(--arcade-muted, #8f9bac);
   font: inherit;
-  font-size: calc(var(--ng-cell) * 0.62);
+  font-size: calc(var(--ng-cell) * 0.58);
   line-height: 1;
   cursor: pointer;
-  transition: background 90ms ease;
+  transition: background 80ms ease;
+}
+
+.ng-cell.is-major-left {
+  --ng-major-x: inset 2px 0 0 var(--ng-line-major);
+}
+
+.ng-cell.is-major-top {
+  --ng-major-y: inset 0 2px 0 var(--ng-line-major);
+}
+
+.ng-cell.is-active-line {
+  background: color-mix(in srgb, var(--game-accent, #f472b6) 7%, var(--ng-cell-bg));
+}
+
+.ng-cell.is-note-a {
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--ng-note-a) 26%, var(--ng-cell-bg)) 0 4px,
+    color-mix(in srgb, var(--ng-note-a) 8%, var(--ng-cell-bg)) 4px 8px
+  );
+}
+
+.ng-cell.is-note-b {
+  background: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--ng-note-b) 26%, var(--ng-cell-bg)) 0 4px,
+    color-mix(in srgb, var(--ng-note-b) 8%, var(--ng-cell-bg)) 4px 8px
+  );
+}
+
+.ng-cell.is-note-a.is-note-b {
+  background:
+    repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--ng-note-a) 28%, transparent) 0 4px,
+      transparent 4px 8px
+    ),
+    repeating-linear-gradient(
+      45deg,
+      color-mix(in srgb, var(--ng-note-b) 28%, transparent) 0 4px,
+      transparent 4px 8px
+    ),
+    color-mix(in srgb, var(--ng-note-both) 18%, var(--ng-cell-bg));
+  color: var(--ng-note-both);
+  font-size: calc(var(--ng-cell) * 0.44);
+  font-weight: 700;
+}
+
+.ng-cell.is-note-a::before,
+.ng-cell.is-note-b::after {
+  content: "";
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+.ng-cell.is-note-a::before {
+  top: 2px;
+  left: 2px;
+  background: var(--ng-note-a);
+}
+
+.ng-cell.is-note-b::after {
+  right: 2px;
+  bottom: 2px;
+  background: var(--ng-note-b);
 }
 
 .ng-cell.is-filled {
   background: var(--game-accent, #f472b6);
+  border-right-color: var(--ng-filled-seam);
+  border-bottom-color: var(--ng-filled-seam);
 }
 
 button.ng-cell.is-filled:not(:disabled):hover {
-  background: color-mix(in srgb, var(--game-accent, #f472b6) 82%, var(--arcade-fg, #e6edf3));
+  background: color-mix(in srgb, var(--game-accent, #f472b6) 84%, var(--arcade-fg, #e8eef5));
 }
 
 .ng-cell.is-crossed {
-  background: color-mix(in srgb, var(--arcade-fg, #e6edf3) 3%, transparent);
-  color: var(--arcade-muted, #8b98a9);
+  background: var(--ng-cross-bg);
+  color: var(--ng-clue-fg);
   font-weight: 600;
 }
 
+.ng-cell.is-wrong {
+  background: color-mix(in srgb, var(--arcade-danger, #fb7185) 26%, var(--ng-cell-bg));
+  color: var(--arcade-danger, #fb7185);
+  font-size: calc(var(--ng-cell) * 0.52);
+  font-weight: 700;
+}
+
+.ng-cell.is-missed {
+  background: color-mix(in srgb, var(--game-accent, #f472b6) 14%, var(--ng-cell-bg));
+  color: var(--game-accent, #f472b6);
+  font-size: calc(var(--ng-cell) * 0.5);
+  font-weight: 700;
+}
+
 .ng-cell.is-cursor {
-  /* A panel-coloured separator keeps the cursor ring legible on a filled cell,
-     where the cartridge accent would otherwise blend into its own fill. */
-  box-shadow:
-    inset -1px -1px 0 var(--ng-line),
+  --ng-ring:
     inset 0 0 0 1px var(--arcade-panel, #0b1118),
     inset 0 0 0 3px var(--game-label-2, var(--game-accent-2, #38bdf8));
   z-index: 1;
 }
 
 button.ng-cell:focus-visible {
-  /* Two-tone focus: an accent ring inside a panel-coloured band, so it stays
-     visible on both an empty cell and a cell filled with the same accent. */
   outline: 2px solid var(--game-label-2, var(--game-accent-2, #38bdf8));
   outline-offset: -4px;
-  box-shadow:
-    inset -1px -1px 0 var(--ng-line),
-    inset 0 0 0 2px var(--arcade-panel, #0b1118);
+  --ng-ring: inset 0 0 0 2px var(--arcade-panel, #0b1118);
+  z-index: 2;
 }
 
 button.ng-cell:disabled {
@@ -193,6 +345,12 @@ button.ng-cell:disabled {
 
 .ng-controls {
   display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ng-row-bar {
+  display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 5px;
@@ -200,11 +358,14 @@ button.ng-cell:disabled {
 
 .ng-btn {
   appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 5px 9px;
   border: 1px solid var(--ng-line);
   border-radius: 6px;
-  background: color-mix(in srgb, var(--arcade-fg, #e6edf3) 7%, transparent);
-  color: var(--arcade-fg, #e6edf3);
+  background: color-mix(in srgb, var(--arcade-fg, #e8eef5) 6%, transparent);
+  color: var(--arcade-fg, #e8eef5);
   font: inherit;
   font-size: 10.5px;
   font-weight: 600;
@@ -217,14 +378,36 @@ button.ng-cell:disabled {
   background: color-mix(in srgb, var(--game-accent, #f472b6) 14%, transparent);
 }
 
-.ng-btn:disabled {
-  opacity: 0.4;
-  cursor: default;
+.ng-btn[aria-pressed="true"] {
+  border-color: var(--game-accent, #f472b6);
+  background: color-mix(in srgb, var(--game-accent, #f472b6) 18%, transparent);
+  color: var(--arcade-fg, #e8eef5);
+}
+
+.ng-btn[data-tool="noteA"][aria-pressed="true"] {
+  border-color: var(--ng-note-a);
+  background: color-mix(in srgb, var(--ng-note-a) 18%, transparent);
+}
+
+.ng-btn[data-tool="noteB"][aria-pressed="true"] {
+  border-color: var(--ng-note-b);
+  background: color-mix(in srgb, var(--ng-note-b) 18%, transparent);
+}
+
+.ng-btn.is-promote:not(:disabled) {
+  border-color: color-mix(in srgb, var(--ng-note-both) 65%, transparent);
+  background: color-mix(in srgb, var(--ng-note-both) 16%, transparent);
+  color: var(--ng-note-both);
 }
 
 .ng-btn.is-primary {
-  border-color: color-mix(in srgb, var(--game-accent, #f472b6) 60%, transparent);
+  border-color: color-mix(in srgb, var(--game-accent, #f472b6) 62%, transparent);
   color: var(--game-accent, #f472b6);
+}
+
+.ng-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .ng-btn:focus-visible {
@@ -232,13 +415,20 @@ button.ng-cell:disabled {
   outline-offset: 2px;
 }
 
-.ng-hint {
-  margin: 0;
-  text-align: center;
-  color: var(--arcade-muted, #8b98a9);
-  font-size: 12px;
-  line-height: 1.5;
-  opacity: 0.95;
+.ng-swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex: none;
+}
+
+.ng-swatch.is-a {
+  background: var(--ng-note-a);
+}
+
+.ng-swatch.is-b {
+  background: var(--ng-note-b);
 }
 
 .ng-sr {
@@ -253,32 +443,50 @@ button.ng-cell:disabled {
   border: 0;
 }
 
-@media (max-width: 360px) {
-  .ng-hint {
-    font-size: 11px;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .ng-cell,
-  .ng-btn {
+  .ng-btn,
+  .ng-col-clue,
+  .ng-row-clue {
     transition: none;
   }
 }
 `
 
-function markWord(mark: number): string {
+function markWord(mark: number, note: number): string {
   if (mark === MARK_FILLED) return "filled"
   if (mark === MARK_CROSSED) return "crossed"
+  if (note === NOTE_BOTH) return "overlap (note 1 + note 2)"
+  if (note === NOTE_A) return "note 1"
+  if (note === NOTE_B) return "note 2"
   return "empty"
-}
-
-function clueText(clue: readonly number[]): string {
-  return clue.length === 0 ? "0" : clue.join(" ")
 }
 
 function clueLabel(kind: "Row" | "Column", index: number, clue: readonly number[]): string {
   return `${kind} ${index}: ${clue.length === 0 ? "empty" : clue.join(", ")}`
+}
+
+function lineRuns(marks: readonly number[]): number[] {
+  const runs: number[] = []
+  let run = 0
+  for (const mark of marks) {
+    if (mark === MARK_FILLED) {
+      run += 1
+    } else if (run > 0) {
+      runs.push(run)
+      run = 0
+    }
+  }
+  if (run > 0) runs.push(run)
+  return runs
+}
+
+function lineSatisfied(marks: readonly number[], clue: readonly number[]): boolean {
+  if (clue.length === 0) {
+    return marks.every((mark) => mark === MARK_CROSSED)
+  }
+  const runs = lineRuns(marks)
+  return runs.length === clue.length && runs.every((value, index) => value === clue[index])
 }
 
 export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<NonogramState> {
@@ -290,7 +498,7 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
   wrap.setAttribute("aria-roledescription", "nonogram board")
   wrap.setAttribute(
     "aria-label",
-    "Nonogram. Arrow keys move the cursor. Space cycles a cell from empty to filled to crossed. X marks the cell crossed. Enter checks the board. The Cross and Check buttons do the same for pointer and touch play. Use the row and column clues to fill every required cell without filling an empty one.",
+    "Nonogram. Arrow keys move the cursor. Space toggles filled, X toggles crossed, 1 and 2 toggle overlap notes, P promotes overlaps, C clears notes, and Enter checks the board.",
   )
 
   const bar = el("div", "ng-bar")
@@ -313,61 +521,213 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
   board.append(corner, colClues, rowClues, grid)
 
   const controls = el("div", "ng-controls")
-  const crossButton = el("button", "ng-btn", "Cross")
-  const checkButton = el("button", "ng-btn is-primary", "Check")
-  const controlButtons = [crossButton, checkButton]
-  for (const button of controlButtons) {
+  const toolRow = el("div", "ng-row-bar")
+  const actionRow = el("div", "ng-row-bar")
+
+  const makeToolButton = (tool: Tool, label: string, swatchClass?: string): HTMLButtonElement => {
+    const button = el("button", "ng-btn")
+    button.type = "button"
+    button.dataset.ngControl = "true"
+    button.dataset.tool = tool
+    if (swatchClass) {
+      button.append(el("span", swatchClass))
+    }
+    button.append(document.createTextNode(label))
+    return button
+  }
+
+  const fillBtn = makeToolButton("fill", "Fill")
+  const crossBtn = makeToolButton("cross", "Cross ×")
+  const noteABtn = makeToolButton("noteA", "Note 1", "ng-swatch is-a")
+  const noteBBtn = makeToolButton("noteB", "Note 2", "ng-swatch is-b")
+  const toolButtons: ReadonlyArray<{ readonly tool: Tool; readonly button: HTMLButtonElement }> = [
+    { tool: "fill", button: fillBtn },
+    { tool: "cross", button: crossBtn },
+    { tool: "noteA", button: noteABtn },
+    { tool: "noteB", button: noteBBtn },
+  ]
+  fillBtn.setAttribute("aria-label", "Fill tool")
+  crossBtn.setAttribute("aria-label", "Cross tool")
+  noteABtn.setAttribute("aria-label", "Overlap Note 1 tool")
+  noteBBtn.setAttribute("aria-label", "Overlap Note 2 tool")
+  toolRow.append(fillBtn, crossBtn, noteABtn, noteBBtn)
+
+  const promoteBtn = el("button", "ng-btn", "Promote")
+  const clearNotesBtn = el("button", "ng-btn", "Clear notes")
+  const checkBtn = el("button", "ng-btn is-primary", "Check")
+  const actionButtons = [promoteBtn, clearNotesBtn, checkBtn]
+  for (const button of actionButtons) {
     button.type = "button"
     button.dataset.ngControl = "true"
   }
-  crossButton.setAttribute("aria-label", "Mark the cursor cell crossed")
-  checkButton.setAttribute("aria-label", "Check the board")
-  controls.append(crossButton, checkButton)
+  promoteBtn.setAttribute("aria-label", "Promote overlapping notes to filled")
+  clearNotesBtn.setAttribute("aria-label", "Clear all overlap notes")
+  checkBtn.setAttribute("aria-label", "Check the board")
+  actionRow.append(promoteBtn, clearNotesBtn, checkBtn)
+  controls.append(toolRow, actionRow)
 
-  const hint = el(
-    "p",
-    "ng-hint",
-    "Arrows move · Space mark · X cross · Enter check · Cross / Check buttons for touch",
-  )
+  const allControlButtons = [fillBtn, crossBtn, noteABtn, noteBBtn, promoteBtn, clearNotesBtn, checkBtn]
+
   const live = el("div", "ng-sr")
   live.setAttribute("aria-live", "polite")
   live.setAttribute("aria-atomic", "true")
 
-  wrap.append(bar, board, controls, hint, live)
+  wrap.append(bar, board, controls, live)
   ctx.container.append(wrap)
 
   let builtWidth = 0
   let builtHeight = 0
   let cells: HTMLButtonElement[] = []
+  let rowClueNodes: HTMLElement[] = []
+  let colClueNodes: HTMLElement[] = []
+  let cursor = 0
+  let activeTool: Tool = "fill"
+  let notes = new Uint8Array(0)
   let lastChecks = 0
   let lastPhase = "playing"
 
-  const dispatch = (input: NonogramInput): void => {
+  let dragActive = false
+  let dragTool: Tool = "fill"
+  let dragPaintValue = true
+  const dragVisited = new Set<number>()
+  let dragPlayedAudio = false
+
+  const endDrag = (): void => {
+    dragActive = false
+    dragVisited.clear()
+    dragPlayedAudio = false
+  }
+
+  const dispatchMark = (index: number, mark: NonogramMark): boolean => {
+    const state = ctx.state()
+    if (state.phase !== "playing") return false
+    if (state.draft[index] === mark) return false
+    const x = index % state.width
+    const y = Math.floor(index / state.width)
+    ctx.dispatch({ type: "set", x, y, mark })
+    if (ctx.state().draft[index] !== mark) return false
+    if (mark !== MARK_EMPTY) notes[index] = 0
+    return true
+  }
+
+  const applyToolAt = (index: number, tool: Tool, paintOn: boolean): boolean => {
+    const state = ctx.state()
+    if (state.phase !== "playing") return false
+    if (index < 0 || index >= state.width * state.height) return false
+
+    if (tool === "fill") {
+      const target: NonogramMark = paintOn ? MARK_FILLED : MARK_EMPTY
+      if (dispatchMark(index, target)) {
+        if (!dragPlayedAudio) {
+          ctx.host.audio.play("click")
+          dragPlayedAudio = true
+        }
+        return true
+      }
+      return false
+    }
+
+    if (tool === "cross") {
+      const target: NonogramMark = paintOn ? MARK_CROSSED : MARK_EMPTY
+      if (dispatchMark(index, target)) {
+        if (!dragPlayedAudio) {
+          ctx.host.audio.play("flag")
+          dragPlayedAudio = true
+        }
+        return true
+      }
+      return false
+    }
+
+    if (state.draft[index] !== MARK_EMPTY) return false
+    const bit = tool === "noteA" ? NOTE_A : NOTE_B
+    const current = notes[index] ?? 0
+    const next = paintOn ? current | bit : current & ~bit
+    if (next === current) return false
+    notes[index] = next
+    if (!dragPlayedAudio) {
+      ctx.host.audio.play("turn")
+      dragPlayedAudio = true
+    }
+    return false
+  }
+
+  const paintOnFor = (index: number, tool: Tool, state: NonogramState): boolean => {
+    if (tool === "fill") return state.draft[index] !== MARK_FILLED
+    if (tool === "cross") return state.draft[index] !== MARK_CROSSED
+    if (tool === "noteA") return ((notes[index] ?? 0) & NOTE_A) === 0
+    return ((notes[index] ?? 0) & NOTE_B) === 0
+  }
+
+  const toggleCell = (index: number, tool: Tool): void => {
+    const state = ctx.state()
+    if (state.phase !== "playing") return
+    const paintOn = paintOnFor(index, tool, state)
+    const dispatched = applyToolAt(index, tool, paintOn)
+    if (!dispatched) render(ctx.state())
+  }
+
+  const promoteOverlaps = (): void => {
+    const state = ctx.state()
+    if (state.phase !== "playing") return
+    const targets: number[] = []
+    for (let index = 0; index < notes.length; index += 1) {
+      if (notes[index] === NOTE_BOTH && state.draft[index] !== MARK_FILLED) {
+        targets.push(index)
+      }
+    }
+    if (targets.length === 0) return
+
+    notes.fill(0)
+    let dispatched = false
+    for (const index of targets) {
+      const x = index % state.width
+      const y = Math.floor(index / state.width)
+      ctx.dispatch({ type: "set", x, y, mark: MARK_FILLED })
+      dispatched = true
+    }
+    if (dispatched) ctx.host.audio.play("click")
+    render(ctx.state())
+  }
+
+  const clearNotes = (): void => {
     if (ctx.state().phase !== "playing") return
-    ctx.dispatch(input)
+    if (!notes.some((value) => value !== 0)) return
+    notes.fill(0)
+    render(ctx.state())
   }
 
   const build = (state: NonogramState): void => {
     builtWidth = state.width
     builtHeight = state.height
+    cursor = 0
+    notes = new Uint8Array(state.width * state.height)
     cells = []
+    rowClueNodes = []
+    colClueNodes = []
     grid.replaceChildren()
     rowClues.replaceChildren()
     colClues.replaceChildren()
 
     wrap.style.setProperty(
       "--ng-cell",
-      state.width <= 6 ? "clamp(30px, 9.5vw, 46px)" : "clamp(20px, 7.4vw, 36px)",
+      state.width <= 6 ? "clamp(28px, 11cqi, 44px)" : "clamp(20px, 7.2cqi, 34px)",
     )
     grid.style.setProperty("--ng-w", String(state.width))
     grid.style.setProperty("--ng-h", String(state.height))
 
     for (let y = 0; y < state.height; y += 1) {
       const clue = state.rowClues[y] ?? []
-      const row = el("div", "ng-row-clue", clueText(clue))
+      const row = el("div", "ng-row-clue")
       row.setAttribute("role", "listitem")
       row.setAttribute("aria-label", clueLabel("Row", y + 1, clue))
+      for (const run of clue.length === 0 ? [0] : clue) {
+        const runText = el("span", undefined, String(run))
+        runText.setAttribute("aria-hidden", "true")
+        row.append(runText)
+      }
       rowClues.append(row)
+      rowClueNodes.push(row)
     }
 
     for (let x = 0; x < state.width; x += 1) {
@@ -381,70 +741,98 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
         column.append(runText)
       }
       colClues.append(column)
+      colClueNodes.push(column)
     }
 
     for (let index = 0; index < state.width * state.height; index += 1) {
       const cell = el("button", "ng-cell")
       cell.type = "button"
-      cell.addEventListener("click", () => {
-        const current = ctx.state()
-        if (current.phase !== "playing") return
-        if (current.cursor === index) {
-          dispatch({ type: "mark" })
-        } else {
-          moveCursorTo(index)
-        }
-        const next = ctx.state()
-        cells[next.cursor]?.focus({ preventScroll: true })
+      cell.dataset.index = String(index)
+      cell.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0 && event.button !== 2) return
+        const stateNow = ctx.state()
+        if (stateNow.phase !== "playing") return
+
+        const tool: Tool = event.button === 2 ? "cross" : activeTool
+        cursor = index
+        cell.focus({ preventScroll: true })
+
+        const paintOn = paintOnFor(index, tool, stateNow)
+        dragActive = true
+        dragTool = tool
+        dragPaintValue = paintOn
+        dragVisited.clear()
+        dragVisited.add(index)
+        dragPlayedAudio = false
+
+        const dispatched = applyToolAt(index, tool, paintOn)
+        if (!dispatched) render(ctx.state())
+      })
+      cell.addEventListener("click", (event) => {
+        // Support screen-reader synthetic clicks (detail === 0); pointer presses
+        // are already handled in pointerdown and keyboard Enter/Space in keydown.
+        if (event.detail !== 0) return
+        if (ctx.state().phase !== "playing") return
+        cursor = index
+        dragPlayedAudio = false
+        toggleCell(index, activeTool)
       })
       grid.append(cell)
       cells.push(cell)
     }
   }
 
-  const moveCursorTo = (target: number): void => {
-    let guard = 0
-    const limit = builtWidth * builtHeight + 2
-    while (ctx.state().cursor !== target && guard < limit) {
-      guard += 1
-      const state = ctx.state()
-      if (state.phase !== "playing") return
-      const width = state.width
-      const height = state.height
-      const x = state.cursor % width
-      const y = Math.floor(state.cursor / width)
-      const tx = target % width
-      const ty = Math.floor(target / width)
-
-      if (x !== tx) {
-        const right = (tx - x + width) % width
-        const left = width - right
-        dispatch({ type: "cursor", dx: right <= left ? 1 : -1, dy: 0 })
-      } else {
-        const down = (ty - y + height) % height
-        const up = height - down
-        dispatch({ type: "cursor", dx: 0, dy: down <= up ? 1 : -1 })
-      }
+  const onWindowPointerMove = (event: PointerEvent): void => {
+    if (!dragActive) return
+    const state = ctx.state()
+    if (state.phase !== "playing") {
+      endDrag()
+      return
     }
+    const target = document.elementFromPoint(event.clientX, event.clientY)
+    const button = target instanceof HTMLElement ? target.closest(".ng-cell") : null
+    if (!(button instanceof HTMLButtonElement) || !grid.contains(button)) return
+    const raw = button.dataset.index
+    if (raw === undefined) return
+    const index = Number(raw)
+    if (!Number.isInteger(index) || dragVisited.has(index)) return
+    dragVisited.add(index)
+    cursor = index
+    const dispatched = applyToolAt(index, dragTool, dragPaintValue)
+    if (!dispatched) render(ctx.state())
   }
 
-  const crossCursor = (): void => {
-    const state = ctx.state()
-    if (state.phase !== "playing") return
-    const mark = state.draft[state.cursor] ?? 0
-    if (mark === MARK_CROSSED) return
-    // empty → filled → crossed, or filled → crossed.
-    dispatch({ type: "mark" })
-    if (mark !== MARK_FILLED) dispatch({ type: "mark" })
+  const onWindowPointerEnd = (): void => {
+    endDrag()
+  }
+
+  const onGridContextMenu = (event: MouseEvent): void => {
+    event.preventDefault()
   }
 
   const isControl = (target: EventTarget | null): boolean =>
     target instanceof HTMLElement && target.closest("[data-ng-control]") !== null
 
+  const wrapCoord = (value: number, size: number): number => ((value % size) + size) % size
+
+  const moveCursorBy = (dx: number, dy: number): void => {
+    const state = ctx.state()
+    const x = cursor % state.width
+    const y = Math.floor(cursor / state.width)
+    const nx = wrapCoord(x + dx, state.width)
+    const ny = wrapCoord(y + dy, state.height)
+    cursor = ny * state.width + nx
+    cells[cursor]?.focus({ preventScroll: true })
+    render(state)
+  }
+
   const onKeyDown = (event: KeyboardEvent): void => {
     // Leave browser and shell shortcuts alone: Ctrl/Cmd+X must cut, not cross,
     // and Alt+Arrow must navigate history, not the grid.
     if (event.ctrlKey || event.metaKey || event.altKey) return
+
+    const state = ctx.state()
+    if (state.phase !== "playing") return
 
     const key = event.key
     const isMove =
@@ -452,42 +840,85 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
       key === "ArrowRight" ||
       key === "ArrowUp" ||
       key === "ArrowDown"
-    const isMark = key === " " || key === "Spacebar"
+    const isFill = key === " " || key === "Spacebar"
     const isCross = key === "x" || key === "X"
+    const isNoteA = key === "1"
+    const isNoteB = key === "2"
+    const isPromote = key === "p" || key === "P"
+    const isClear = key === "c" || key === "C"
     const isCheck = key === "Enter"
 
-    if (!isMove && !isMark && !isCross && !isCheck) return
-
-    // A focused on-screen control keeps its native Enter/Space activation.
-    if (isControl(event.target) && (isMark || isCheck)) return
-
-    event.preventDefault()
-    // Held keys never repeat a mutating action; one press, one turn.
-    if (event.repeat) return
-
-    if (isMove) {
-      if (key === "ArrowLeft") dispatch({ type: "cursor", dx: -1, dy: 0 })
-      else if (key === "ArrowRight") dispatch({ type: "cursor", dx: 1, dy: 0 })
-      else if (key === "ArrowUp") dispatch({ type: "cursor", dx: 0, dy: -1 })
-      else dispatch({ type: "cursor", dx: 0, dy: 1 })
-      cells[ctx.state().cursor]?.focus({ preventScroll: true })
+    if (
+      !isMove &&
+      !isFill &&
+      !isCross &&
+      !isNoteA &&
+      !isNoteB &&
+      !isPromote &&
+      !isClear &&
+      !isCheck
+    ) {
       return
     }
 
-    if (isMark) {
-      dispatch({ type: "mark" })
+    // A focused on-screen control keeps its native Enter/Space activation.
+    if (isControl(event.target) && (isFill || isCheck)) return
+
+    event.preventDefault()
+
+    if (isMove) {
+      if (key === "ArrowLeft") moveCursorBy(-1, 0)
+      else if (key === "ArrowRight") moveCursorBy(1, 0)
+      else if (key === "ArrowUp") moveCursorBy(0, -1)
+      else moveCursorBy(0, 1)
+      return
+    }
+
+    // Held keys never repeat a mutating action; one press, one turn.
+    if (event.repeat) return
+
+    dragPlayedAudio = false
+
+    if (isFill) {
+      toggleCell(cursor, "fill")
       return
     }
 
     if (isCross) {
-      crossCursor()
+      toggleCell(cursor, "cross")
       return
     }
 
-    dispatch({ type: "check" })
+    if (isNoteA) {
+      toggleCell(cursor, "noteA")
+      return
+    }
+
+    if (isNoteB) {
+      toggleCell(cursor, "noteB")
+      return
+    }
+
+    if (isPromote) {
+      promoteOverlaps()
+      return
+    }
+
+    if (isClear) {
+      clearNotes()
+      return
+    }
+
+    ctx.dispatch({ type: "check" })
   }
 
+  grid.addEventListener("contextmenu", onGridContextMenu)
   ctx.container.addEventListener("keydown", onKeyDown)
+  window.addEventListener("pointermove", onWindowPointerMove)
+  window.addEventListener("pointerup", onWindowPointerEnd)
+  window.addEventListener("pointercancel", onWindowPointerEnd)
+  window.addEventListener("blur", onWindowPointerEnd)
+
   wrap.addEventListener("pointerdown", (event) => {
     const target = event.target
     if (target instanceof HTMLElement && target.closest(".ng-cell") !== null) return
@@ -495,15 +926,24 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
     wrap.focus({ preventScroll: true })
   })
 
-  crossButton.addEventListener("click", () => crossCursor())
-  checkButton.addEventListener("click", () => dispatch({ type: "check" }))
+  for (const { tool, button } of toolButtons) {
+    button.addEventListener("click", () => {
+      activeTool = tool
+      render(ctx.state())
+    })
+  }
+  promoteBtn.addEventListener("click", () => promoteOverlaps())
+  clearNotesBtn.addEventListener("click", () => clearNotes())
+  checkBtn.addEventListener("click", () => {
+    if (ctx.state().phase === "playing") ctx.dispatch({ type: "check" })
+  })
 
   // Pointer activation hands focus back to the board so the next Enter checks
   // instead of re-activating a button. Keyboard activation keeps native focus.
-  for (const button of controlButtons) {
+  for (const button of allControlButtons) {
     button.addEventListener("pointerup", () => {
-      const cell = cells[ctx.state().cursor]
-      if (cell) cell.focus({ preventScroll: true })
+      const cell = cells[cursor]
+      if (cell && !cell.disabled) cell.focus({ preventScroll: true })
       else wrap.focus({ preventScroll: true })
     })
   }
@@ -512,6 +952,14 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
     if (state.width !== builtWidth || state.height !== builtHeight) build(state)
 
     const playing = state.phase === "playing"
+    if (!playing) {
+      endDrag()
+      notes.fill(0)
+    }
+
+    if (cursor >= state.width * state.height) cursor = 0
+    const cursorX = cursor % state.width
+    const cursorY = Math.floor(cursor / state.width)
 
     sizeStat.textContent = `${state.width} × ${state.height}`
     checksStat.textContent = `Checks ${state.checksUsed}/${MAX_CHECKS}`
@@ -520,37 +968,101 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
     else if (state.checksUsed > 0) statusStat.textContent = "Not solved yet"
     else statusStat.textContent = "Ready"
 
+    for (let y = 0; y < state.height; y += 1) {
+      const rowNode = rowClueNodes[y]
+      if (!rowNode) continue
+      const rowMarks = state.draft.slice(y * state.width, (y + 1) * state.width)
+      const satisfied = lineSatisfied(rowMarks, state.rowClues[y] ?? [])
+      rowNode.classList.toggle("is-active-line", playing && y === cursorY)
+      rowNode.classList.toggle("is-satisfied", satisfied)
+    }
+
+    for (let x = 0; x < state.width; x += 1) {
+      const colNode = colClueNodes[x]
+      if (!colNode) continue
+      const colMarks: number[] = []
+      for (let y = 0; y < state.height; y += 1) {
+        colMarks.push(state.draft[y * state.width + x] ?? MARK_EMPTY)
+      }
+      const satisfied = lineSatisfied(colMarks, state.colClues[x] ?? [])
+      colNode.classList.toggle("is-active-line", playing && x === cursorX)
+      colNode.classList.toggle("is-satisfied", satisfied)
+    }
+
+    let overlapCount = 0
+    let anyNotes = false
+
     for (let index = 0; index < cells.length; index += 1) {
       const cell = cells[index]
       if (!cell) continue
-      const mark = state.draft[index] ?? 0
-      const word = markWord(mark)
+      const mark = state.draft[index] ?? MARK_EMPTY
+      if (mark !== MARK_EMPTY) notes[index] = 0
+      const note = playing && mark === MARK_EMPTY ? (notes[index] ?? 0) : 0
+      if (note !== 0) anyNotes = true
+      if (note === NOTE_BOTH) overlapCount += 1
+
       const x = index % state.width
       const y = Math.floor(index / state.width)
-      const cursor = index === state.cursor
+      const isCursor = playing && index === cursor
+      const isActiveLine = playing && (x === cursorX || y === cursorY)
+      const isMajorLeft = state.width >= 10 && x > 0 && x % 5 === 0
+      const isMajorTop = state.height >= 10 && y > 0 && y % 5 === 0
+      const wrong = state.phase === "lost" && mark === MARK_FILLED && state.solution[index] === 0
+      const missed = state.phase === "lost" && mark !== MARK_FILLED && state.solution[index] === 1
 
       cell.className = "ng-cell"
-      if (mark === MARK_FILLED) cell.classList.add("is-filled")
-      if (mark === MARK_CROSSED) cell.classList.add("is-crossed")
-      if (cursor) cell.classList.add("is-cursor")
-      cell.textContent = mark === MARK_CROSSED ? "×" : ""
+      if (isMajorLeft) cell.classList.add("is-major-left")
+      if (isMajorTop) cell.classList.add("is-major-top")
+      if (isActiveLine && mark === MARK_EMPTY && note === 0) cell.classList.add("is-active-line")
+      if (mark === MARK_FILLED && !wrong) cell.classList.add("is-filled")
+      if (mark === MARK_CROSSED && !missed) cell.classList.add("is-crossed")
+      if (note & NOTE_A) cell.classList.add("is-note-a")
+      if (note & NOTE_B) cell.classList.add("is-note-b")
+      if (wrong) cell.classList.add("is-wrong")
+      if (missed) cell.classList.add("is-missed")
+      if (isCursor) cell.classList.add("is-cursor")
+
+      if (wrong) cell.textContent = "✕"
+      else if (missed) cell.textContent = "□"
+      else if (mark === MARK_CROSSED) cell.textContent = "×"
+      else if (note === NOTE_BOTH) cell.textContent = "◆"
+      else cell.textContent = ""
+
       cell.disabled = !playing
-      cell.tabIndex = cursor ? 0 : -1
-      cell.setAttribute("aria-label", `row ${y + 1} column ${x + 1}, ${word}`)
-      if (cursor) cell.setAttribute("aria-current", "true")
+      cell.tabIndex = index === cursor ? 0 : -1
+
+      const statusWord = wrong
+        ? "wrongly filled"
+        : missed
+          ? "missed solution cell"
+          : markWord(mark, note)
+      cell.setAttribute("aria-label", `row ${y + 1} column ${x + 1}, ${statusWord}`)
+      if (isCursor) cell.setAttribute("aria-current", "true")
       else cell.removeAttribute("aria-current")
     }
 
-    for (const button of controlButtons) button.disabled = !playing
+    for (const { tool, button } of toolButtons) {
+      button.disabled = !playing
+      button.setAttribute("aria-pressed", String(activeTool === tool))
+    }
+
+    promoteBtn.textContent = overlapCount > 0 ? `Promote (${overlapCount})` : "Promote"
+    promoteBtn.classList.toggle("is-promote", playing && overlapCount > 0)
+    promoteBtn.disabled = !playing || overlapCount === 0
+    clearNotesBtn.disabled = !playing || !anyNotes
+    checkBtn.disabled = !playing
 
     if (state.phase !== lastPhase) {
       if (state.phase === "won") {
+        ctx.host.audio.play("win")
         live.textContent = `Solved in ${state.checksUsed} ${state.checksUsed === 1 ? "check" : "checks"}.`
       } else if (state.phase === "lost") {
-        live.textContent = "Out of checks. The puzzle was not solved."
+        ctx.host.audio.play("lose")
+        live.textContent = "Out of checks. Wrong and missed cells are shown."
       }
       lastPhase = state.phase
     } else if (state.checksUsed > lastChecks && playing) {
+      ctx.host.audio.play("crash")
       const left = MAX_CHECKS - state.checksUsed
       live.textContent = `Not solved yet. ${left} ${left === 1 ? "check" : "checks"} left.`
     }
@@ -562,7 +1074,13 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
       render(state)
     },
     destroy() {
+      endDrag()
+      grid.removeEventListener("contextmenu", onGridContextMenu)
       ctx.container.removeEventListener("keydown", onKeyDown)
+      window.removeEventListener("pointermove", onWindowPointerMove)
+      window.removeEventListener("pointerup", onWindowPointerEnd)
+      window.removeEventListener("pointercancel", onWindowPointerEnd)
+      window.removeEventListener("blur", onWindowPointerEnd)
       wrap.remove()
     },
   }
