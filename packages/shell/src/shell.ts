@@ -931,6 +931,8 @@ export function createArcade(options: ArcadeOptions): Arcade {
     let runner!: GameRunner<any, any>
     let lastTicks = 0
     let boardPending = false
+    let finished = false
+    let reopenGameOver: (() => void) | undefined
     let elapsedTimer: ReturnType<typeof setInterval> | undefined
 
     const showPaused = (reason?: AgentAttentionReason): void => {
@@ -955,14 +957,24 @@ export function createArcade(options: ArcadeOptions): Arcade {
     }
 
     const pauseRun = (reason?: AgentAttentionReason): void => {
-      if (!runner || runner.paused() || pause.disabled) return
+      if (!runner || runner.paused() || finished || pause.disabled) return
       runner.pause()
       pause.textContent = "Resume"
       showPaused(reason)
     }
 
     const togglePause = (): void => {
-      if (!runner || pause.disabled) return
+      if (reopenGameOver) {
+        if (overlay.hidden) {
+          reopenGameOver()
+        } else {
+          hideOverlay()
+          pause.textContent = "Results"
+          pause.disabled = false
+        }
+        return
+      }
+      if (!runner || finished || pause.disabled) return
       if (runner.paused()) {
         runner.resume()
         hideOverlay()
@@ -1013,8 +1025,6 @@ export function createArcade(options: ArcadeOptions): Arcade {
       previousBest: Score | undefined,
       practice = false,
     ): void => {
-      pause.disabled = true
-      pause.textContent = "Pause"
       if (boardButton) boardButton.disabled = true
 
       const currentKey = submit.score?.detail?.rankKey
@@ -1098,7 +1108,12 @@ export function createArcade(options: ArcadeOptions): Arcade {
         again.disabled = true
         again.textContent = "Daily attempts used"
       }
-      const actions = [again, button("Lobby", false, showLauncher)]
+      const viewBoard = button("View board", false, () => {
+        hideOverlay()
+        pause.textContent = "Results"
+        pause.disabled = false
+      })
+      const actions = [again, viewBoard, button("Lobby", false, showLauncher)]
       if (allowReplayDownload) {
         actions.push(
           button("Download replay", false, () => {
@@ -1127,15 +1142,21 @@ export function createArcade(options: ArcadeOptions): Arcade {
         )
       }
 
-      showOverlay(() =>
-        overlayCard(
-          kicker,
-          title,
-          formatScore(result.score, entry.meta),
-          detailParts.join(" "),
-          actions,
-        ),
-      )
+      const openGameOver = (): void => {
+        pause.textContent = "View board"
+        pause.disabled = false
+        showOverlay(() =>
+          overlayCard(
+            kicker,
+            title,
+            formatScore(result.score, entry.meta),
+            detailParts.join(" "),
+            actions,
+          ),
+        )
+      }
+      reopenGameOver = openGameOver
+      openGameOver()
     }
 
     const viewHost: GameHost = {
@@ -1171,7 +1192,9 @@ export function createArcade(options: ArcadeOptions): Arcade {
         }
       },
       onEnd(result) {
+        finished = true
         runInProgress = false
+        pause.disabled = true
         if (elapsedTimer) {
           clearInterval(elapsedTimer)
           elapsedTimer = undefined
@@ -1208,7 +1231,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     })
 
     const showBoard = async (): Promise<void> => {
-      if (pause.disabled || boardPending) return
+      if (finished || pause.disabled || boardPending) return
       const activeDaily = daily
       const fetchBoard = activeDaily && host.dailyBoard
         ? () => host.dailyBoard!(activeDaily.challengeId)

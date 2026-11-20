@@ -42,6 +42,7 @@ export type NonogramInput =
       readonly y: number
       readonly mark: NonogramMark
     }
+  | { readonly type: "clear" }
   | { readonly type: "check" }
 
 function isMark(value: unknown): value is NonogramMark {
@@ -72,6 +73,14 @@ function setCell(
   const draft = [...state.draft]
   draft[at] = mark
   return { ...state, draft }
+}
+
+function clearDraft(state: NonogramState): NonogramState {
+  if (state.draft.every((mark) => mark === MARK_EMPTY)) return state
+  return {
+    ...state,
+    draft: Array<number>(state.width * state.height).fill(MARK_EMPTY),
+  }
 }
 
 function isSolved(state: NonogramState): boolean {
@@ -106,6 +115,8 @@ function apply(state: NonogramState, input: NonogramInput): NonogramState {
   switch (input.type) {
     case "set":
       return setCell(state, input.x, input.y, input.mark)
+    case "clear":
+      return clearDraft(state)
     case "check":
       return checkBoard(state)
     default:
