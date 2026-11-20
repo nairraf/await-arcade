@@ -2,11 +2,17 @@ import { describe, expect, it } from "vitest"
 import type { Replay } from "@await-arcade/contract"
 import { playTurn, verifyReplay } from "@await-arcade/framework"
 import {
+  CLEAR_BOARD_PENALTY,
+  FAILED_CHECK_PENALTY,
   MARK_CROSSED,
   MARK_EMPTY,
   MARK_FILLED,
   MAX_CHECKS,
+  MAX_SCORE,
+  UNDONE_FILL_PENALTY,
+  WIN_FLOOR,
   core,
+  timeBonusFor,
   type NonogramInput,
   type NonogramState,
 } from "./core"
@@ -222,15 +228,20 @@ describe("nonogram generation", () => {
 })
 
 describe("nonogram rules and scoring", () => {
-  it("wins on the first check and scores 1000", () => {
+  it("wins on the first check with full complexity base plus time bonus", () => {
     const fresh = core.create(42, easy)
+    const durationMs = 30_000
+    const expectedBonus = timeBonusFor(fresh.complexity, easy.id, durationMs)
+    const expectedTotal = fresh.complexity + expectedBonus
     const inputs = [...solutionInputs(fresh), { type: "check" } satisfies NonogramInput]
-    const result = playTurn(core, meta, { seed: 42, mode: easy, inputs, durationMs: 30_000 })
+    const result = playTurn(core, meta, { seed: 42, mode: easy, inputs, durationMs })
 
     expect(result.state.phase).toBe("won")
     expect(result.state.checksUsed).toBe(1)
+    expect(fresh.complexity).toBeGreaterThanOrEqual(1000)
+    expect(expectedBonus).toBeGreaterThan(0)
     expect(result.score).toMatchObject({
-      value: 1000,
+      value: expectedTotal,
       type: "higher",
       won: true,
       ranked: true,
@@ -239,52 +250,83 @@ describe("nonogram rules and scoring", () => {
       mode: "easy",
       width: 6,
       height: 6,
+      complexity: fresh.complexity,
+      baseScore: fresh.complexity,
+      timeBonus: expectedBonus,
       checksUsed: 1,
+      undoneFills: 0,
+      clearsUsed: 0,
       solved: true,
       filled: fresh.solution.filter((cell) => cell === 1).length,
     })
     expect(result.verified.ok).toBe(true)
-    expect(result.verified.score?.value).toBe(1000)
+    expect(result.verified.score?.value).toBe(expectedTotal)
   })
 
-  it("costs 100 for one failed check before the winning check", () => {
+  it("deducts per failed check and undone fill while keeping crosses free", () => {
     const fresh = core.create(50, easy)
+    const emptyIdx = fresh.solution.findIndex((cell) => cell === 0)
+    const ex = emptyIdx % fresh.width
+    const ey = Math.floor(emptyIdx / fresh.width)
+
     const inputs: NonogramInput[] = [
       { type: "check" },
+      // Wrong fill, then erase to cross -> 1 undone fill (-25), crossing is free.
+      { type: "set", x: ex, y: ey, mark: MARK_FILLED },
+      { type: "set", x: ex, y: ey, mark: MARK_CROSSED },
       ...solutionInputs(fresh),
       { type: "check" },
     ]
-    const result = playTurn(core, meta, { seed: 50, mode: easy, inputs, durationMs: 40_000 })
+    const durationMs = 40_000
+    const result = playTurn(core, meta, { seed: 50, mode: easy, inputs, durationMs })
+    const expectedBase = fresh.complexity - FAILED_CHECK_PENALTY - UNDONE_FILL_PENALTY
+    const expectedBonus = timeBonusFor(expectedBase, easy.id, durationMs)
 
     expect(result.state.phase).toBe("won")
     expect(result.state.checksUsed).toBe(2)
-    expect(result.score.value).toBe(900)
-    expect(result.score.detail).toMatchObject({ checksUsed: 2, solved: true })
-    expect(result.verified.ok).toBe(true)
-  })
-
-  it("wins on the tenth check after nine misses and scores the 100-point floor", () => {
-    const fresh = core.create(51, hard)
-    const inputs: NonogramInput[] = [
-      ...Array.from({ length: MAX_CHECKS - 1 }, () => ({ type: "check" }) as NonogramInput),
-      ...solutionInputs(fresh),
-      { type: "check" },
-    ]
-    const result = playTurn(core, meta, { seed: 51, mode: hard, inputs, durationMs: 90_000 })
-
-    expect(result.state.phase).toBe("won")
-    expect(result.state.checksUsed).toBe(MAX_CHECKS)
-    expect(result.score.value).toBe(100)
-    expect(result.score.ranked).toBe(true)
+    expect(result.state.undoneFills).toBe(1)
+    expect(result.score.value).toBe(expectedBase + expectedBonus)
     expect(result.score.detail).toMatchObject({
-      mode: "hard",
-      width: 10,
-      height: 10,
-      checksUsed: MAX_CHECKS,
+      baseScore: expectedBase,
+      timeBonus: expectedBonus,
+      checksUsed: 2,
+      undoneFills: 1,
+      clearsUsed: 0,
       solved: true,
     })
     expect(result.verified.ok).toBe(true)
-    expect(result.verified.score?.value).toBe(100)
+  })
+
+  it("decays time bonus gently with elapsed time and enforces the win floor", () => {
+    const fresh = core.create(51, hard)
+    const fast = playTurn(core, meta, {
+      seed: 51,
+      mode: hard,
+      inputs: [...solutionInputs(fresh), { type: "check" }],
+      durationMs: 60_000,
+    })
+    const slow = playTurn(core, meta, {
+      seed: 51,
+      mode: hard,
+      inputs: [...solutionInputs(fresh), { type: "check" }],
+      durationMs: 1_200_000,
+    })
+    expect(fast.score.value).toBeGreaterThan(slow.score.value)
+    expect(slow.score.value).toBeGreaterThanOrEqual(fresh.complexity)
+
+    // Extreme precision penalties clamp at WIN_FLOOR before adding time bonus.
+    const floorState: NonogramState = {
+      ...fresh,
+      draft: fresh.solution.map((cell) => (cell === 1 ? MARK_FILLED : MARK_EMPTY)),
+      checksUsed: MAX_CHECKS,
+      undoneFills: 200,
+      clearsUsed: 5,
+      phase: "won",
+    }
+    const floorScore = core.score(floorState, { elapsedMs: 1_000_000_000, ticks: 0 })
+    expect(floorScore.value).toBe(WIN_FLOOR)
+    expect(floorScore.detail?.baseScore).toBe(WIN_FLOOR)
+    expect(floorScore.ranked).toBe(true)
   })
 
   it("consumes a failed check without exposing which cells were wrong", () => {
@@ -303,7 +345,12 @@ describe("nonogram rules and scoring", () => {
       mode: "hard",
       width: 10,
       height: 10,
+      complexity: fresh.complexity,
+      baseScore: 0,
+      timeBonus: 0,
       checksUsed: 1,
+      undoneFills: 0,
+      clearsUsed: 0,
       solved: false,
       filled: 1,
     })
@@ -312,13 +359,16 @@ describe("nonogram rules and scoring", () => {
     expect(Object.keys(serialized).sort()).toEqual(
       [
         "checksUsed",
+        "clearsUsed",
         "colClues",
+        "complexity",
         "draft",
         "height",
         "mode",
         "phase",
         "rowClues",
         "solution",
+        "undoneFills",
         "width",
       ].sort(),
     )
@@ -372,7 +422,10 @@ describe("nonogram rules and scoring", () => {
     state = core.step(state, [{ type: "check" }], 0)
     expect(state.phase).toBe("won")
     expect(state.checksUsed).toBe(1)
-    expect(core.score(state, { elapsedMs: 0, ticks: 0 }).value).toBe(1000)
+    expect(state.undoneFills).toBe(0)
+    expect(core.score(state, { elapsedMs: 0, ticks: 0 }).value).toBe(
+      fresh.complexity + timeBonusFor(fresh.complexity, easy.id, 0),
+    )
   })
 
   it("fails when a required solution cell is crossed", () => {
@@ -473,11 +526,16 @@ describe("nonogram rules and scoring", () => {
       ...solutionInputs(state),
       { type: "check" },
     ]
-    const result = playTurn(core, meta, { seed: 55, mode: easy, inputs: replayInputs, durationMs: 25_000 })
+    const durationMs = 25_000
+    const result = playTurn(core, meta, { seed: 55, mode: easy, inputs: replayInputs, durationMs })
+    const expectedBase = state.complexity - UNDONE_FILL_PENALTY - CLEAR_BOARD_PENALTY
+    const expectedTotal = expectedBase + timeBonusFor(expectedBase, easy.id, durationMs)
     expect(result.state.phase).toBe("won")
-    expect(result.score.value).toBe(1000)
+    expect(result.state.clearsUsed).toBe(1)
+    expect(result.state.undoneFills).toBe(1)
+    expect(result.score.value).toBe(expectedTotal)
     expect(result.verified.ok).toBe(true)
-    expect(result.verified.score?.value).toBe(1000)
+    expect(result.verified.score?.value).toBe(expectedTotal)
   })
 
   it("treats malformed, out-of-bounds, non-integer, and invalid-mark inputs as no-ops", () => {
@@ -554,8 +612,11 @@ describe("nonogram rules and scoring", () => {
       solution: number[]
       rowClues: number[][]
       colClues: number[][]
+      complexity: number
       draft: number[]
       checksUsed: number
+      undoneFills: number
+      clearsUsed: number
       phase: NonogramState["phase"]
     }
 
@@ -563,7 +624,10 @@ describe("nonogram rules and scoring", () => {
       mode: "hard",
       width: 10,
       height: 10,
+      complexity: state.complexity,
       checksUsed: 1,
+      undoneFills: 0,
+      clearsUsed: 0,
       phase: "playing",
     })
     expect(serialized.solution).toEqual([...state.solution])
@@ -579,18 +643,21 @@ describe("nonogram rules and scoring", () => {
       solution: serialized.solution,
       rowClues: serialized.rowClues,
       colClues: serialized.colClues,
+      complexity: serialized.complexity,
       draft: [...serialized.draft],
       checksUsed: serialized.checksUsed,
+      undoneFills: serialized.undoneFills,
+      clearsUsed: serialized.clearsUsed,
       phase: serialized.phase,
     }
     expect(core.serialize(clone)).toEqual(serialized)
   })
 
   it("declares the beta-3 score contract", () => {
-    expect(meta.score).toEqual({ type: "higher", min: 0, max: 1000, unit: "points" })
+    expect(meta.score).toEqual({ type: "higher", min: 0, max: MAX_SCORE, unit: "points" })
     expect(meta.leaderboard).toBe("replay")
     expect(meta.kind).toBe("turn")
-    expect(meta.version).toBe("1.0.0")
+    expect(meta.version).toBe("1.1.0")
     expect(meta.modes.map((mode) => mode.id)).toEqual(["easy", "hard"])
     expect(meta.modes.every((mode) => mode.ranked !== false)).toBe(true)
     expect(meta.controls.map((control) => control.keys)).toContain("Click / Drag")
@@ -600,16 +667,19 @@ describe("nonogram rules and scoring", () => {
 })
 
 describe("nonogram replay fixture", () => {
-  it("verifies the committed 900-point two-check hard win", () => {
+  it("verifies the committed 4197-point two-check hard win", () => {
     const replay = fixture as unknown as Replay<NonogramInput>
     const result = verifyReplay(core, meta, replay)
 
     expect(result.ok).toBe(true)
-    expect(result.score).toMatchObject({ value: 900, won: true, ranked: true })
+    expect(result.score).toMatchObject({ value: 4197, won: true, ranked: true })
     expect(result.score?.detail).toMatchObject({
       mode: "hard",
       width: 10,
       height: 10,
+      complexity: 3650,
+      baseScore: 3400,
+      timeBonus: 797,
       checksUsed: 2,
       solved: true,
     })

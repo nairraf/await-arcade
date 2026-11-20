@@ -766,15 +766,28 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           }
         } else if (run.gameId === "nonogram") {
           const elapsedMs = Math.min(9_999_999_999, Math.max(0, Date.now() - run.createdAt))
-          const penalty = Math.max(0, entry.meta.score.max - Math.round(score.value))
+          const baseScore =
+            typeof score.detail?.baseScore === "number" && Number.isFinite(score.detail.baseScore)
+              ? Math.max(0, Math.round(score.detail.baseScore))
+              : Math.round(score.value)
+          const parMs = run.modeId === "hard" ? 900_000 : 180_000
+          const timeBonus = score.won
+            ? Math.round(baseScore * 0.25 * (parMs / (parMs + elapsedMs)))
+            : 0
+          const serverValue = score.won
+            ? Math.min(entry.meta.score.max, baseScore + timeBonus)
+            : 0
+          const penalty = Math.max(0, entry.meta.score.max - serverValue)
           boardRankKey = [
             String(penalty).padStart(6, "0"),
             String(elapsedMs).padStart(10, "0"),
           ].join("|")
           boardScore = {
             ...score,
+            value: serverValue,
             detail: {
               ...(score.detail ?? {}),
+              timeBonus,
               elapsedMs,
               ...(run.challengeId ? { attempt: run.attempt ?? 1 } : {}),
               rankKey: boardRankKey,

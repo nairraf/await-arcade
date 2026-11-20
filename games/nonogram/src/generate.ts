@@ -25,6 +25,8 @@ export interface GeneratedPuzzle {
   readonly solution: readonly number[]
   readonly rowClues: readonly (readonly number[])[]
   readonly colClues: readonly (readonly number[])[]
+  /** Line-solver passes needed to deduce the puzzle cleanly. */
+  readonly iterations: number
 }
 
 export interface GenerateOptions {
@@ -345,6 +347,7 @@ function sameGrid(grid: readonly number[], solution: readonly number[]): boolean
 function puzzleFrom(
   spec: ModeSpec,
   solution: readonly number[],
+  iterations: number,
 ): GeneratedPuzzle {
   const clues = cluesFor(solution, spec.width, spec.height)
   return {
@@ -353,6 +356,7 @@ function puzzleFrom(
     solution: [...solution],
     rowClues: clues.rows,
     colClues: clues.cols,
+    iterations,
   }
 }
 
@@ -384,12 +388,14 @@ export function generate(
     const solved = solveGrid(clues.rows, clues.cols)
     if (!solved.solved || !sameGrid(solved.grid, candidate)) continue
 
-    return puzzleFrom(spec, candidate)
+    return puzzleFrom(spec, candidate, solved.iterations)
   }
 
   const id = typeof mode === "string" ? mode : mode.id
   const bank = FALLBACK_BANK[id] ?? FALLBACK_BANK.easy!
   // Pick from the end of the same stream, keeping the fallback deterministic.
   const fallback = bank[rng.int(0, bank.length - 1)]!
-  return puzzleFrom(spec, fallback)
+  const clues = cluesFor(fallback, spec.width, spec.height)
+  const solved = solveGrid(clues.rows, clues.cols)
+  return puzzleFrom(spec, fallback, solved.iterations)
 }

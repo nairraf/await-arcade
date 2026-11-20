@@ -757,10 +757,12 @@ describe("daily challenge", () => {
     }
   })
 
-  it("ranks nonogram runs by accuracy first and server elapsed time second", async () => {
+  it("ranks nonogram runs by complexity, precision, and server elapsed time", async () => {
     let now = Date.UTC(2026, 10, 19, 12, 0, 0)
     const nowSpy = vi.spyOn(Date, "now").mockImplementation(() => now)
-    const local = createArcadeServer()
+    const local = createArcadeServer({
+      daily: { secret: "test-secret", featured: "nonogram:easy", now: () => now },
+    })
     const port = await local.listen(0)
     const root = `http://127.0.0.1:${port}`
 
@@ -799,13 +801,94 @@ describe("daily challenge", () => {
       return inputs
     }
 
+    const expectedFor = (seed: number, failFirstCheck: boolean, elapsedMs: number) => {
+      const state = entry.core.create(seed, easyMode) as { complexity: number }
+      const baseScore = state.complexity - (failFirstCheck ? 250 : 0)
+      const timeBonus = Math.round(baseScore * 0.25 * (180_000 / (180_000 + elapsedMs)))
+      const value = Math.min(entry.meta.score.max, baseScore + timeBonus)
+      const penalty = Math.max(0, entry.meta.score.max - value)
+      const rankKey = `${String(penalty).padStart(6, "0")}|${String(elapsedMs).padStart(10, "0")}`
+      return { baseScore, timeBonus, value, rankKey }
+    }
+
     try {
-      const fastMissRun = await start("fast-miss")
-      const slowCleanRun = await start("slow-clean")
-      const fastCleanRun = await start("fast-clean")
+      // All-time board: ignores spoofed client durationMs (0ms) and computes from server time.
+      const r1 = await start("all-one")
+      const r2 = await start("all-two")
+      now += 15_000
+      const s1 = await submitReplay(
+        root,
+        r1.runId,
+        playTurn(entry.core, entry.meta, {
+          seed: r1.seed,
+          mode: easyMode,
+          inputs: buildInputs(r1.seed, false),
+          durationMs: 0,
+        }).replay,
+      )
+      expect(s1.status).toBe(200)
+      const b1 = (await s1.json()) as {
+        score: { value: number; detail?: Record<string, unknown> }
+      }
+      const exp1 = expectedFor(r1.seed, false, 15_000)
+      expect(b1.score.value).toBe(exp1.value)
+      expect(b1.score.detail?.baseScore).toBe(exp1.baseScore)
+      expect(b1.score.detail?.timeBonus).toBe(exp1.timeBonus)
+      expect(b1.score.detail?.elapsedMs).toBe(15_000)
+      expect(b1.score.detail?.rankKey).toBe(exp1.rankKey)
+
+      now += 25_000
+      const s2 = await submitReplay(
+        root,
+        r2.runId,
+        playTurn(entry.core, entry.meta, {
+          seed: r2.seed,
+          mode: easyMode,
+          inputs: buildInputs(r2.seed, true),
+          durationMs: 0,
+        }).replay,
+      )
+      expect(s2.status).toBe(200)
+      const b2 = (await s2.json()) as {
+        score: { value: number; detail?: Record<string, unknown> }
+      }
+      const exp2 = expectedFor(r2.seed, true, 40_000)
+      expect(b2.score.value).toBe(exp2.value)
+      expect(b2.score.detail?.rankKey).toBe(exp2.rankKey)
+
+      const allBoard = (await fetch(`${root}/v1/boards/nonogram/easy`).then((res) =>
+        res.json(),
+      )) as {
+        entries: Array<{ playerId: string; score: { value: number }; rankKey?: string }>
+      }
+      expect(allBoard.entries).toHaveLength(2)
+      const sorted = [...allBoard.entries].sort((a, b) =>
+        (a.rankKey ?? "").localeCompare(b.rankKey ?? ""),
+      )
+      expect(allBoard.entries.map((item) => item.playerId)).toEqual(
+        sorted.map((item) => item.playerId),
+      )
+
+      const topId = allBoard.entries[0]!.playerId
+      const topRank = (await fetch(
+        `${root}/v1/boards/nonogram/easy/player/${topId}`,
+      ).then((res) => res.json())) as { rank?: number }
+      expect(topRank.rank).toBe(1)
+
+      // Daily board: shared seed guarantees deterministic ordering across runs.
+      const info = await dailyInfo(root)
+      const fastMissRun = await dailyStart(root, info.challengeId, "fast-miss").then((r) =>
+        r.json(),
+      ) as { runId: string; seed: number }
+      const slowCleanRun = await dailyStart(root, info.challengeId, "slow-clean").then((r) =>
+        r.json(),
+      ) as { runId: string; seed: number }
+      const fastCleanRun = await dailyStart(root, info.challengeId, "fast-clean").then((r) =>
+        r.json(),
+      ) as { runId: string; seed: number }
 
       now += 5_000
-      const fastMissSub = await submitReplay(
+      await submitReplay(
         root,
         fastMissRun.runId,
         playTurn(entry.core, entry.meta, {
@@ -814,16 +897,9 @@ describe("daily challenge", () => {
           inputs: buildInputs(fastMissRun.seed, true),
         }).replay,
       )
-      expect(fastMissSub.status).toBe(200)
-      const fastMissBody = (await fastMissSub.json()) as {
-        score: { value: number; detail?: Record<string, unknown> }
-      }
-      expect(fastMissBody.score.value).toBe(900)
-      expect(fastMissBody.score.detail?.elapsedMs).toBe(5_000)
-      expect(fastMissBody.score.detail?.rankKey).toBe("000100|0000005000")
 
       now += 5_000
-      const fastCleanSub = await submitReplay(
+      await submitReplay(
         root,
         fastCleanRun.runId,
         playTurn(entry.core, entry.meta, {
@@ -832,17 +908,9 @@ describe("daily challenge", () => {
           inputs: buildInputs(fastCleanRun.seed, false),
         }).replay,
       )
-      expect(fastCleanSub.status).toBe(200)
-      const fastCleanBody = (await fastCleanSub.json()) as {
-        rank: number
-        score: { value: number; detail?: Record<string, unknown> }
-      }
-      expect(fastCleanBody.rank).toBe(1)
-      expect(fastCleanBody.score.value).toBe(1000)
-      expect(fastCleanBody.score.detail?.rankKey).toBe("000000|0000010000")
 
-      now += 20_000
-      const slowCleanSub = await submitReplay(
+      now += 60_000
+      await submitReplay(
         root,
         slowCleanRun.runId,
         playTurn(entry.core, entry.meta, {
@@ -851,36 +919,24 @@ describe("daily challenge", () => {
           inputs: buildInputs(slowCleanRun.seed, false),
         }).replay,
       )
-      expect(slowCleanSub.status).toBe(200)
-      const slowCleanBody = (await slowCleanSub.json()) as {
-        rank: number
-        score: { value: number; detail?: Record<string, unknown> }
-      }
-      expect(slowCleanBody.rank).toBe(2)
-      expect(slowCleanBody.score.value).toBe(1000)
-      expect(slowCleanBody.score.detail?.rankKey).toBe("000000|0000030000")
 
-      const board = (await fetch(`${root}/v1/boards/nonogram/easy`).then((res) =>
-        res.json(),
-      )) as {
-        entries: Array<{ playerId: string; score: { value: number }; rankKey?: string }>
+      const dailyBoard = (await fetch(
+        `${root}/v1/challenges/${encodeURIComponent(info.challengeId)}/board`,
+      ).then((res) => res.json())) as {
+        entries: Array<{ playerId: string; score: { value: number } }>
       }
-      expect(board.entries.map((item) => item.playerId)).toEqual([
+      expect(dailyBoard.entries.map((item) => item.playerId)).toEqual([
         "fast-clean",
         "slow-clean",
         "fast-miss",
       ])
 
-      const missRank = (await fetch(`${root}/v1/boards/nonogram/easy/player/fast-miss`).then(
-        (res) => res.json(),
-      )) as { rank?: number }
-      expect(missRank.rank).toBe(3)
-
-      // A faster 1000-point win replaces slow-clean's personal best and moves to #1.
-      now += 60_000
-      const rematch = await start("slow-clean")
+      // A faster clean attempt replaces slow-clean's daily best and moves to #1.
+      const rematch = (await dailyStart(root, info.challengeId, "slow-clean").then((r) =>
+        r.json(),
+      )) as { runId: string; seed: number }
       now += 4_000
-      const rematchSub = await submitReplay(
+      const rematchRes = await submitReplay(
         root,
         rematch.runId,
         playTurn(entry.core, entry.meta, {
@@ -889,19 +945,19 @@ describe("daily challenge", () => {
           inputs: buildInputs(rematch.seed, false),
         }).replay,
       )
-      expect(rematchSub.status).toBe(200)
-      const rematchBody = (await rematchSub.json()) as {
+      const rematchBody = (await rematchRes.json()) as {
         rank: number
         best?: { detail?: Record<string, unknown> }
       }
       expect(rematchBody.rank).toBe(1)
       expect(rematchBody.best?.detail?.elapsedMs).toBe(4_000)
-      expect(rematchBody.best?.detail?.rankKey).toBe("000000|0000004000")
 
-      // A slower 1000-point win does not overwrite the 4s personal best.
-      const slowerRun = await start("slow-clean")
-      now += 15_000
-      const slowerSub = await submitReplay(
+      // A slower attempt does not overwrite slow-clean's 4s personal best.
+      const slowerRun = (await dailyStart(root, info.challengeId, "slow-clean").then((r) =>
+        r.json(),
+      )) as { runId: string; seed: number }
+      now += 20_000
+      const slowerRes = await submitReplay(
         root,
         slowerRun.runId,
         playTurn(entry.core, entry.meta, {
@@ -910,24 +966,12 @@ describe("daily challenge", () => {
           inputs: buildInputs(slowerRun.seed, false),
         }).replay,
       )
-      expect(slowerSub.status).toBe(200)
-      const slowerBody = (await slowerSub.json()) as {
+      const slowerBody = (await slowerRes.json()) as {
         rank: number
         best?: { detail?: Record<string, unknown> }
       }
       expect(slowerBody.rank).toBe(1)
       expect(slowerBody.best?.detail?.elapsedMs).toBe(4_000)
-
-      const updatedBoard = (await fetch(`${root}/v1/boards/nonogram/easy`).then((res) =>
-        res.json(),
-      )) as {
-        entries: Array<{ playerId: string }>
-      }
-      expect(updatedBoard.entries.map((item) => item.playerId)).toEqual([
-        "slow-clean",
-        "fast-clean",
-        "fast-miss",
-      ])
     } finally {
       nowSpy.mockRestore()
       await local.close()

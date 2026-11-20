@@ -129,9 +129,9 @@ const code = playTurn(codeCore, codeMeta, {
 
 /**
  * Nonogram fixture: one deliberate failed check on the empty hard board, then
- * the solution's cells are marked and checked for a clean win. Two checks cost
- * 100 points, so the verified fixture scores 900 and exercises both the check
- * path and the 10 × 10 board.
+ * the solution's cells are marked and checked for a clean win. For seed
+ * 20260419 (complexity 3650), one failed check deducts 250 (base 3400) and
+ * 60s elapsed yields a 797-point time bonus for a verified score of 4197.
  */
 const NONOGRAM_MODE = nonogramMeta.modes.find((mode) => mode.id === "hard")!
 
@@ -175,7 +175,7 @@ if (code.state.attemptsUsed !== 2 || code.score.value !== 900) {
   )
 }
 const nonogramChecks = nonogramScript.filter((input) => input.type === "check").length
-if (nonogramChecks !== 2 || nonogram.state.checksUsed !== 2 || nonogram.score.value !== 900) {
+if (nonogramChecks !== 2 || nonogram.state.checksUsed !== 2 || nonogram.score.value !== 4197) {
   throw new Error(
     `nonogram fixture shape drifted: attempts=${nonogramChecks} checksUsed=${nonogram.state.checksUsed} score=${nonogram.score.value}`,
   )

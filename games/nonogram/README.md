@@ -58,15 +58,22 @@ crossed, or when you trigger **Promote** (`P`) or **Clear notes** (`C`).
 
 ## Scoring
 
-A win is the only ranked result: 1000 for a first-check solve, minus 100 for
-each failed check before the winning one, with a 100-point floor. One failed
-check followed by a clean solve scores 900. Ten failed checks lose the run and
-score 0, unranked. Failed checks only report “not solved yet”; on a loss after
-10 checks, wrongly filled (`✕`) and missed (`□`) cells are revealed.
+A win is the only ranked result:
 
-On hosted boards (all-time and daily), ties in point score are broken by
-server-measured elapsed time from run start to submission (`rankKey`), keeping
-accuracy primary while separating fast solves on the leaderboard.
+- **Complexity ceiling (`base`)**: derived deterministically from board size,
+  line-solver depth (`iterations`), and total clue runs (`15 × cells +
+  (120 or 160) × iterations + 25 × runs`).
+- **Precision deductions**: `-250` per failed check before the winning check,
+  `-25` per undone or overwritten filled cell, and `-100` per **Clear board**
+  reset (plus any filled cells wiped), clamped at a 100-point floor. Toggling
+  `Cross ×`, `Note 1`, and `Note 2` is free.
+- **Gentle time bonus**: up to `+25%` of the post-penalty base score, decaying
+  smoothly with `par / (par + elapsed)` (`par` = 3 min on Easy, 15 min on Hard).
+  Hosted runs compute this bonus from server-measured elapsed time (`rankKey`
+  orders highest score first, then fastest elapsed time). Ten failed checks lose
+  the run and score `0`, unranked. Failed checks only report “not solved yet”;
+  on a loss after 10 checks, wrongly filled (`✕`) and missed (`□`) cells are
+  revealed.
 
 ## Rules
 
