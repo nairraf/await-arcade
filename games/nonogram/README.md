@@ -39,6 +39,7 @@ pre-verified puzzle for the mode, so `create()` always returns a playable board.
 | `1` / `2` | Toggle temporary `Note 1` / `Note 2` on an empty cell |
 | `P` / **Promote** | Commit all `Note 1` + `Note 2` overlap cells (`◆`) as filled and clear notes |
 | `C` / **Clear notes** | Clear all temporary notes |
+| **Clear board** | Click twice to erase all filled and crossed marks (keeps check count) |
 | `Enter` / **Check** | Check the board |
 
 Crosses are a player’s own notes. They are never part of the solution check, so

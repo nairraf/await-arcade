@@ -405,6 +405,17 @@ button.ng-cell:disabled {
   color: var(--game-accent, #f472b6);
 }
 
+.ng-btn.is-confirm:not(:disabled) {
+  border-color: color-mix(in srgb, var(--arcade-danger, #fb7185) 75%, transparent);
+  background: color-mix(in srgb, var(--arcade-danger, #fb7185) 18%, transparent);
+  color: var(--arcade-danger, #fb7185);
+}
+
+.ng-btn.is-confirm:hover:not(:disabled) {
+  border-color: var(--arcade-danger, #fb7185);
+  background: color-mix(in srgb, var(--arcade-danger, #fb7185) 26%, transparent);
+}
+
 .ng-btn:disabled {
   opacity: 0.4;
   cursor: default;
@@ -550,23 +561,42 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
   crossBtn.setAttribute("aria-label", "Cross tool")
   noteABtn.setAttribute("aria-label", "Overlap Note 1 tool")
   noteBBtn.setAttribute("aria-label", "Overlap Note 2 tool")
+  fillBtn.title = "Fill or erase cells (Space · click/drag)"
+  crossBtn.title = "Cross out empty cells (X · right-click/drag)"
+  noteABtn.title = "Mark left-most run · overlaps with Note 2 become ◆ (1)"
+  noteBBtn.title = "Mark right-most run · overlaps with Note 1 become ◆ (2)"
   toolRow.append(fillBtn, crossBtn, noteABtn, noteBBtn)
 
   const promoteBtn = el("button", "ng-btn", "Promote")
   const clearNotesBtn = el("button", "ng-btn", "Clear notes")
+  const clearBoardBtn = el("button", "ng-btn", "Clear board")
   const checkBtn = el("button", "ng-btn is-primary", "Check")
-  const actionButtons = [promoteBtn, clearNotesBtn, checkBtn]
+  const actionButtons = [promoteBtn, clearNotesBtn, clearBoardBtn, checkBtn]
   for (const button of actionButtons) {
     button.type = "button"
     button.dataset.ngControl = "true"
   }
   promoteBtn.setAttribute("aria-label", "Promote overlapping notes to filled")
   clearNotesBtn.setAttribute("aria-label", "Clear all overlap notes")
+  clearBoardBtn.setAttribute("aria-label", "Clear all filled and crossed marks on the board")
   checkBtn.setAttribute("aria-label", "Check the board")
-  actionRow.append(promoteBtn, clearNotesBtn, checkBtn)
+  promoteBtn.title = "Fill all ◆ overlaps and clear notes (P)"
+  clearNotesBtn.title = "Clear temporary Note 1 / Note 2 marks (C)"
+  clearBoardBtn.title = "Erase all filled and crossed marks on this puzzle (keeps check count)"
+  checkBtn.title = "Check if your filled cells match all clues (Enter)"
+  actionRow.append(promoteBtn, clearNotesBtn, clearBoardBtn, checkBtn)
   controls.append(toolRow, actionRow)
 
-  const allControlButtons = [fillBtn, crossBtn, noteABtn, noteBBtn, promoteBtn, clearNotesBtn, checkBtn]
+  const allControlButtons = [
+    fillBtn,
+    crossBtn,
+    noteABtn,
+    noteBBtn,
+    promoteBtn,
+    clearNotesBtn,
+    clearBoardBtn,
+    checkBtn,
+  ]
 
   const live = el("div", "ng-sr")
   live.setAttribute("aria-live", "polite")
@@ -591,11 +621,31 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
   let dragPaintValue = true
   const dragVisited = new Set<number>()
   let dragPlayedAudio = false
+  let confirmClearBoard = false
+  let confirmClearTimer: ReturnType<typeof setTimeout> | undefined
 
   const endDrag = (): void => {
     dragActive = false
     dragVisited.clear()
     dragPlayedAudio = false
+  }
+
+  const disarmClearBoard = (rerender = true): void => {
+    const wasArmed = confirmClearBoard
+    if (confirmClearTimer !== undefined) {
+      clearTimeout(confirmClearTimer)
+      confirmClearTimer = undefined
+    }
+    confirmClearBoard = false
+    if (rerender && wasArmed) render(ctx.state())
+  }
+
+  const armClearBoard = (): void => {
+    if (confirmClearTimer !== undefined) clearTimeout(confirmClearTimer)
+    confirmClearBoard = true
+    confirmClearTimer = setTimeout(() => disarmClearBoard(true), 3000)
+    live.textContent = "Press Clear board again to erase all marks."
+    render(ctx.state())
   }
 
   const dispatchMark = (index: number, mark: NonogramMark): boolean => {
@@ -756,6 +806,7 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
         const tool: Tool = event.button === 2 ? "cross" : activeTool
         cursor = index
         cell.focus({ preventScroll: true })
+        disarmClearBoard(false)
 
         const paintOn = paintOnFor(index, tool, stateNow)
         dragActive = true
@@ -775,6 +826,7 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
         if (ctx.state().phase !== "playing") return
         cursor = index
         dragPlayedAudio = false
+        disarmClearBoard(false)
         toggleCell(index, activeTool)
       })
       grid.append(cell)
@@ -804,6 +856,11 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
 
   const onWindowPointerEnd = (): void => {
     endDrag()
+  }
+
+  const onWindowBlur = (): void => {
+    endDrag()
+    disarmClearBoard(true)
   }
 
   const onGridContextMenu = (event: MouseEvent): void => {
@@ -867,6 +924,7 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
     event.preventDefault()
 
     if (isMove) {
+      disarmClearBoard(false)
       if (key === "ArrowLeft") moveCursorBy(-1, 0)
       else if (key === "ArrowRight") moveCursorBy(1, 0)
       else if (key === "ArrowUp") moveCursorBy(0, -1)
@@ -877,6 +935,7 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
     // Held keys never repeat a mutating action; one press, one turn.
     if (event.repeat) return
 
+    disarmClearBoard(true)
     dragPlayedAudio = false
 
     if (isFill) {
@@ -917,24 +976,49 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
   window.addEventListener("pointermove", onWindowPointerMove)
   window.addEventListener("pointerup", onWindowPointerEnd)
   window.addEventListener("pointercancel", onWindowPointerEnd)
-  window.addEventListener("blur", onWindowPointerEnd)
+  window.addEventListener("blur", onWindowBlur)
 
   wrap.addEventListener("pointerdown", (event) => {
     const target = event.target
     if (target instanceof HTMLElement && target.closest(".ng-cell") !== null) return
     if (isControl(target)) return
+    disarmClearBoard(true)
     wrap.focus({ preventScroll: true })
   })
 
   for (const { tool, button } of toolButtons) {
     button.addEventListener("click", () => {
+      disarmClearBoard(false)
       activeTool = tool
       render(ctx.state())
     })
   }
-  promoteBtn.addEventListener("click", () => promoteOverlaps())
-  clearNotesBtn.addEventListener("click", () => clearNotes())
+  promoteBtn.addEventListener("click", () => {
+    disarmClearBoard(true)
+    promoteOverlaps()
+  })
+  clearNotesBtn.addEventListener("click", () => {
+    disarmClearBoard(true)
+    clearNotes()
+  })
+  clearBoardBtn.addEventListener("click", () => {
+    const state = ctx.state()
+    if (state.phase !== "playing") return
+    if (!confirmClearBoard) {
+      armClearBoard()
+      return
+    }
+    disarmClearBoard(false)
+    ctx.dispatch({ type: "clear" })
+    if (ctx.state().draft.every((mark) => mark === MARK_EMPTY)) {
+      notes.fill(0)
+      ctx.host.audio.play("flag")
+      live.textContent = "Board cleared."
+    }
+    render(ctx.state())
+  })
   checkBtn.addEventListener("click", () => {
+    disarmClearBoard(true)
     if (ctx.state().phase === "playing") ctx.dispatch({ type: "check" })
   })
 
@@ -1050,6 +1134,25 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
     promoteBtn.classList.toggle("is-promote", playing && overlapCount > 0)
     promoteBtn.disabled = !playing || overlapCount === 0
     clearNotesBtn.disabled = !playing || !anyNotes
+
+    const hasDraft = state.draft.some((mark) => mark !== MARK_EMPTY)
+    if ((!playing || !hasDraft) && confirmClearBoard) {
+      if (confirmClearTimer !== undefined) {
+        clearTimeout(confirmClearTimer)
+        confirmClearTimer = undefined
+      }
+      confirmClearBoard = false
+    }
+    clearBoardBtn.disabled = !playing || !hasDraft
+    clearBoardBtn.textContent = confirmClearBoard ? "Confirm clear?" : "Clear board"
+    clearBoardBtn.classList.toggle("is-confirm", playing && confirmClearBoard)
+    clearBoardBtn.setAttribute(
+      "aria-label",
+      confirmClearBoard
+        ? "Confirm clearing all marks on the board"
+        : "Clear all filled and crossed marks on the board",
+    )
+
     checkBtn.disabled = !playing
 
     if (state.phase !== lastPhase) {
@@ -1075,12 +1178,13 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
     },
     destroy() {
       endDrag()
+      disarmClearBoard(false)
       grid.removeEventListener("contextmenu", onGridContextMenu)
       ctx.container.removeEventListener("keydown", onKeyDown)
       window.removeEventListener("pointermove", onWindowPointerMove)
       window.removeEventListener("pointerup", onWindowPointerEnd)
       window.removeEventListener("pointercancel", onWindowPointerEnd)
-      window.removeEventListener("blur", onWindowPointerEnd)
+      window.removeEventListener("blur", onWindowBlur)
       wrap.remove()
     },
   }

@@ -448,6 +448,38 @@ describe("nonogram rules and scoring", () => {
     expect(state.draft[state.width * state.height - 1]).toBe(MARK_FILLED)
   })
 
+  it("clears all board marks while preserving checksUsed and phase", () => {
+    let state = core.create(55, easy)
+    expect(core.step(state, [{ type: "clear" }], 0)).toBe(state)
+
+    state = run(state, [
+      ...wrongFillInputs(state),
+      { type: "set", x: 0, y: 0, mark: MARK_CROSSED },
+      { type: "check" },
+    ])
+    expect(state.checksUsed).toBe(1)
+    expect(state.phase).toBe("playing")
+    expect(state.draft.some((mark) => mark !== MARK_EMPTY)).toBe(true)
+
+    const cleared = core.step(state, [{ type: "clear" }], 0)
+    expect(cleared.checksUsed).toBe(1)
+    expect(cleared.phase).toBe("playing")
+    expect(cleared.draft.every((mark) => mark === MARK_EMPTY)).toBe(true)
+    expect(core.step(cleared, [{ type: "clear" }], 0)).toBe(cleared)
+
+    const replayInputs: NonogramInput[] = [
+      ...wrongFillInputs(state),
+      { type: "clear" },
+      ...solutionInputs(state),
+      { type: "check" },
+    ]
+    const result = playTurn(core, meta, { seed: 55, mode: easy, inputs: replayInputs, durationMs: 25_000 })
+    expect(result.state.phase).toBe("won")
+    expect(result.score.value).toBe(1000)
+    expect(result.verified.ok).toBe(true)
+    expect(result.verified.score?.value).toBe(1000)
+  })
+
   it("treats malformed, out-of-bounds, non-integer, and invalid-mark inputs as no-ops", () => {
     const fresh = core.create(46, hard)
     const before = core.serialize(fresh)
@@ -494,6 +526,7 @@ describe("nonogram rules and scoring", () => {
       won,
       [
         { type: "set", x: 0, y: 0, mark: MARK_CROSSED },
+        { type: "clear" },
         { type: "check" },
       ],
       0,
@@ -505,7 +538,7 @@ describe("nonogram rules and scoring", () => {
       lost = core.step(lost, [{ type: "check" }], 0)
     }
     const lostBefore = core.serialize(lost)
-    lost = core.step(lost, [{ type: "set", x: 0, y: 0, mark: MARK_FILLED }, { type: "check" }], 0)
+    lost = core.step(lost, [{ type: "set", x: 0, y: 0, mark: MARK_FILLED }, { type: "clear" }, { type: "check" }], 0)
     expect(core.serialize(lost)).toEqual(lostBefore)
   })
 
