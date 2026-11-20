@@ -18,7 +18,7 @@ import { greedySolve } from "../games/lockstep/solver"
 import { core as codeCore } from "../games/codebreaker/src/core"
 import { meta as codeMeta } from "../games/codebreaker/src/meta"
 import type { CodebreakerInput } from "../games/codebreaker/src/core"
-import { core as nonogramCore } from "../games/nonogram/src/core"
+import { MARK_FILLED, core as nonogramCore } from "../games/nonogram/src/core"
 import { meta as nonogramMeta } from "../games/nonogram/src/meta"
 import type { NonogramInput } from "../games/nonogram/src/core"
 
@@ -136,44 +136,20 @@ const code = playTurn(codeCore, codeMeta, {
 const NONOGRAM_MODE = nonogramMeta.modes.find((mode) => mode.id === "hard")!
 
 function nonogramInputs(seed: number): NonogramInput[] {
-  let state = nonogramCore.create(seed, NONOGRAM_MODE)
-  const inputs: NonogramInput[] = []
-
-  const push = (input: NonogramInput): void => {
-    inputs.push(input)
-    state = nonogramCore.step(state, [input], 0)
-  }
-
-  const moveTo = (target: number): void => {
-    while (state.cursor !== target) {
-      const width = state.width
-      const height = state.height
-      const x = state.cursor % width
-      const y = Math.floor(state.cursor / width)
-      const tx = target % width
-      const ty = Math.floor(target / width)
-
-      if (x !== tx) {
-        const right = (tx - x + width) % width
-        const left = width - right
-        push({ type: "cursor", dx: right <= left ? 1 : -1, dy: 0 })
-      } else {
-        const down = (ty - y + height) % height
-        const up = height - down
-        push({ type: "cursor", dx: 0, dy: down <= up ? 1 : -1 })
-      }
-    }
-  }
-
-  push({ type: "check" })
+  const state = nonogramCore.create(seed, NONOGRAM_MODE)
+  const inputs: NonogramInput[] = [{ type: "check" }]
 
   for (let index = 0; index < state.solution.length; index += 1) {
     if (state.solution[index] !== 1) continue
-    moveTo(index)
-    push({ type: "mark" })
+    inputs.push({
+      type: "set",
+      x: index % state.width,
+      y: Math.floor(index / state.width),
+      mark: MARK_FILLED,
+    })
   }
 
-  push({ type: "check" })
+  inputs.push({ type: "check" })
   return inputs
 }
 

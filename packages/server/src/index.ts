@@ -66,6 +66,10 @@ function boardKey(gameId: string, modeId: string): string {
   return `${gameId}:${modeId}:all`
 }
 
+function usesRankKey(gameId: string, challengeId?: string): boolean {
+  return Boolean(challengeId) || gameId === "nonogram"
+}
+
 function json(
   res: ServerResponse,
   status: number,
@@ -738,17 +742,17 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
         }
 
         const score = verified.score
-        let dailyScore = score
-        let dailyRankKey: string | undefined
+        let boardScore = score
+        let boardRankKey: string | undefined
         if (run.gameId === "mineflag" && run.challengeId) {
           const moves = verified.ticks ?? score.value
           const elapsedMs = Math.max(0, Date.now() - run.createdAt)
           const attempt = run.attempt ?? 1
-          dailyRankKey = [
+          boardRankKey = [
             String(moves).padStart(6, "0"),
             String(elapsedMs).padStart(10, "0"),
           ].join("|")
-          dailyScore = {
+          boardScore = {
             ...score,
             value: moves,
             type: "lower",
@@ -757,7 +761,23 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
               moves,
               elapsedMs,
               attempt,
-              rankKey: dailyRankKey,
+              rankKey: boardRankKey,
+            },
+          }
+        } else if (run.gameId === "nonogram") {
+          const elapsedMs = Math.min(9_999_999_999, Math.max(0, Date.now() - run.createdAt))
+          const penalty = Math.max(0, entry.meta.score.max - Math.round(score.value))
+          boardRankKey = [
+            String(penalty).padStart(6, "0"),
+            String(elapsedMs).padStart(10, "0"),
+          ].join("|")
+          boardScore = {
+            ...score,
+            detail: {
+              ...(score.detail ?? {}),
+              elapsedMs,
+              ...(run.challengeId ? { attempt: run.attempt ?? 1 } : {}),
+              rankKey: boardRankKey,
             },
           }
         }
@@ -787,11 +807,11 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
 
           const beatPrevious =
             !previous ||
-            (dailyRankKey && previous.rankKey
-              ? dailyRankKey < previous.rankKey
-              : winner(dailyScore, previous.score))
-          const best = beatPrevious ? dailyScore : previous.score
-          const bestRankKey = beatPrevious ? dailyRankKey : previous.rankKey
+            (boardRankKey && previous.rankKey
+              ? boardRankKey < previous.rankKey
+              : winner(boardScore, previous.score))
+          const best = beatPrevious ? boardScore : previous.score
+          const bestRankKey = beatPrevious ? boardRankKey : previous.rankKey
 
           if (beatPrevious) {
             await tx.putEntry(key, {
@@ -840,12 +860,12 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           run.playerId,
           entry.meta.score.type,
           undefined,
-          run.challengeId ? "rankKey" : "score",
+          usesRankKey(run.gameId, run.challengeId) ? "rankKey" : "score",
         )
 
         json(res, 200, {
           ok: true,
-          score: dailyScore,
+          score: boardScore,
           ...(outcome.best ? { best: outcome.best } : {}),
           ...(rank !== undefined ? { rank } : {}),
           ...(outcome.xp ? { xp: outcome.xp.awarded } : {}),
@@ -970,7 +990,13 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
             }
           : undefined
         const rank = enriched
-          ? await store.rank(key, pid, entry.meta.score.type, enriched)
+          ? await store.rank(
+              key,
+              pid,
+              entry.meta.score.type,
+              enriched,
+              usesRankKey(gameId) ? "rankKey" : "score",
+            )
           : undefined
 
         json(res, 200, {
@@ -1009,7 +1035,12 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
         }
 
         const entries = await withXp(
-          await store.top(boardKey(gameId, modeId), 50, entry.meta.score.type),
+          await store.top(
+            boardKey(gameId, modeId),
+            50,
+            entry.meta.score.type,
+            usesRankKey(gameId) ? "rankKey" : "score",
+          ),
         )
         json(res, 200, { gameId, modeId, period: "all", entries }, true, BOARD_CACHE_CONTROL)
         return

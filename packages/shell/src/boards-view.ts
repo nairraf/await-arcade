@@ -246,14 +246,17 @@ export async function renderBoardsView(options: ShowBoardsOptions): Promise<void
 
   controls.append(play, refresh)
 
-  const scoringHint =
+  const scoringHintText =
     daily && entry.meta.id === "mineflag"
-      ? el(
-          "div",
-          "arcade-mode-hint",
-          "Daily rank: moves, then server time. Attempts are shown only.",
-        )
-      : undefined
+      ? "Daily rank: moves, then server time. Attempts are shown only."
+      : entry.meta.id === "nonogram"
+        ? daily
+          ? "Daily rank: score, then server time. Attempts are shown only."
+          : "Rank: score, then server time."
+        : undefined
+  const scoringHint = scoringHintText
+    ? el("div", "arcade-mode-hint", scoringHintText)
+    : undefined
 
   const you = el("div", "arcade-boards-you")
   const youLabel = el("div", "arcade-boards-you-label", "YOUR RANK")
