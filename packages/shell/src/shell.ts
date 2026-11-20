@@ -1142,6 +1142,9 @@ export function createArcade(options: ArcadeOptions): Arcade {
         )
       }
 
+      const displayScore = !practice && submit.ok && submit.score ? submit.score : result.score
+      score.value.textContent = formatScore(displayScore, entry.meta)
+
       const openGameOver = (): void => {
         pause.textContent = "View board"
         pause.disabled = false
@@ -1149,7 +1152,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
           overlayCard(
             kicker,
             title,
-            formatScore(result.score, entry.meta),
+            formatScore(displayScore, entry.meta),
             detailParts.join(" "),
             actions,
           ),

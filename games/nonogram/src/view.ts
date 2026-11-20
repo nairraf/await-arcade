@@ -514,9 +514,10 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
 
   const bar = el("div", "ng-bar")
   const sizeStat = el("span", "ng-stat")
+  const baseStat = el("span", "ng-stat")
   const checksStat = el("span", "ng-stat is-accent")
   const statusStat = el("span", "ng-stat is-status")
-  bar.append(sizeStat, checksStat, statusStat)
+  bar.append(sizeStat, baseStat, checksStat, statusStat)
 
   const board = el("div", "ng-board")
   const corner = el("div", "ng-corner")
@@ -1046,6 +1047,7 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
     const cursorY = Math.floor(cursor / state.width)
 
     sizeStat.textContent = `${state.width} × ${state.height}`
+    baseStat.textContent = `Base ${state.complexity}`
     checksStat.textContent = `Checks ${state.checksUsed}/${MAX_CHECKS}`
     if (state.phase === "won") statusStat.textContent = "Solved"
     else if (state.phase === "lost") statusStat.textContent = "Out of checks"

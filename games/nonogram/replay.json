@@ -1,7 +1,7 @@
 {
   "version": 1,
   "gameId": "nonogram",
-  "gameVersion": "1.0.0",
+  "gameVersion": "1.1.0",
   "frameworkVersion": "0.1.0",
   "modeId": "hard",
   "seed": 20260419,
@@ -471,5 +471,5 @@
       }
     }
   ],
-  "stateHash": "23c4154b"
+  "stateHash": "109794b3"
 }

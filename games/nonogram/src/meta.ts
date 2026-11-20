@@ -6,7 +6,7 @@ export const meta: GameMeta = {
   description:
     "Read the row and column clues, fill the right cells, and reveal the hidden pattern using pure logic — never a guess.",
   author: "Await Arcade",
-  version: "1.0.0",
+  version: "1.1.0",
   engines: { arcade: "^0.1.0" },
   kind: "turn",
   modes: [
@@ -23,7 +23,7 @@ export const meta: GameMeta = {
       difficulty: 2,
     },
   ],
-  score: { type: "higher", min: 0, max: 1000, unit: "points" },
+  score: { type: "higher", min: 0, max: 10_000, unit: "points" },
   leaderboard: "replay",
   status: "experimental",
   controls: [
