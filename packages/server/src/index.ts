@@ -66,6 +66,10 @@ function boardKey(gameId: string, modeId: string): string {
   return `${gameId}:${modeId}:all`
 }
 
+function usesRankKey(gameId: string, challengeId?: string): boolean {
+  return gameId === "nonogram" || (gameId === "mineflag" && Boolean(challengeId))
+}
+
 function json(
   res: ServerResponse,
   status: number,
@@ -738,17 +742,17 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
         }
 
         const score = verified.score
-        let dailyScore = score
-        let dailyRankKey: string | undefined
+        let boardScore = score
+        let boardRankKey: string | undefined
         if (run.gameId === "mineflag" && run.challengeId) {
           const moves = verified.ticks ?? score.value
           const elapsedMs = Math.max(0, Date.now() - run.createdAt)
           const attempt = run.attempt ?? 1
-          dailyRankKey = [
+          boardRankKey = [
             String(moves).padStart(6, "0"),
             String(elapsedMs).padStart(10, "0"),
           ].join("|")
-          dailyScore = {
+          boardScore = {
             ...score,
             value: moves,
             type: "lower",
@@ -757,7 +761,33 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
               moves,
               elapsedMs,
               attempt,
-              rankKey: dailyRankKey,
+              rankKey: boardRankKey,
+            },
+          }
+        } else if (run.gameId === "nonogram") {
+          // The ranked value is the verifier's own: pure, replay-derived, and
+          // identical whenever the same replay is checked. Elapsed time is a
+          // tiebreak in the rank key only, mirroring mineflag's daily board, so
+          // an interrupted or paused run keeps its score.
+          const elapsedMs = Math.min(9_999_999_999, Math.max(0, Date.now() - run.createdAt))
+          const value = Math.max(0, Math.min(entry.meta.score.max, Math.round(score.value)))
+          const penalty = Math.max(0, entry.meta.score.max - value)
+          boardRankKey = [
+            String(penalty).padStart(6, "0"),
+            String(elapsedMs).padStart(10, "0"),
+          ].join("|")
+          boardScore = {
+            ...score,
+            value,
+            detail: {
+              ...(score.detail ?? {}),
+              elapsedMs,
+              // Rules version the value was produced under. A board row whose
+              // gameVersion the shipped verifier no longer accepts is stale and
+              // must be purged rather than ranked.
+              gameVersion: entry.meta.version,
+              ...(run.challengeId ? { attempt: run.attempt ?? 1 } : {}),
+              rankKey: boardRankKey,
             },
           }
         }
@@ -787,11 +817,11 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
 
           const beatPrevious =
             !previous ||
-            (dailyRankKey && previous.rankKey
-              ? dailyRankKey < previous.rankKey
-              : winner(dailyScore, previous.score))
-          const best = beatPrevious ? dailyScore : previous.score
-          const bestRankKey = beatPrevious ? dailyRankKey : previous.rankKey
+            (boardRankKey && previous.rankKey
+              ? boardRankKey < previous.rankKey
+              : winner(boardScore, previous.score))
+          const best = beatPrevious ? boardScore : previous.score
+          const bestRankKey = beatPrevious ? boardRankKey : previous.rankKey
 
           if (beatPrevious) {
             await tx.putEntry(key, {
@@ -840,12 +870,12 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           run.playerId,
           entry.meta.score.type,
           undefined,
-          run.challengeId ? "rankKey" : "score",
+          usesRankKey(run.gameId, run.challengeId) ? "rankKey" : "score",
         )
 
         json(res, 200, {
           ok: true,
-          score: dailyScore,
+          score: boardScore,
           ...(outcome.best ? { best: outcome.best } : {}),
           ...(rank !== undefined ? { rank } : {}),
           ...(outcome.xp ? { xp: outcome.xp.awarded } : {}),
@@ -904,7 +934,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           challenge.challengeId,
           50,
           entry.meta.score.type,
-          "rankKey",
+          usesRankKey(challenge.gameId, challenge.challengeId) ? "rankKey" : "score",
         ))
         json(res, 200, { ...challenge, period: "daily", entries }, true, BOARD_CACHE_CONTROL)
         return
@@ -970,7 +1000,13 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
             }
           : undefined
         const rank = enriched
-          ? await store.rank(key, pid, entry.meta.score.type, enriched)
+          ? await store.rank(
+              key,
+              pid,
+              entry.meta.score.type,
+              enriched,
+              usesRankKey(gameId) ? "rankKey" : "score",
+            )
           : undefined
 
         json(res, 200, {
@@ -1009,7 +1045,12 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
         }
 
         const entries = await withXp(
-          await store.top(boardKey(gameId, modeId), 50, entry.meta.score.type),
+          await store.top(
+            boardKey(gameId, modeId),
+            50,
+            entry.meta.score.type,
+            usesRankKey(gameId) ? "rankKey" : "score",
+          ),
         )
         json(res, 200, { gameId, modeId, period: "all", entries }, true, BOARD_CACHE_CONTROL)
         return

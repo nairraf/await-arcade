@@ -19,6 +19,9 @@ import { view as view4 } from "../../../games/mergegrid/src/view"
 import { core as core5 } from "../../../games/mineflag/src/core"
 import { meta as meta5 } from "../../../games/mineflag/src/meta"
 import { view as view5 } from "../../../games/mineflag/src/view"
+import { core as core6 } from "../../../games/nonogram/src/core"
+import { meta as meta6 } from "../../../games/nonogram/src/meta"
+import { view as view6 } from "../../../games/nonogram/src/view"
 
 export const games: readonly GameEntry[] = [
   { meta: meta0, core: core0, view: view0 },
@@ -27,4 +30,5 @@ export const games: readonly GameEntry[] = [
   { meta: meta3, core: core3, view: view3 },
   { meta: meta4, core: core4, view: view4 },
   { meta: meta5, core: core5, view: view5 },
+  { meta: meta6, core: core6, view: view6 },
 ]

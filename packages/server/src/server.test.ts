@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { playRealtime, playTurn } from "@await-arcade/framework"
+import { greedySolve } from "../../../games/lockstep/solver"
 import { createArcadeServer, type ArcadeServer } from "./index"
 import { MemoryStore } from "./store"
 import { verifiers } from "./registry.generated"
@@ -754,6 +755,289 @@ describe("daily challenge", () => {
     } finally {
       consoleSpy.mockRestore()
       await failingServer.close()
+    }
+  })
+
+  it("ranks nonogram runs by complexity, precision, and server elapsed time", async () => {
+    let now = Date.UTC(2026, 10, 19, 12, 0, 0)
+    const nowSpy = vi.spyOn(Date, "now").mockImplementation(() => now)
+    const local = createArcadeServer({
+      daily: { secret: "test-secret", featured: "nonogram:easy", now: () => now },
+    })
+    const port = await local.listen(0)
+    const root = `http://127.0.0.1:${port}`
+
+    const start = async (playerId: string) => {
+      const res = await fetch(`${root}/v1/runs`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ gameId: "nonogram", modeId: "easy", playerId }),
+      })
+      expect(res.status).toBe(201)
+      return (await res.json()) as { runId: string; seed: number }
+    }
+
+    const entry = verifiers["nonogram"]!
+    const easyMode = entry.meta.modes.find((candidate) => candidate.id === "easy")!
+
+    const buildInputs = (seed: number, failFirstCheck: boolean) => {
+      const state = entry.core.create(seed, easyMode) as {
+        width: number
+        solution: readonly number[]
+      }
+      const inputs: Array<
+        { type: "set"; x: number; y: number; mark: 1 } | { type: "check" }
+      > = []
+      if (failFirstCheck) inputs.push({ type: "check" })
+      for (let index = 0; index < state.solution.length; index += 1) {
+        if (state.solution[index] !== 1) continue
+        inputs.push({
+          type: "set",
+          x: index % state.width,
+          y: Math.floor(index / state.width),
+          mark: 1,
+        })
+      }
+      inputs.push({ type: "check" })
+      return inputs
+    }
+
+    const expectedFor = (seed: number, failFirstCheck: boolean, elapsedMs: number) => {
+      const state = entry.core.create(seed, easyMode) as { complexity: number }
+      const baseScore = state.complexity - (failFirstCheck ? 250 : 0)
+      // The value is replay-derived only; elapsed time is a rank-key tiebreak.
+      const value = Math.min(entry.meta.score.max, baseScore)
+      const penalty = Math.max(0, entry.meta.score.max - value)
+      const rankKey = `${String(penalty).padStart(6, "0")}|${String(elapsedMs).padStart(10, "0")}`
+      return { baseScore, value, rankKey }
+    }
+
+    try {
+      // All-time board: ignores spoofed client durationMs (0ms) and computes from server time.
+      const r1 = await start("all-one")
+      const r2 = await start("all-two")
+      now += 15_000
+      const s1 = await submitReplay(
+        root,
+        r1.runId,
+        playTurn(entry.core, entry.meta, {
+          seed: r1.seed,
+          mode: easyMode,
+          inputs: buildInputs(r1.seed, false),
+          durationMs: 0,
+        }).replay,
+      )
+      expect(s1.status).toBe(200)
+      const b1 = (await s1.json()) as {
+        score: { value: number; detail?: Record<string, unknown> }
+      }
+      const exp1 = expectedFor(r1.seed, false, 15_000)
+      expect(b1.score.value).toBe(exp1.value)
+      expect(b1.score.detail?.baseScore).toBe(exp1.baseScore)
+      expect(b1.score.detail?.elapsedMs).toBe(15_000)
+      expect(b1.score.detail?.rankKey).toBe(exp1.rankKey)
+
+      now += 25_000
+      const s2 = await submitReplay(
+        root,
+        r2.runId,
+        playTurn(entry.core, entry.meta, {
+          seed: r2.seed,
+          mode: easyMode,
+          inputs: buildInputs(r2.seed, true),
+          durationMs: 0,
+        }).replay,
+      )
+      expect(s2.status).toBe(200)
+      const b2 = (await s2.json()) as {
+        score: { value: number; detail?: Record<string, unknown> }
+      }
+      const exp2 = expectedFor(r2.seed, true, 40_000)
+      expect(b2.score.value).toBe(exp2.value)
+      expect(b2.score.detail?.rankKey).toBe(exp2.rankKey)
+
+      const allBoard = (await fetch(`${root}/v1/boards/nonogram/easy`).then((res) =>
+        res.json(),
+      )) as {
+        entries: Array<{ playerId: string; score: { value: number }; rankKey?: string }>
+      }
+      expect(allBoard.entries).toHaveLength(2)
+      const sorted = [...allBoard.entries].sort((a, b) =>
+        (a.rankKey ?? "").localeCompare(b.rankKey ?? ""),
+      )
+      expect(allBoard.entries.map((item) => item.playerId)).toEqual(
+        sorted.map((item) => item.playerId),
+      )
+
+      const topId = allBoard.entries[0]!.playerId
+      const topRank = (await fetch(
+        `${root}/v1/boards/nonogram/easy/player/${topId}`,
+      ).then((res) => res.json())) as { rank?: number }
+      expect(topRank.rank).toBe(1)
+
+      // Daily board: shared seed guarantees deterministic ordering across runs.
+      const info = await dailyInfo(root)
+      const fastMissRun = await dailyStart(root, info.challengeId, "fast-miss").then((r) =>
+        r.json(),
+      ) as { runId: string; seed: number }
+      const slowCleanRun = await dailyStart(root, info.challengeId, "slow-clean").then((r) =>
+        r.json(),
+      ) as { runId: string; seed: number }
+      const fastCleanRun = await dailyStart(root, info.challengeId, "fast-clean").then((r) =>
+        r.json(),
+      ) as { runId: string; seed: number }
+
+      now += 5_000
+      await submitReplay(
+        root,
+        fastMissRun.runId,
+        playTurn(entry.core, entry.meta, {
+          seed: fastMissRun.seed,
+          mode: easyMode,
+          inputs: buildInputs(fastMissRun.seed, true),
+        }).replay,
+      )
+
+      now += 5_000
+      await submitReplay(
+        root,
+        fastCleanRun.runId,
+        playTurn(entry.core, entry.meta, {
+          seed: fastCleanRun.seed,
+          mode: easyMode,
+          inputs: buildInputs(fastCleanRun.seed, false),
+        }).replay,
+      )
+
+      now += 60_000
+      await submitReplay(
+        root,
+        slowCleanRun.runId,
+        playTurn(entry.core, entry.meta, {
+          seed: slowCleanRun.seed,
+          mode: easyMode,
+          inputs: buildInputs(slowCleanRun.seed, false),
+        }).replay,
+      )
+
+      const dailyBoard = (await fetch(
+        `${root}/v1/challenges/${encodeURIComponent(info.challengeId)}/board`,
+      ).then((res) => res.json())) as {
+        entries: Array<{ playerId: string; score: { value: number } }>
+      }
+      expect(dailyBoard.entries.map((item) => item.playerId)).toEqual([
+        "fast-clean",
+        "slow-clean",
+        "fast-miss",
+      ])
+
+      // A faster clean attempt replaces slow-clean's daily best and moves to #1.
+      const rematch = (await dailyStart(root, info.challengeId, "slow-clean").then((r) =>
+        r.json(),
+      )) as { runId: string; seed: number }
+      now += 4_000
+      const rematchRes = await submitReplay(
+        root,
+        rematch.runId,
+        playTurn(entry.core, entry.meta, {
+          seed: rematch.seed,
+          mode: easyMode,
+          inputs: buildInputs(rematch.seed, false),
+        }).replay,
+      )
+      const rematchBody = (await rematchRes.json()) as {
+        rank: number
+        best?: { detail?: Record<string, unknown> }
+      }
+      expect(rematchBody.rank).toBe(1)
+      expect(rematchBody.best?.detail?.elapsedMs).toBe(4_000)
+
+      // A slower attempt does not overwrite slow-clean's 4s personal best.
+      const slowerRun = (await dailyStart(root, info.challengeId, "slow-clean").then((r) =>
+        r.json(),
+      )) as { runId: string; seed: number }
+      now += 20_000
+      const slowerRes = await submitReplay(
+        root,
+        slowerRun.runId,
+        playTurn(entry.core, entry.meta, {
+          seed: slowerRun.seed,
+          mode: easyMode,
+          inputs: buildInputs(slowerRun.seed, false),
+        }).replay,
+      )
+      const slowerBody = (await slowerRes.json()) as {
+        rank: number
+        best?: { detail?: Record<string, unknown> }
+      }
+      expect(slowerBody.rank).toBe(1)
+      expect(slowerBody.best?.detail?.elapsedMs).toBe(4_000)
+    } finally {
+      nowSpy.mockRestore()
+      await local.close()
+    }
+  })
+
+  it("ranks lockstep daily boards by score instead of rankKey", async () => {
+    const store = new MemoryStore()
+    const topSpy = vi.spyOn(store, "top")
+    const rankSpy = vi.spyOn(store, "rank")
+    const local = createArcadeServer({
+      store,
+      daily: { secret: "test-secret", featured: "lockstep:skirmish", now: () => FIXED_NOW },
+    })
+    const port = await local.listen(0)
+    const root = `http://127.0.0.1:${port}`
+
+    try {
+      const info = await dailyInfo(root)
+      expect(info.gameId).toBe("lockstep")
+      const entry = verifiers["lockstep"]!
+      const mode = entry.meta.modes.find((candidate) => candidate.id === "skirmish")!
+
+      const started = (await dailyStart(root, info.challengeId, "lockstep-daily").then((r) =>
+        r.json(),
+      )) as { runId: string; seed: number }
+      const inputs = [
+        ...greedySolve(started.seed, mode, 120),
+        ...Array.from({ length: 60 }, () => ({ action: "wait" as const })),
+      ]
+      const result = playTurn(entry.core, entry.meta, {
+        seed: started.seed,
+        mode,
+        inputs,
+        durationMs: 20_000,
+      })
+      expect(result.score.ranked).toBe(true)
+
+      const submitRes = await submitReplay(root, started.runId, result.replay)
+      expect(submitRes.status).toBe(200)
+      const submitBody = (await submitRes.json()) as { ok: boolean; rank?: number }
+      expect(submitBody.ok).toBe(true)
+      expect(submitBody.rank).toBe(1)
+
+      const boardRes = await fetch(
+        `${root}/v1/challenges/${encodeURIComponent(info.challengeId)}/board`,
+      )
+      expect(boardRes.status).toBe(200)
+      const board = (await boardRes.json()) as {
+        entries: Array<{ playerId: string; score: { value: number }; rankKey?: string }>
+      }
+      expect(board.entries).toHaveLength(1)
+      expect(board.entries[0]?.playerId).toBe("lockstep-daily")
+      expect(board.entries[0]?.score.value).toBe(result.score.value)
+      expect(board.entries[0]?.rankKey).toBeUndefined()
+
+      expect(rankSpy).toHaveBeenLastCalledWith(
+        info.challengeId,
+        "lockstep-daily",
+        "higher",
+        undefined,
+        "score",
+      )
+      expect(topSpy).toHaveBeenLastCalledWith(info.challengeId, 50, "higher", "score")
+    } finally {
+      await local.close()
     }
   })
 })

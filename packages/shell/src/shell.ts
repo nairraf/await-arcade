@@ -6,6 +6,7 @@ import type {
   DailyChallenge,
   GameEntry,
   GameHost,
+  GameMeta,
   GhostRun,
   Mode,
   RunAnchor,
@@ -54,6 +55,12 @@ interface ActiveGame {
   runner: GameRunner<any, any>
   cleanup: () => void
 }
+
+const isTimedTurn = (meta: GameMeta): boolean =>
+  meta.id === "mineflag" || meta.id === "nonogram"
+
+const showsElapsedTimer = (meta: GameMeta): boolean =>
+  meta.kind === "realtime" || isTimedTurn(meta)
 
 export function createArcade(options: ArcadeOptions): Arcade {
   if (options.injectStyles !== false) ensureStyle("arcade-shell-styles", styles)
@@ -207,7 +214,8 @@ export function createArcade(options: ArcadeOptions): Arcade {
   top.append(brand, topMeta)
 
   const main = el("main", "arcade-main")
-  const online = host.board !== undefined
+  const localOnly = host.name === "local"
+  const online = host.board !== undefined && !localOnly
   const hostLabel =
     host.name === "local"
       ? "Local"
@@ -319,6 +327,10 @@ export function createArcade(options: ArcadeOptions): Arcade {
     if (entry.meta.id === "mineflag") {
       body.append(
         el("div", "arcade-mode-hint", "Daily rank: moves, then server time. Attempts are shown only."),
+      )
+    } else if (entry.meta.id === "nonogram") {
+      body.append(
+        el("div", "arcade-mode-hint", "Daily rank: score, then server time. Attempts are shown only."),
       )
     }
 
@@ -808,8 +820,8 @@ export function createArcade(options: ArcadeOptions): Arcade {
     )
     const bestCell = hudCell(bestLabel, best ? formatScore(best, entry.meta) : "—")
     const time = hudCell(
-      entry.meta.kind === "realtime" || entry.meta.id === "mineflag" ? "Elapsed" : "Status",
-      entry.meta.kind === "realtime" || entry.meta.id === "mineflag" ? "0.0s" : "Playing",
+      showsElapsedTimer(entry.meta) ? "Elapsed" : "Status",
+      showsElapsedTimer(entry.meta) ? "0.0s" : "Playing",
     )
     const hud = el("div", "arcade-hud")
     hud.append(score.root, bestCell.root, time.root)
@@ -920,6 +932,8 @@ export function createArcade(options: ArcadeOptions): Arcade {
     let runner!: GameRunner<any, any>
     let lastTicks = 0
     let boardPending = false
+    let finished = false
+    let reopenGameOver: (() => void) | undefined
     let elapsedTimer: ReturnType<typeof setInterval> | undefined
 
     const showPaused = (reason?: AgentAttentionReason): void => {
@@ -944,14 +958,24 @@ export function createArcade(options: ArcadeOptions): Arcade {
     }
 
     const pauseRun = (reason?: AgentAttentionReason): void => {
-      if (!runner || runner.paused() || pause.disabled) return
+      if (!runner || runner.paused() || finished || pause.disabled) return
       runner.pause()
       pause.textContent = "Resume"
       showPaused(reason)
     }
 
     const togglePause = (): void => {
-      if (!runner || pause.disabled) return
+      if (reopenGameOver) {
+        if (overlay.hidden) {
+          reopenGameOver()
+        } else {
+          hideOverlay()
+          pause.textContent = "Results"
+          pause.disabled = false
+        }
+        return
+      }
+      if (!runner || finished || pause.disabled) return
       if (runner.paused()) {
         runner.resume()
         hideOverlay()
@@ -1002,15 +1026,16 @@ export function createArcade(options: ArcadeOptions): Arcade {
       previousBest: Score | undefined,
       practice = false,
     ): void => {
-      pause.disabled = true
-      pause.textContent = "Pause"
       if (boardButton) boardButton.disabled = true
 
       const currentKey = submit.score?.detail?.rankKey
       const bestKey = submit.best?.detail?.rankKey
+      const previousKey = previousBest?.detail?.rankKey
       const improved = daily
         ? typeof currentKey === "string" && currentKey === bestKey
-        : submit.best !== undefined && isBetter(submit.best, previousBest)
+        : typeof currentKey === "string" && typeof bestKey === "string"
+          ? currentKey === bestKey && currentKey !== previousKey
+          : submit.best !== undefined && isBetter(submit.best, previousBest)
       const kicker = practice
         ? "PRACTICE · UNRANKED"
         : daily
@@ -1056,9 +1081,20 @@ export function createArcade(options: ArcadeOptions): Arcade {
           detailParts.push(
             `Attempt ${attempt} · server ${formatDuration(elapsed)} · ${moves} moves.`,
           )
+        } else if (elapsed !== undefined && entry.meta.id === "nonogram") {
+          detailParts.push(
+            `Attempt ${attempt} · server ${formatDuration(elapsed)}.`,
+          )
         }
       } else if (!daily && entry.meta.id === "mineflag") {
         detailParts.push(`Time ${formatDuration(result.replay.durationMs)}.`)
+      } else if (!daily && entry.meta.id === "nonogram") {
+        const serverElapsed = submit.score?.detail?.elapsedMs
+        detailParts.push(
+          typeof serverElapsed === "number"
+            ? `Server ${formatDuration(serverElapsed)}.`
+            : `Time ${formatDuration(result.replay.durationMs)}.`,
+        )
       }
       if (submit.best) {
         const bestText = daily
@@ -1073,7 +1109,12 @@ export function createArcade(options: ArcadeOptions): Arcade {
         again.disabled = true
         again.textContent = "Daily attempts used"
       }
-      const actions = [again, button("Lobby", false, showLauncher)]
+      const viewBoard = button("View board", false, () => {
+        hideOverlay()
+        pause.textContent = "Results"
+        pause.disabled = false
+      })
+      const actions = [again, viewBoard, button("Lobby", false, showLauncher)]
       if (allowReplayDownload) {
         actions.push(
           button("Download replay", false, () => {
@@ -1087,14 +1128,14 @@ export function createArcade(options: ArcadeOptions): Arcade {
           }),
         )
       }
-      if (practice) {
+      if (practice && host.board) {
         actions.push(
           button("Leaderboard", false, () => {
             void showBoards(entry.meta.id, mode.id)
           }),
         )
       }
-      if (daily) {
+      if (daily && host.board) {
         actions.push(
           button("Daily board", false, () => {
             void showBoards(entry.meta.id, mode.id, daily)
@@ -1102,15 +1143,24 @@ export function createArcade(options: ArcadeOptions): Arcade {
         )
       }
 
-      showOverlay(() =>
-        overlayCard(
-          kicker,
-          title,
-          formatScore(result.score, entry.meta),
-          detailParts.join(" "),
-          actions,
-        ),
-      )
+      const displayScore = !practice && submit.ok && submit.score ? submit.score : result.score
+      score.value.textContent = formatScore(displayScore, entry.meta)
+
+      const openGameOver = (): void => {
+        pause.textContent = "View board"
+        pause.disabled = false
+        showOverlay(() =>
+          overlayCard(
+            kicker,
+            title,
+            formatScore(displayScore, entry.meta),
+            detailParts.join(" "),
+            actions,
+          ),
+        )
+      }
+      reopenGameOver = openGameOver
+      openGameOver()
     }
 
     const viewHost: GameHost = {
@@ -1139,19 +1189,21 @@ export function createArcade(options: ArcadeOptions): Arcade {
         lastTicks = ticks
         const preview = entry.core.score(state, { elapsedMs, ticks })
         score.value.textContent = formatScore(preview, entry.meta)
-        if (entry.meta.kind === "realtime" || entry.meta.id === "mineflag") {
+        if (showsElapsedTimer(entry.meta)) {
           time.value.textContent = formatDuration(elapsedMs)
         } else {
           time.value.textContent = entry.core.phase(state) === "playing" ? "Playing" : "Finished"
         }
       },
       onEnd(result) {
+        finished = true
         runInProgress = false
+        pause.disabled = true
         if (elapsedTimer) {
           clearInterval(elapsedTimer)
           elapsedTimer = undefined
         }
-        if (entry.meta.id === "mineflag") {
+        if (isTimedTurn(entry.meta)) {
           time.value.textContent = formatDuration(result.replay.durationMs)
         } else if (entry.meta.kind === "turn") {
           time.value.textContent = result.score.won ? "Won" : "Lost"
@@ -1183,7 +1235,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     })
 
     const showBoard = async (): Promise<void> => {
-      if (pause.disabled || boardPending) return
+      if (finished || pause.disabled || boardPending) return
       const activeDaily = daily
       const fetchBoard = activeDaily && host.dailyBoard
         ? () => host.dailyBoard!(activeDaily.challengeId)
@@ -1300,9 +1352,9 @@ export function createArcade(options: ArcadeOptions): Arcade {
       }
     }
 
-    if (entry.meta.id === "mineflag") {
+    if (isTimedTurn(entry.meta)) {
       elapsedTimer = setInterval(() => {
-        if (runner && entry.core.phase(runner.state()) === "playing") {
+        if (runner && !runner.paused() && entry.core.phase(runner.state()) === "playing") {
           time.value.textContent = formatDuration(runner.elapsedMs())
         }
       }, 1000)

@@ -88,7 +88,11 @@ export async function renderBoardsView(options: ShowBoardsOptions): Promise<void
     el(
       "div",
       "arcade-kicker",
-      daily ? `DAILY · ${daily.date}` : "ALL TIME · TOP 50",
+      daily
+        ? `DAILY · ${daily.date}`
+        : host.name === "local"
+          ? "LOCAL · THIS MACHINE"
+          : "ALL TIME · TOP 50",
     ),
     el("h1", "arcade-hero-title", daily ? "Daily leaderboard" : "Leaderboards"),
     el(
@@ -96,7 +100,9 @@ export async function renderBoardsView(options: ShowBoardsOptions): Promise<void
       "arcade-hero-sub",
       daily
         ? "One fixed seed, three attempts, best of three. Everyone plays the same board."
-        : "Verified runs from every player. Pick a cartridge and mode.",
+        : host.name === "local"
+          ? "Your local scores on this machine. Ranked boards need a signed-in host app."
+          : "Verified runs from every player. Pick a cartridge and mode.",
     ),
   )
   const head = el("header", "arcade-boards-head")
@@ -246,16 +252,21 @@ export async function renderBoardsView(options: ShowBoardsOptions): Promise<void
 
   controls.append(play, refresh)
 
-  const scoringHint =
+  const scoringHintText =
     daily && entry.meta.id === "mineflag"
-      ? el(
-          "div",
-          "arcade-mode-hint",
-          "Daily rank: moves, then server time. Attempts are shown only.",
-        )
-      : undefined
+      ? "Daily rank: moves, then server time. Attempts are shown only."
+      : entry.meta.id === "nonogram"
+        ? daily
+          ? "Daily rank: score, then server time. Attempts are shown only."
+          : "Rank: score, then server time."
+        : undefined
+  const scoringHint = scoringHintText
+    ? el("div", "arcade-mode-hint", scoringHintText)
+    : undefined
 
   const you = el("div", "arcade-boards-you")
+  // Local hosts report no rank, so the "your rank" card would only ever say "—".
+  you.hidden = host.playerBest === undefined
   const youLabel = el("div", "arcade-boards-you-label", "YOUR RANK")
   const youRank = el("div", "arcade-boards-you-rank", "—")
   const youScore = el("div", "arcade-boards-you-score", "")
@@ -350,7 +361,11 @@ export async function renderBoardsView(options: ShowBoardsOptions): Promise<void
       const empty = el(
         "div",
         "arcade-empty",
-        daily ? "No daily runs yet. Be the first." : "No ranked runs yet. Be the first.",
+        daily
+          ? "No daily runs yet. Be the first."
+          : host.name === "local"
+            ? "No local score yet for this cartridge. Play a run and it lands here."
+            : "No ranked runs yet. Be the first.",
       )
       const first = el("button", "arcade-btn arcade-btn-primary", "Play now")
       first.type = "button"

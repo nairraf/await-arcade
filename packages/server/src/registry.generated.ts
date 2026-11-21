@@ -13,6 +13,8 @@ import { core as core4 } from "../../../games/mergegrid/src/core"
 import { meta as meta4 } from "../../../games/mergegrid/src/meta"
 import { core as core5 } from "../../../games/mineflag/src/core"
 import { meta as meta5 } from "../../../games/mineflag/src/meta"
+import { core as core6 } from "../../../games/nonogram/src/core"
+import { meta as meta6 } from "../../../games/nonogram/src/meta"
 
 export const verifiers: Record<string, VerifierEntry> = {
   [meta0.id]: { meta: meta0, core: core0 },
@@ -21,4 +23,5 @@ export const verifiers: Record<string, VerifierEntry> = {
   [meta3.id]: { meta: meta3, core: core3 },
   [meta4.id]: { meta: meta4, core: core4 },
   [meta5.id]: { meta: meta5, core: core5 },
+  [meta6.id]: { meta: meta6, core: core6 },
 }

@@ -223,6 +223,22 @@ describe("shell format and board normalisation helpers", () => {
     // A malformed detail payload from the wire must not leak into the row.
     const junk = { value: 900, type: "higher", won: true, ranked: true, detail: { sector: "9" } } as Score
     expect(formatBoardScore(junk, pointsMeta)).toBe(formatScore(junk, pointsMeta))
+
+    const nonogramMeta: GameMeta = {
+      ...makeMeta({
+        score: { type: "higher", min: 0, max: 1000, unit: "points" },
+      }),
+      id: "nonogram",
+    }
+    const nonogramScore: Score = {
+      value: 1000,
+      type: "higher",
+      won: true,
+      ranked: true,
+      detail: { elapsedMs: 42_300, attempt: 2, rankKey: "000000|0000042300" },
+    }
+    expect(formatBoardScore(nonogramScore, nonogramMeta)).toBe("1,000 · 42.3s")
+    expect(formatDailyScore(nonogramScore, nonogramMeta)).toBe("1,000 · 42.3s · try 2")
   })
 
   it("compares lower-is-better and higher-is-better scores accurately", () => {
@@ -238,6 +254,25 @@ describe("shell format and board normalisation helpers", () => {
     expect(compareScores(high, low)).toBe(200)
     expect(isBetter(high, low)).toBe(true)
     expect(isBetter(low, high)).toBe(false)
+
+    const tiedFast: Score = {
+      value: 1000,
+      type: "higher",
+      won: true,
+      ranked: true,
+      detail: { rankKey: "000000|0000010000" },
+    }
+    const tiedSlow: Score = {
+      value: 1000,
+      type: "higher",
+      won: true,
+      ranked: true,
+      detail: { rankKey: "000000|0000030000" },
+    }
+    expect(compareScores(tiedFast, tiedSlow)).toBeGreaterThan(0)
+    expect(isBetter(tiedFast, tiedSlow)).toBe(true)
+    expect(isBetter(tiedSlow, tiedFast)).toBe(false)
+    expect(compareScores(tiedFast, tiedFast)).toBe(0)
   })
 
   it("filters malformed entries and sanitizes fields in normaliseBoard", () => {
