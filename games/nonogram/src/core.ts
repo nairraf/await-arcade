@@ -1,4 +1,4 @@
-import type { GameCore, Mode, Phase, Score, ScoreContext } from "@await-arcade/contract"
+import type { GameCore, Mode, Phase, Score } from "@await-arcade/contract"
 import { generate } from "./generate"
 
 /** The player's mark on a cell. */
@@ -69,17 +69,6 @@ export function complexityFor(
   for (const clue of colClues) totalRuns += clue.length
   const iterWeight = cells >= 100 ? 160 : 120
   return cells * 15 + Math.max(1, iterations) * iterWeight + totalRuns * 25
-}
-
-export function parDurationMs(modeId: string): number {
-  return modeId === "hard" ? 900_000 : 180_000
-}
-
-export function timeBonusFor(baseScore: number, modeId: string, elapsedMs: number): number {
-  if (baseScore <= 0) return 0
-  const safeElapsed = Number.isFinite(elapsedMs) && elapsedMs > 0 ? elapsedMs : 0
-  const parMs = parDurationMs(modeId)
-  return Math.round(baseScore * 0.25 * (parMs / (parMs + safeElapsed)))
 }
 
 function isMark(value: unknown): value is NonogramMark {
@@ -215,7 +204,14 @@ export const core: GameCore<NonogramState, NonogramInput> = {
     return state.phase
   },
 
-  score(state, context: ScoreContext): Score {
+  /**
+   * The ranked value is a pure function of the run state: complexity minus
+   * failed checks, undone fills and board clears. Wall-clock time never enters
+   * it — the same replay must verify to the same number whenever it is checked,
+   * and an agent interruption must not cost points. Speed lives in the board's
+   * rankKey as a tiebreak only, the way mineflag's daily does it.
+   */
+  score(state: NonogramState): Score {
     const solved = state.phase === "won"
     const failedChecks = solved ? Math.max(0, state.checksUsed - 1) : state.checksUsed
     const rawBase =
@@ -223,9 +219,8 @@ export const core: GameCore<NonogramState, NonogramInput> = {
       failedChecks * FAILED_CHECK_PENALTY -
       state.undoneFills * UNDONE_FILL_PENALTY -
       state.clearsUsed * CLEAR_BOARD_PENALTY
-    const baseScore = solved ? Math.min(MAX_SCORE, Math.max(WIN_FLOOR, rawBase)) : 0
-    const timeBonus = solved ? timeBonusFor(baseScore, state.modeId, context.elapsedMs) : 0
-    const value = solved ? Math.min(MAX_SCORE, baseScore + timeBonus) : 0
+    const baseScore = solved ? rawBase : 0
+    const value = solved ? Math.min(MAX_SCORE, Math.max(WIN_FLOOR, rawBase)) : 0
 
     let filled = 0
     for (const mark of state.draft) {
@@ -242,8 +237,9 @@ export const core: GameCore<NonogramState, NonogramInput> = {
         width: state.width,
         height: state.height,
         complexity: state.complexity,
+        // Pre-clamp base: lets an auditor tell "scored exactly the floor" from
+        // "clamped up from a deep deficit". `value` is the ranked number.
         baseScore,
-        timeBonus,
         checksUsed: state.checksUsed,
         undoneFills: state.undoneFills,
         clearsUsed: state.clearsUsed,

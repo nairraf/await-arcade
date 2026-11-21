@@ -805,11 +805,11 @@ describe("daily challenge", () => {
     const expectedFor = (seed: number, failFirstCheck: boolean, elapsedMs: number) => {
       const state = entry.core.create(seed, easyMode) as { complexity: number }
       const baseScore = state.complexity - (failFirstCheck ? 250 : 0)
-      const timeBonus = Math.round(baseScore * 0.25 * (180_000 / (180_000 + elapsedMs)))
-      const value = Math.min(entry.meta.score.max, baseScore + timeBonus)
+      // The value is replay-derived only; elapsed time is a rank-key tiebreak.
+      const value = Math.min(entry.meta.score.max, baseScore)
       const penalty = Math.max(0, entry.meta.score.max - value)
       const rankKey = `${String(penalty).padStart(6, "0")}|${String(elapsedMs).padStart(10, "0")}`
-      return { baseScore, timeBonus, value, rankKey }
+      return { baseScore, value, rankKey }
     }
 
     try {
@@ -834,7 +834,6 @@ describe("daily challenge", () => {
       const exp1 = expectedFor(r1.seed, false, 15_000)
       expect(b1.score.value).toBe(exp1.value)
       expect(b1.score.detail?.baseScore).toBe(exp1.baseScore)
-      expect(b1.score.detail?.timeBonus).toBe(exp1.timeBonus)
       expect(b1.score.detail?.elapsedMs).toBe(15_000)
       expect(b1.score.detail?.rankKey).toBe(exp1.rankKey)
 

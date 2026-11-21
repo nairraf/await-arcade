@@ -765,30 +765,27 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
             },
           }
         } else if (run.gameId === "nonogram") {
+          // The ranked value is the verifier's own: pure, replay-derived, and
+          // identical whenever the same replay is checked. Elapsed time is a
+          // tiebreak in the rank key only, mirroring mineflag's daily board, so
+          // an interrupted or paused run keeps its score.
           const elapsedMs = Math.min(9_999_999_999, Math.max(0, Date.now() - run.createdAt))
-          const baseScore =
-            typeof score.detail?.baseScore === "number" && Number.isFinite(score.detail.baseScore)
-              ? Math.max(0, Math.round(score.detail.baseScore))
-              : Math.round(score.value)
-          const parMs = run.modeId === "hard" ? 900_000 : 180_000
-          const timeBonus = score.won
-            ? Math.round(baseScore * 0.25 * (parMs / (parMs + elapsedMs)))
-            : 0
-          const serverValue = score.won
-            ? Math.min(entry.meta.score.max, baseScore + timeBonus)
-            : 0
-          const penalty = Math.max(0, entry.meta.score.max - serverValue)
+          const value = Math.max(0, Math.min(entry.meta.score.max, Math.round(score.value)))
+          const penalty = Math.max(0, entry.meta.score.max - value)
           boardRankKey = [
             String(penalty).padStart(6, "0"),
             String(elapsedMs).padStart(10, "0"),
           ].join("|")
           boardScore = {
             ...score,
-            value: serverValue,
+            value,
             detail: {
               ...(score.detail ?? {}),
-              timeBonus,
               elapsedMs,
+              // Rules version the value was produced under. A board row whose
+              // gameVersion the shipped verifier no longer accepts is stale and
+              // must be purged rather than ranked.
+              gameVersion: entry.meta.version,
               ...(run.challengeId ? { attempt: run.attempt ?? 1 } : {}),
               rankKey: boardRankKey,
             },

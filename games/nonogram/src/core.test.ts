@@ -12,7 +12,6 @@ import {
   UNDONE_FILL_PENALTY,
   WIN_FLOOR,
   core,
-  timeBonusFor,
   type NonogramInput,
   type NonogramState,
 } from "./core"
@@ -228,20 +227,17 @@ describe("nonogram generation", () => {
 })
 
 describe("nonogram rules and scoring", () => {
-  it("wins on the first check with full complexity base plus time bonus", () => {
+  it("wins on the first check at the full complexity base, with no time term", () => {
     const fresh = core.create(42, easy)
     const durationMs = 30_000
-    const expectedBonus = timeBonusFor(fresh.complexity, easy.id, durationMs)
-    const expectedTotal = fresh.complexity + expectedBonus
     const inputs = [...solutionInputs(fresh), { type: "check" } satisfies NonogramInput]
     const result = playTurn(core, meta, { seed: 42, mode: easy, inputs, durationMs })
 
     expect(result.state.phase).toBe("won")
     expect(result.state.checksUsed).toBe(1)
     expect(fresh.complexity).toBeGreaterThanOrEqual(1000)
-    expect(expectedBonus).toBeGreaterThan(0)
     expect(result.score).toMatchObject({
-      value: expectedTotal,
+      value: fresh.complexity,
       type: "higher",
       won: true,
       ranked: true,
@@ -252,7 +248,6 @@ describe("nonogram rules and scoring", () => {
       height: 6,
       complexity: fresh.complexity,
       baseScore: fresh.complexity,
-      timeBonus: expectedBonus,
       checksUsed: 1,
       undoneFills: 0,
       clearsUsed: 0,
@@ -260,7 +255,7 @@ describe("nonogram rules and scoring", () => {
       filled: fresh.solution.filter((cell) => cell === 1).length,
     })
     expect(result.verified.ok).toBe(true)
-    expect(result.verified.score?.value).toBe(expectedTotal)
+    expect(result.verified.score?.value).toBe(fresh.complexity)
   })
 
   it("deducts per failed check and undone fill while keeping crosses free", () => {
@@ -280,15 +275,13 @@ describe("nonogram rules and scoring", () => {
     const durationMs = 40_000
     const result = playTurn(core, meta, { seed: 50, mode: easy, inputs, durationMs })
     const expectedBase = fresh.complexity - FAILED_CHECK_PENALTY - UNDONE_FILL_PENALTY
-    const expectedBonus = timeBonusFor(expectedBase, easy.id, durationMs)
 
     expect(result.state.phase).toBe("won")
     expect(result.state.checksUsed).toBe(2)
     expect(result.state.undoneFills).toBe(1)
-    expect(result.score.value).toBe(expectedBase + expectedBonus)
+    expect(result.score.value).toBe(expectedBase)
     expect(result.score.detail).toMatchObject({
       baseScore: expectedBase,
-      timeBonus: expectedBonus,
       checksUsed: 2,
       undoneFills: 1,
       clearsUsed: 0,
@@ -297,24 +290,19 @@ describe("nonogram rules and scoring", () => {
     expect(result.verified.ok).toBe(true)
   })
 
-  it("decays time bonus gently with elapsed time and enforces the win floor", () => {
+  it("scores a replay identically no matter when it is checked, and enforces the floor", () => {
     const fresh = core.create(51, hard)
-    const fast = playTurn(core, meta, {
-      seed: 51,
-      mode: hard,
-      inputs: [...solutionInputs(fresh), { type: "check" }],
-      durationMs: 60_000,
-    })
-    const slow = playTurn(core, meta, {
-      seed: 51,
-      mode: hard,
-      inputs: [...solutionInputs(fresh), { type: "check" }],
-      durationMs: 1_200_000,
-    })
-    expect(fast.score.value).toBeGreaterThan(slow.score.value)
-    expect(slow.score.value).toBeGreaterThanOrEqual(fresh.complexity)
+    const inputs = [...solutionInputs(fresh), { type: "check" }]
+    const fast = playTurn(core, meta, { seed: 51, mode: hard, inputs, durationMs: 60_000 })
+    const slow = playTurn(core, meta, { seed: 51, mode: hard, inputs, durationMs: 1_200_000 })
 
-    // Extreme precision penalties clamp at WIN_FLOOR before adding time bonus.
+    // A pause, an agent turn, or a re-verification hours later must not move the value.
+    expect(slow.score.value).toBe(fast.score.value)
+    expect(fast.score.value).toBe(fresh.complexity)
+    expect(fast.verified.score?.value).toBe(slow.verified.score?.value ?? -1)
+    expect(fast.score.detail?.baseScore).toBe(fresh.complexity)
+
+    // Extreme precision penalties clamp at WIN_FLOOR; baseScore keeps the raw deficit.
     const floorState: NonogramState = {
       ...fresh,
       draft: fresh.solution.map((cell) => (cell === 1 ? MARK_FILLED : MARK_EMPTY)),
@@ -325,7 +313,8 @@ describe("nonogram rules and scoring", () => {
     }
     const floorScore = core.score(floorState, { elapsedMs: 1_000_000_000, ticks: 0 })
     expect(floorScore.value).toBe(WIN_FLOOR)
-    expect(floorScore.detail?.baseScore).toBe(WIN_FLOOR)
+    // The detail keeps the pre-clamp deficit so a floored score is auditable.
+    expect(floorScore.detail?.baseScore).toBeLessThan(WIN_FLOOR)
     expect(floorScore.ranked).toBe(true)
   })
 
@@ -347,7 +336,6 @@ describe("nonogram rules and scoring", () => {
       height: 10,
       complexity: fresh.complexity,
       baseScore: 0,
-      timeBonus: 0,
       checksUsed: 1,
       undoneFills: 0,
       clearsUsed: 0,
@@ -423,9 +411,7 @@ describe("nonogram rules and scoring", () => {
     expect(state.phase).toBe("won")
     expect(state.checksUsed).toBe(1)
     expect(state.undoneFills).toBe(0)
-    expect(core.score(state, { elapsedMs: 0, ticks: 0 }).value).toBe(
-      fresh.complexity + timeBonusFor(fresh.complexity, easy.id, 0),
-    )
+    expect(core.score(state, { elapsedMs: 0, ticks: 0 }).value).toBe(fresh.complexity)
   })
 
   it("fails when a required solution cell is crossed", () => {
@@ -529,7 +515,7 @@ describe("nonogram rules and scoring", () => {
     const durationMs = 25_000
     const result = playTurn(core, meta, { seed: 55, mode: easy, inputs: replayInputs, durationMs })
     const expectedBase = state.complexity - UNDONE_FILL_PENALTY - CLEAR_BOARD_PENALTY
-    const expectedTotal = expectedBase + timeBonusFor(expectedBase, easy.id, durationMs)
+    const expectedTotal = expectedBase
     expect(result.state.phase).toBe("won")
     expect(result.state.clearsUsed).toBe(1)
     expect(result.state.undoneFills).toBe(1)
@@ -657,7 +643,7 @@ describe("nonogram rules and scoring", () => {
     expect(meta.score).toEqual({ type: "higher", min: 0, max: MAX_SCORE, unit: "points" })
     expect(meta.leaderboard).toBe("replay")
     expect(meta.kind).toBe("turn")
-    expect(meta.version).toBe("1.1.0")
+    expect(meta.version).toBe("1.2.0")
     expect(meta.modes.map((mode) => mode.id)).toEqual(["easy", "hard"])
     expect(meta.modes.every((mode) => mode.ranked !== false)).toBe(true)
     expect(meta.controls.map((control) => control.keys)).toContain("Click / Drag")
@@ -667,19 +653,18 @@ describe("nonogram rules and scoring", () => {
 })
 
 describe("nonogram replay fixture", () => {
-  it("verifies the committed 4197-point two-check hard win", () => {
+  it("verifies the committed 3400-point two-check hard win", () => {
     const replay = fixture as unknown as Replay<NonogramInput>
     const result = verifyReplay(core, meta, replay)
 
     expect(result.ok).toBe(true)
-    expect(result.score).toMatchObject({ value: 4197, won: true, ranked: true })
+    expect(result.score).toMatchObject({ value: 3400, won: true, ranked: true })
     expect(result.score?.detail).toMatchObject({
       mode: "hard",
       width: 10,
       height: 10,
       complexity: 3650,
       baseScore: 3400,
-      timeBonus: 797,
       checksUsed: 2,
       solved: true,
     })

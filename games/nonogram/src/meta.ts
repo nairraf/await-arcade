@@ -6,7 +6,7 @@ export const meta: GameMeta = {
   description:
     "Read the row and column clues, fill the right cells, and reveal the hidden pattern using pure logic — never a guess.",
   author: "Await Arcade",
-  version: "1.1.0",
+  version: "1.2.0",
   engines: { arcade: "^0.1.0" },
   kind: "turn",
   modes: [

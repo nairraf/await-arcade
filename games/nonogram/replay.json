@@ -1,7 +1,7 @@
 {
   "version": 1,
   "gameId": "nonogram",
-  "gameVersion": "1.1.0",
+  "gameVersion": "1.2.0",
   "frameworkVersion": "0.1.0",
   "modeId": "hard",
   "seed": 20260419,
