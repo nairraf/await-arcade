@@ -175,7 +175,7 @@ if (code.state.attemptsUsed !== 2 || code.score.value !== 900) {
   )
 }
 const nonogramChecks = nonogramScript.filter((input) => input.type === "check").length
-if (nonogramChecks !== 2 || nonogram.state.checksUsed !== 2 || nonogram.score.value !== 4197) {
+if (nonogramChecks !== 2 || nonogram.state.checksUsed !== 2 || nonogram.score.value !== 3400) {
   throw new Error(
     `nonogram fixture shape drifted: attempts=${nonogramChecks} checksUsed=${nonogram.state.checksUsed} score=${nonogram.score.value}`,
   )

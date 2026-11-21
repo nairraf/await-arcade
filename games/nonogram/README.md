@@ -23,7 +23,7 @@ pre-verified puzzle for the mode, so `create()` always returns a playable board.
 - `src/core.test.ts` — solver unit cases, generator quality over 40 seeds per
   mode, win/fail/loss paths, input hardening, serialization, and the replay
   fixture.
-- `replay.json` — a verified 900-point hard win that fails one check before
+- `replay.json` — a verified 3,400-point hard win that fails one check before
   solving.
 - `arcade.config.ts` — tells `aa sync` where the three parts live.
 
@@ -67,11 +67,14 @@ A win is the only ranked result:
   `-25` per undone or overwritten filled cell, and `-100` per **Clear board**
   reset (plus any filled cells wiped), clamped at a 100-point floor. Toggling
   `Cross ×`, `Note 1`, and `Note 2` is free.
-- **Gentle time bonus**: up to `+25%` of the post-penalty base score, decaying
-  smoothly with `par / (par + elapsed)` (`par` = 3 min on Easy, 15 min on Hard).
-  Hosted runs compute this bonus from server-measured elapsed time (`rankKey`
-  orders highest score first, then fastest elapsed time). Ten failed checks lose
-  the run and score `0`, unranked. Failed checks only report “not solved yet”;
+- **No time in the score.** The ranked value is the base minus deductions, so
+  the same replay always verifies to the same number and a pause — an agent
+  answering a turn, or you walking away — costs nothing. Elapsed time appears
+  only at the end of the board `rankKey` as a tiebreak between identical scores,
+  the way Mineflag's daily board orders moves then server time. A run longer than
+  `meta.maxDurationMs` (one hour) is still rejected outright at submit — the cap
+  guards replay size, not speed — so finish or restart within the hour. Ten
+  failed checks lose the run and score `0`, unranked. Failed checks only report “not solved yet”;
   on a loss after 10 checks, wrongly filled (`✕`) and missed (`□`) cells are
   revealed.
 
