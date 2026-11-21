@@ -214,7 +214,8 @@ export function createArcade(options: ArcadeOptions): Arcade {
   top.append(brand, topMeta)
 
   const main = el("main", "arcade-main")
-  const online = host.board !== undefined
+  const localOnly = host.name === "local"
+  const online = host.board !== undefined && !localOnly
   const hostLabel =
     host.name === "local"
       ? "Local"
@@ -1127,14 +1128,14 @@ export function createArcade(options: ArcadeOptions): Arcade {
           }),
         )
       }
-      if (practice) {
+      if (practice && host.board) {
         actions.push(
           button("Leaderboard", false, () => {
             void showBoards(entry.meta.id, mode.id)
           }),
         )
       }
-      if (daily) {
+      if (daily && host.board) {
         actions.push(
           button("Daily board", false, () => {
             void showBoards(entry.meta.id, mode.id, daily)

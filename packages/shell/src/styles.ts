@@ -1,4 +1,10 @@
 export const styles = `
+/* A class that sets display beats the UA [hidden] rule, so any hidden button
+   still painted. Buttons are hidden/shown by state all over the shell. */
+[hidden] {
+  display: none !important;
+}
+
 .arcade {
   color-scheme: dark;
   --arcade-bg: #06090d;

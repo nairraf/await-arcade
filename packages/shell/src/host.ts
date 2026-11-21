@@ -191,6 +191,24 @@ export class LocalHost implements GameHost {
     return value
   }
 
+  /**
+   * Local scores, in board shape. The browser demo and a signed-out host still
+   * get a working Boards view: one row, your own best, no ranks to compete over.
+   */
+  async board(gameId: string, modeId: string): Promise<readonly BoardEntry[]> {
+    const score = this.best(gameId, modeId)
+    if (!score) return []
+    const achievedAt = this.storage.get<number>(`bestAt.${gameId}.${modeId}`)
+    return [
+      {
+        playerId: "local",
+        displayName: "You · local",
+        score,
+        achievedAt: typeof achievedAt === "number" ? achievedAt : 0,
+      },
+    ]
+  }
+
   /** Merge a remote best into the local cache; the better score wins. */
   protected mergeBest(gameId: string, modeId: string, remote: Score | undefined): Score | undefined {
     const local = this.best(gameId, modeId)
@@ -210,6 +228,7 @@ export class LocalHost implements GameHost {
 
     if (isBetter(run.score, previous)) {
       this.storage.set(key, run.score)
+      this.storage.set(`bestAt.${run.gameId}.${run.modeId}`, Date.now())
       this.toast("New personal best")
       return { ok: true, best: run.score }
     }
