@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { playRealtime, playTurn } from "@await-arcade/framework"
+import { greedySolve } from "../../../games/lockstep/solver"
 import { createArcadeServer, type ArcadeServer } from "./index"
 import { MemoryStore } from "./store"
 import { verifiers } from "./registry.generated"
@@ -974,6 +975,69 @@ describe("daily challenge", () => {
       expect(slowerBody.best?.detail?.elapsedMs).toBe(4_000)
     } finally {
       nowSpy.mockRestore()
+      await local.close()
+    }
+  })
+
+  it("ranks lockstep daily boards by score instead of rankKey", async () => {
+    const store = new MemoryStore()
+    const topSpy = vi.spyOn(store, "top")
+    const rankSpy = vi.spyOn(store, "rank")
+    const local = createArcadeServer({
+      store,
+      daily: { secret: "test-secret", featured: "lockstep:skirmish", now: () => FIXED_NOW },
+    })
+    const port = await local.listen(0)
+    const root = `http://127.0.0.1:${port}`
+
+    try {
+      const info = await dailyInfo(root)
+      expect(info.gameId).toBe("lockstep")
+      const entry = verifiers["lockstep"]!
+      const mode = entry.meta.modes.find((candidate) => candidate.id === "skirmish")!
+
+      const started = (await dailyStart(root, info.challengeId, "lockstep-daily").then((r) =>
+        r.json(),
+      )) as { runId: string; seed: number }
+      const inputs = [
+        ...greedySolve(started.seed, mode, 120),
+        ...Array.from({ length: 60 }, () => ({ action: "wait" as const })),
+      ]
+      const result = playTurn(entry.core, entry.meta, {
+        seed: started.seed,
+        mode,
+        inputs,
+        durationMs: 20_000,
+      })
+      expect(result.score.ranked).toBe(true)
+
+      const submitRes = await submitReplay(root, started.runId, result.replay)
+      expect(submitRes.status).toBe(200)
+      const submitBody = (await submitRes.json()) as { ok: boolean; rank?: number }
+      expect(submitBody.ok).toBe(true)
+      expect(submitBody.rank).toBe(1)
+
+      const boardRes = await fetch(
+        `${root}/v1/challenges/${encodeURIComponent(info.challengeId)}/board`,
+      )
+      expect(boardRes.status).toBe(200)
+      const board = (await boardRes.json()) as {
+        entries: Array<{ playerId: string; score: { value: number }; rankKey?: string }>
+      }
+      expect(board.entries).toHaveLength(1)
+      expect(board.entries[0]?.playerId).toBe("lockstep-daily")
+      expect(board.entries[0]?.score.value).toBe(result.score.value)
+      expect(board.entries[0]?.rankKey).toBeUndefined()
+
+      expect(rankSpy).toHaveBeenLastCalledWith(
+        info.challengeId,
+        "lockstep-daily",
+        "higher",
+        undefined,
+        "score",
+      )
+      expect(topSpy).toHaveBeenLastCalledWith(info.challengeId, 50, "higher", "score")
+    } finally {
       await local.close()
     }
   })

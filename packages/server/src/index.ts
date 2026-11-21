@@ -67,7 +67,7 @@ function boardKey(gameId: string, modeId: string): string {
 }
 
 function usesRankKey(gameId: string, challengeId?: string): boolean {
-  return Boolean(challengeId) || gameId === "nonogram"
+  return gameId === "nonogram" || (gameId === "mineflag" && Boolean(challengeId))
 }
 
 function json(
@@ -937,7 +937,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           challenge.challengeId,
           50,
           entry.meta.score.type,
-          "rankKey",
+          usesRankKey(challenge.gameId, challenge.challengeId) ? "rankKey" : "score",
         ))
         json(res, 200, { ...challenge, period: "daily", entries }, true, BOARD_CACHE_CONTROL)
         return
