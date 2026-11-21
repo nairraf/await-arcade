@@ -128,6 +128,7 @@ const css = `
 
 .ng-corner {
   grid-area: 1 / 1;
+  border-bottom: 1px solid var(--ng-line-strong);
 }
 
 .ng-col-clues {
@@ -135,6 +136,9 @@ const css = `
   display: flex;
   align-items: flex-end;
   min-width: 0;
+  /* Baseline: the clue stacks grow upward from this line, so a 4-digit column
+     cannot be mistaken for a 3-digit one by scanning the ragged top edge. */
+  border-bottom: 1px solid var(--ng-line-strong);
 }
 
 .ng-col-clue {
@@ -179,10 +183,17 @@ const css = `
   transition: color 90ms ease, opacity 90ms ease, background 90ms ease;
 }
 
+/* A hairline per column: without it a taller stack blends into its neighbour's
+   row of digits, which is how a lone top digit reads as a stray glyph. */
+.ng-col-clue + .ng-col-clue {
+  box-shadow: inset 1px 0 0 var(--ng-line);
+}
+
 .ng-col-clue.is-active-line,
 .ng-row-clue.is-active-line {
   color: var(--arcade-fg, #e8eef5);
-  background: color-mix(in srgb, var(--game-accent, #f472b6) 11%, transparent);
+  background: color-mix(in srgb, var(--game-accent, #f472b6) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--game-accent, #f472b6) 42%, transparent);
 }
 
 .ng-col-clue.is-satisfied,
@@ -195,7 +206,6 @@ const css = `
   display: grid;
   grid-template-columns: repeat(var(--ng-w, 6), var(--ng-cell));
   grid-template-rows: repeat(var(--ng-h, 6), var(--ng-cell));
-  border-top: 1px solid var(--ng-line-strong);
   border-left: 1px solid var(--ng-line-strong);
   touch-action: none;
 }
@@ -772,6 +782,7 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
       const row = el("div", "ng-row-clue")
       row.setAttribute("role", "listitem")
       row.setAttribute("aria-label", clueLabel("Row", y + 1, clue))
+      row.title = clueLabel("Row", y + 1, clue)
       for (const run of clue.length === 0 ? [0] : clue) {
         const runText = el("span", undefined, String(run))
         runText.setAttribute("aria-hidden", "true")
@@ -786,6 +797,8 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
       const column = el("div", "ng-col-clue")
       column.setAttribute("role", "listitem")
       column.setAttribute("aria-label", clueLabel("Column", x + 1, clue))
+      // Hovering a stack answers "how many digits does this column have?".
+      column.title = clueLabel("Column", x + 1, clue)
       for (const run of clue.length === 0 ? [0] : clue) {
         const runText = el("span", undefined, String(run))
         runText.setAttribute("aria-hidden", "true")
