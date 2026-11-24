@@ -248,9 +248,12 @@ function applyDrop(state: TilechainState, col: number): TilechainState {
         nextBoard = pushUp(nextBoard)
         depth += 1
       }
-    } else if (topRowFull(nextBoard)) {
-      phase = "lost"
     }
+
+    // A successful push can itself fill the new top row when every column was
+    // already at height six. That board has no legal drop left, so the run is
+    // over rather than soft-locked in "playing".
+    if (phase === "playing" && topRowFull(nextBoard)) phase = "lost"
   } else if (clearedTiles >= SKIRMISH_TARGET_CLEARS) {
     // The clear objective wins even if the same drop also filled the top row.
     phase = "won"

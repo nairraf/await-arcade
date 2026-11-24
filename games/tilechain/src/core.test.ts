@@ -6,6 +6,7 @@ import {
   ENDLESS_BAG,
   ROWS,
   SKIRMISH_BAG,
+  SKIRMISH_TARGET_CLEARS,
   bagAt,
   core,
   type Cell,
@@ -271,6 +272,97 @@ describe("tilechain game over", () => {
     expect(state.board[6]).toEqual(Array.from({ length: COLS }, () => "cracked"))
     expect(state.board[5]![0]).toBe(4)
     expect(state.clearedTiles).toBe(0)
+  })
+
+  it("loses endless when a depth push fills the new top row", () => {
+    // Columns 0..5 are at height 6 and column 6 is at height 5, so the tenth
+    // drop lands in row 1 without touching row 0. Nothing clears, so the push
+    // then copies the old full row 1 into row 0. That is a game-over board, not
+    // a playable one: every column is full and no future drop can land.
+    const cells: Array<readonly [number, number, Cell]> = []
+    for (let x = 0; x < COLS; x += 1) {
+      const start = x === 6 ? 2 : 1
+      for (let y = start; y < ROWS; y += 1) cells.push([x, y, 4])
+    }
+    const base = withBoard(core.create(11, endless), cells, {
+      currentTile: 4,
+      nextTile: 4,
+      dropsUsed: 9,
+      depth: 1,
+    })
+
+    const state = drop(base, 6)
+    expect(state.depth).toBe(2)
+    expect(state.phase).toBe("lost")
+    expect(state.board[0]!.every((cell) => cell !== null)).toBe(true)
+    expect(state.board[6]).toEqual(Array.from({ length: COLS }, () => "cracked"))
+
+    // The board is full, so every further drop is a no-op as well.
+    const frozen = core.serialize(state)
+    expect(core.serialize(drop(state, 0))).toEqual(frozen)
+  })
+
+  it("loses endless when the top row fills on a non-push turn", () => {
+    const cells: Array<readonly [number, number, Cell]> = []
+    for (let x = 0; x < COLS; x += 1) {
+      const start = x === 0 ? 1 : 0
+      for (let y = start; y < ROWS; y += 1) cells.push([x, y, 4])
+    }
+    const base = withBoard(core.create(12, endless), cells, {
+      currentTile: 4,
+      nextTile: 4,
+      dropsUsed: 0,
+    })
+
+    const state = drop(base, 0)
+    expect(state.dropsUsed).toBe(1)
+    expect(state.phase).toBe("lost")
+    expect(state.depth).toBe(1)
+    expect(state.board[0]!.every((cell) => cell !== null)).toBe(true)
+  })
+
+  it("wins skirmish on the thirty-fifth drop when the clear objective is met", () => {
+    const base = withBoard(core.create(13, skirmish), [[0, 6, 2]], {
+      currentTile: 2,
+      nextTile: 2,
+      dropsUsed: 34,
+      clearedTiles: 24,
+    })
+
+    // The drop completes a horizontal pair of 2s (two clears, reaching 26),
+    // and this is the 35th drop. The clear objective must win before the drop
+    // cap is allowed to end the run.
+    const state = drop(base, 1)
+    expect(state.dropsUsed).toBe(35)
+    expect(state.clearedTiles).toBe(26)
+    expect(state.phase).toBe("won")
+
+    const score = core.score(state, { elapsedMs: 0, ticks: 35 })
+    expect(score).toMatchObject({ value: 220, won: true, ranked: true })
+  })
+
+  it("keeps a skirmish win even when the winning drop fills the top row", () => {
+    // Cleared-tile precedence guard: the board becomes full on this drop, and
+    // the already-met objective must still resolve as a win, not a loss.
+    const cells: Array<readonly [number, number, Cell]> = []
+    for (let x = 0; x < COLS; x += 1) {
+      const start = x === 0 ? 1 : 0
+      for (let y = start; y < ROWS; y += 1) cells.push([x, y, 4])
+    }
+    const base = withBoard(core.create(14, skirmish), cells, {
+      currentTile: 4,
+      nextTile: 4,
+      dropsUsed: 1,
+      clearedTiles: SKIRMISH_TARGET_CLEARS,
+    })
+
+    const state = drop(base, 0)
+    expect(state.board[0]!.every((cell) => cell !== null)).toBe(true)
+    expect(state.phase).toBe("won")
+    expect(core.score(state, { elapsedMs: 0, ticks: 2 })).toMatchObject({
+      won: true,
+      ranked: true,
+    })
   })
 })
 
