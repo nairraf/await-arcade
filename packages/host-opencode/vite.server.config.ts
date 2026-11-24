@@ -9,6 +9,9 @@ const isDev = process.env.ARCADE_DEV === "1"
 const outDir = isDev ? ".dev" : "dist"
 
 export default defineConfig({
+  define: {
+    __ARCADE_DEV__: JSON.stringify(isDev),
+  },
   plugins: isDev
     ? [
         {
