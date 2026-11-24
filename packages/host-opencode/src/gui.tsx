@@ -11,7 +11,7 @@ import { createEffect, onCleanup, onMount } from "solid-js"
 import { createArcade, styles } from "@await-arcade/shell"
 import { games } from "@await-arcade/shell/registry"
 import { OpenCodeHost } from "./host"
-import { commandId, displayName } from "./profile.js"
+import { commandId, displayName, pluginId } from "./profile.js"
 
 const ID = "main"
 
@@ -129,7 +129,11 @@ export default Plugin.define({
       if (!current()) return undefined
 
       return {
-        id: ID,
+        // Keyed by the plugin identity, not the shared panel id: the host keeps
+        // a pill's element while its id stays, so a release and a dev build
+        // installed side by side would otherwise share one pill and keep the
+        // first label.
+        id: pluginId,
         label: displayName,
         icon: "status",
         pressed: shown(),
