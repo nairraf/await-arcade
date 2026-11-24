@@ -15,6 +15,8 @@ import { core as core5 } from "../../../games/mineflag/src/core"
 import { meta as meta5 } from "../../../games/mineflag/src/meta"
 import { core as core6 } from "../../../games/nonogram/src/core"
 import { meta as meta6 } from "../../../games/nonogram/src/meta"
+import { core as core7 } from "../../../games/tilechain/src/core"
+import { meta as meta7 } from "../../../games/tilechain/src/meta"
 
 export const verifiers: Record<string, VerifierEntry> = {
   [meta0.id]: { meta: meta0, core: core0 },
@@ -24,4 +26,5 @@ export const verifiers: Record<string, VerifierEntry> = {
   [meta4.id]: { meta: meta4, core: core4 },
   [meta5.id]: { meta: meta5, core: core5 },
   [meta6.id]: { meta: meta6, core: core6 },
+  [meta7.id]: { meta: meta7, core: core7 },
 }

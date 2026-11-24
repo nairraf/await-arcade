@@ -21,6 +21,9 @@ import type { CodebreakerInput } from "../games/codebreaker/src/core"
 import { MARK_FILLED, core as nonogramCore } from "../games/nonogram/src/core"
 import { meta as nonogramMeta } from "../games/nonogram/src/meta"
 import type { NonogramInput } from "../games/nonogram/src/core"
+import { core as tileCore } from "../games/tilechain/src/core"
+import { meta as tileMeta } from "../games/tilechain/src/meta"
+import type { TilechainInput } from "../games/tilechain/src/core"
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 
@@ -162,6 +165,28 @@ const nonogram = playTurn(nonogramCore, nonogramMeta, {
   durationMs: 60_000,
 })
 
+/**
+ * Tile Chain Drop fixture: the exact 29-drop skirmish win from the design
+ * brief. Seed 20260420 finishes with 29 clears (including 3 cracked tiles),
+ * a two-wave max chain, and 410 chain points; 6 drops saved add 150 and the
+ * win bonus adds 200 for a verified score of 760.
+ */
+const TILECHAIN_MODE = tileMeta.modes.find((mode) => mode.id === "skirmish")!
+const TILECHAIN_SEED = 20260420
+const TILECHAIN_COLUMNS = [
+  3, 0, 3, 1, 0, 0, 0, 0, 0, 3, 0, 0, 1, 0, 0, 0, 1, 3, 0, 1, 0, 0, 0, 1, 1, 1, 2, 0, 0,
+]
+const tilechainScript: TilechainInput[] = TILECHAIN_COLUMNS.map((col) => ({
+  type: "drop",
+  col,
+}))
+const tilechain = playTurn(tileCore, tileMeta, {
+  seed: TILECHAIN_SEED,
+  mode: TILECHAIN_MODE,
+  inputs: tilechainScript,
+  durationMs: 45_000,
+})
+
 if (!mines.verified.ok) throw new Error(`mineflag fixture failed: ${mines.verified.reason}`)
 if (!cycles.verified.ok) throw new Error(`light-cycles fixture failed: ${cycles.verified.reason}`)
 if (!merge.verified.ok) throw new Error(`mergegrid fixture failed: ${merge.verified.reason}`)
@@ -169,6 +194,7 @@ if (!brickstorm.verified.ok) throw new Error(`brickstorm fixture failed: ${brick
 if (!lock.verified.ok) throw new Error(`lockstep fixture failed: ${lock.verified.reason}`)
 if (!code.verified.ok) throw new Error(`codebreaker fixture failed: ${code.verified.reason}`)
 if (!nonogram.verified.ok) throw new Error(`nonogram fixture failed: ${nonogram.verified.reason}`)
+if (!tilechain.verified.ok) throw new Error(`tilechain fixture failed: ${tilechain.verified.reason}`)
 if (code.state.attemptsUsed !== 2 || code.score.value !== 900) {
   throw new Error(
     `codebreaker fixture shape drifted: attempts=${code.state.attemptsUsed} score=${code.score.value}`,
@@ -180,6 +206,20 @@ if (nonogramChecks !== 2 || nonogram.state.checksUsed !== 2 || nonogram.score.va
     `nonogram fixture shape drifted: attempts=${nonogramChecks} checksUsed=${nonogram.state.checksUsed} score=${nonogram.score.value}`,
   )
 }
+if (
+  tilechainScript.length !== 29 ||
+  tilechain.state.phase !== "won" ||
+  tilechain.state.dropsUsed !== 29 ||
+  tilechain.state.clearedTiles !== 29 ||
+  tilechain.state.crackedCleared !== 3 ||
+  tilechain.state.maxChain !== 2 ||
+  tilechain.state.chainPoints !== 410 ||
+  tilechain.score.value !== 760
+) {
+  throw new Error(
+    `tilechain fixture shape drifted: inputs=${tilechainScript.length} phase=${tilechain.state.phase} drops=${tilechain.state.dropsUsed} cleared=${tilechain.state.clearedTiles} cracked=${tilechain.state.crackedCleared} maxChain=${tilechain.state.maxChain} chainPoints=${tilechain.state.chainPoints} score=${tilechain.score.value}`,
+  )
+}
 
 writeFileSync(path.join(root, "games/mineflag/replay.json"), `${JSON.stringify(mines.replay, null, 2)}\n`)
 writeFileSync(path.join(root, "games/light-cycles/replay.json"), `${JSON.stringify(cycles.replay, null, 2)}\n`)
@@ -188,6 +228,7 @@ writeFileSync(path.join(root, "games/brickstorm/replay.json"), `${JSON.stringify
 writeFileSync(path.join(root, "games/lockstep/replay.json"), `${JSON.stringify(lock.replay, null, 2)}\n`)
 writeFileSync(path.join(root, "games/codebreaker/replay.json"), `${JSON.stringify(code.replay, null, 2)}\n`)
 writeFileSync(path.join(root, "games/nonogram/replay.json"), `${JSON.stringify(nonogram.replay, null, 2)}\n`)
+writeFileSync(path.join(root, "games/tilechain/replay.json"), `${JSON.stringify(tilechain.replay, null, 2)}\n`)
 
 console.log(`mineflag: ${mines.state.phase} score=${mines.score.value} verified=${mines.verified.ok}`)
 console.log(`light-cycles: ${cycles.state.phase} score=${cycles.score.value} verified=${cycles.verified.ok}`)
@@ -196,3 +237,4 @@ console.log(`brickstorm: ${brickstorm.state.phase} score=${brickstorm.score.valu
 console.log(`lockstep: ${lock.state.phase} score=${lock.score.value} verified=${lock.verified.ok}`)
 console.log(`codebreaker: ${code.state.phase} score=${code.score.value} verified=${code.verified.ok}`)
 console.log(`nonogram: ${nonogram.state.phase} score=${nonogram.score.value} verified=${nonogram.verified.ok}`)
+console.log(`tilechain: ${tilechain.state.phase} score=${tilechain.score.value} verified=${tilechain.verified.ok}`)

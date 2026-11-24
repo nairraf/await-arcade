@@ -1,0 +1,216 @@
+{
+  "version": 1,
+  "gameId": "tilechain",
+  "gameVersion": "1.0.0",
+  "frameworkVersion": "0.1.0",
+  "modeId": "skirmish",
+  "seed": 20260420,
+  "kind": "turn",
+  "durationMs": 45000,
+  "inputs": [
+    {
+      "tick": 0,
+      "input": {
+        "type": "drop",
+        "col": 3
+      }
+    },
+    {
+      "tick": 1,
+      "input": {
+        "type": "drop",
+        "col": 0
+      }
+    },
+    {
+      "tick": 2,
+      "input": {
+        "type": "drop",
+        "col": 3
+      }
+    },
+    {
+      "tick": 3,
+      "input": {
+        "type": "drop",
+        "col": 1
+      }
+    },
+    {
+      "tick": 4,
+      "input": {
+        "type": "drop",
+        "col": 0
+      }
+    },
+    {
+      "tick": 5,
+      "input": {
+        "type": "drop",
+        "col": 0
+      }
+    },
+    {
+      "tick": 6,
+      "input": {
+        "type": "drop",
+        "col": 0
+      }
+    },
+    {
+      "tick": 7,
+      "input": {
+        "type": "drop",
+        "col": 0
+      }
+    },
+    {
+      "tick": 8,
+      "input": {
+        "type": "drop",
+        "col": 0
+      }
+    },
+    {
+      "tick": 9,
+      "input": {
+        "type": "drop",
+        "col": 3
+      }
+    },
+    {
+      "tick": 10,
+      "input": {
+        "type": "drop",
+        "col": 0
+      }
+    },
+    {
+      "tick": 11,
+      "input": {
+        "type": "drop",
+        "col": 0
+      }
+    },
+    {
+      "tick": 12,
+      "input": {
+        "type": "drop",
+        "col": 1
+      }
+    },
+    {
+      "tick": 13,
+      "input": {
+        "type": "drop",
+        "col": 0
+      }
+    },
+    {
+      "tick": 14,
+      "input": {
+        "type": "drop",
+        "col": 0
+      }
+    },
+    {
+      "tick": 15,
+      "input": {
+        "type": "drop",
+        "col": 0
+      }
+    },
+    {
+      "tick": 16,
+      "input": {
+        "type": "drop",
+        "col": 1
+      }
+    },
+    {
+      "tick": 17,
+      "input": {
+        "type": "drop",
+        "col": 3
+      }
+    },
+    {
+      "tick": 18,
+      "input": {
+        "type": "drop",
+        "col": 0
+      }
+    },
+    {
+      "tick": 19,
+      "input": {
+        "type": "drop",
+        "col": 1
+      }
+    },
+    {
+      "tick": 20,
+      "input": {
+        "type": "drop",
+        "col": 0
+      }
+    },
+    {
+      "tick": 21,
+      "input": {
+        "type": "drop",
+        "col": 0
+      }
+    },
+    {
+      "tick": 22,
+      "input": {
+        "type": "drop",
+        "col": 0
+      }
+    },
+    {
+      "tick": 23,
+      "input": {
+        "type": "drop",
+        "col": 1
+      }
+    },
+    {
+      "tick": 24,
+      "input": {
+        "type": "drop",
+        "col": 1
+      }
+    },
+    {
+      "tick": 25,
+      "input": {
+        "type": "drop",
+        "col": 1
+      }
+    },
+    {
+      "tick": 26,
+      "input": {
+        "type": "drop",
+        "col": 2
+      }
+    },
+    {
+      "tick": 27,
+      "input": {
+        "type": "drop",
+        "col": 0
+      }
+    },
+    {
+      "tick": 28,
+      "input": {
+        "type": "drop",
+        "col": 0
+      }
+    }
+  ],
+  "stateHash": "acddeffd"
+}
