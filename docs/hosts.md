@@ -15,6 +15,17 @@ Model: a plugin package with a **server part** and a **GUI part**.
   the game registry is generated at build time.
 - The GUI API is experimental. Pin `@opencode/plugin` (the scaffold uses
   `2.2.5`) and rebuild after upgrades.
+- **Registry item ids are global, so namespace them per build.** The host "keeps
+  the pill's element while the id stays"; a release and a dev build installed
+  side by side that both register a `TitlebarItem` with id `main` share one pill
+  and keep whichever label painted first. Register the pill under the plugin id
+  (`await-arcade` / `await-arcade-dev`) so each build owns its element — the panel
+  tab is keyed per plugin already, which is why only the pill looked wrong.
+- **`__ARCADE_DEV__` carries the dev identity.** `src/profile.js` reads it at
+  compile time for the plugin id, display name, `open-dev` command and API id;
+  both `host-opencode` vite configs inject it from `ARCADE_DEV=1`. Dropping the
+  define makes `build:hosts:dev` produce a bundle that calls itself production,
+  which is why the identifier must never be treated as dead.
 
 Mounting the shell:
 
