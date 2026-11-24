@@ -186,8 +186,11 @@ npm run build:hosts:dev            # writes packages/host-opencode/.dev/
 
 `--dev` installs as `await-arcade-dev` / **Await Arcade (Dev)**, with its own
 Antigravity sidecar and project, so the released `await-arcade` is untouched.
-`ARCADE_DEV=1` (set by `build:hosts:dev`) is what selects the `.dev/` output
-directory in both `packages/host-opencode` vite configs.
+`ARCADE_DEV=1` (set by `build:hosts:dev`) drives both halves of that: the two
+`packages/host-opencode` vite configs write to `.dev/`, and they inject the
+`__ARCADE_DEV__` define that `src/profile.js` reads for the dev plugin id,
+display name, `open-dev` command, and API id. Never drop either one — without
+the define the dev bundle silently identifies as production.
 
 ### Release and site
 
