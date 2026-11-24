@@ -63,7 +63,8 @@ A win is the only ranked result:
 - **Complexity ceiling (`base`)**: derived deterministically from board size,
   line-solver depth (`iterations`), and total clue runs (`15 × cells +
   (120 or 160) × iterations + 25 × runs`).
-- **Precision deductions**: `-250` per failed check before the winning check,
+- **Precision deductions**: `-100` per failed check on easy and `-250` on hard
+  before the winning check,
   `-25` per undone or overwritten filled cell, and `-100` per **Clear board**
   reset (plus any filled cells wiped), clamped at a 100-point floor. Toggling
   `Cross ×`, `Note 1`, and `Note 2` is free.
@@ -73,10 +74,10 @@ A win is the only ranked result:
   only at the end of the board `rankKey` as a tiebreak between identical scores,
   the way Mineflag's daily board orders moves then server time. A run longer than
   `meta.maxDurationMs` (one hour) is still rejected outright at submit — the cap
-  guards replay size, not speed — so finish or restart within the hour. Ten
-  failed checks lose the run and score `0`, unranked. Failed checks only report “not solved yet”;
-  on a loss after 10 checks, wrongly filled (`✕`) and missed (`□`) cells are
-  revealed.
+  guards replay size, not speed — so finish or restart within the hour. Five
+  failed checks on the 6 × 6 board, or ten on the 10 × 10 board, lose the run and
+  score `0`, unranked. Failed checks only report “not solved yet”; on a loss the
+  wrongly filled (`✕`) and missed (`□`) cells are revealed.
 
 ## Rules
 

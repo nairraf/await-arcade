@@ -4,7 +4,6 @@ import {
   MARK_CROSSED,
   MARK_EMPTY,
   MARK_FILLED,
-  MAX_CHECKS,
   type NonogramInput,
   type NonogramMark,
   type NonogramState,
@@ -1061,7 +1060,7 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
 
     sizeStat.textContent = `${state.width} × ${state.height}`
     baseStat.textContent = `Base ${state.complexity}`
-    checksStat.textContent = `Checks ${state.checksUsed}/${MAX_CHECKS}`
+    checksStat.textContent = `Checks ${state.checksUsed}/${state.checkBudget}`
     if (state.phase === "won") statusStat.textContent = "Solved"
     else if (state.phase === "lost") statusStat.textContent = "Out of checks"
     else if (state.checksUsed > 0) statusStat.textContent = "Not solved yet"
@@ -1181,7 +1180,7 @@ export function view(ctx: ViewContext<NonogramState, NonogramInput>): GameView<N
       lastPhase = state.phase
     } else if (state.checksUsed > lastChecks && playing) {
       ctx.host.audio.play("crash")
-      const left = MAX_CHECKS - state.checksUsed
+      const left = state.checkBudget - state.checksUsed
       live.textContent = `Not solved yet. ${left} ${left === 1 ? "check" : "checks"} left.`
     }
     lastChecks = state.checksUsed

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { playRealtime, playTurn } from "@await-arcade/framework"
 import { greedySolve } from "../../../games/lockstep/solver"
+import { failedCheckPenaltyFor } from "../../../games/nonogram/src/core"
 import { createArcadeServer, type ArcadeServer } from "./index"
 import { MemoryStore } from "./store"
 import { verifiers } from "./registry.generated"
@@ -804,7 +805,8 @@ describe("daily challenge", () => {
 
     const expectedFor = (seed: number, failFirstCheck: boolean, elapsedMs: number) => {
       const state = entry.core.create(seed, easyMode) as { complexity: number }
-      const baseScore = state.complexity - (failFirstCheck ? 250 : 0)
+      const baseScore =
+        state.complexity - (failFirstCheck ? failedCheckPenaltyFor("easy") : 0)
       // The value is replay-derived only; elapsed time is a rank-key tiebreak.
       const value = Math.min(entry.meta.score.max, baseScore)
       const penalty = Math.max(0, entry.meta.score.max - value)
