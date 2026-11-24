@@ -67,7 +67,11 @@ function boardKey(gameId: string, modeId: string): string {
 }
 
 function usesRankKey(gameId: string, challengeId?: string): boolean {
-  return gameId === "nonogram" || (gameId === "mineflag" && Boolean(challengeId))
+  return (
+    gameId === "nonogram" ||
+    gameId === "tilechain" ||
+    (gameId === "mineflag" && Boolean(challengeId))
+  )
 }
 
 function json(
@@ -764,7 +768,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
               rankKey: boardRankKey,
             },
           }
-        } else if (run.gameId === "nonogram") {
+        } else if (run.gameId === "nonogram" || run.gameId === "tilechain") {
           // The ranked value is the verifier's own: pure, replay-derived, and
           // identical whenever the same replay is checked. Elapsed time is a
           // tiebreak in the rank key only, mirroring mineflag's daily board, so
