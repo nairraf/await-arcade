@@ -13,9 +13,6 @@ export default defineConfig({
       outFile: isDev ? ".dev/gui-experimental.cjs" : "gui-experimental.cjs",
     }),
   ],
-  define: {
-    __ARCADE_DEV__: JSON.stringify(isDev),
-  },
   resolve: {
     alias: arcadeAliases,
   },
