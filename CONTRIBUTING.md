@@ -12,7 +12,7 @@ You do **not** need Firebase, Google Cloud, or GitHub OAuth credentials to build
    git clone https://github.com/<your-username>/await-arcade.git
    cd await-arcade
    git checkout -b feat/my-game development
-   npm install
+   npm ci
    ```
 
 ## Branching and releases
@@ -32,7 +32,7 @@ npm run aa -- new-game my-game
 npm install
 ```
 
-`new-game` copies [skills/await-arcade-game/templates/game](skills/await-arcade-game/templates/game) into `games/my-game/`, replaces the id and title placeholders, and runs `npm run aa -- sync` to regenerate both [packages/shell/src/registry.generated.ts](packages/shell/src/registry.generated.ts) and [packages/server/src/registry.generated.ts](packages/server/src/registry.generated.ts). Running `npm install` afterward links `@await-arcade/game-my-game` in workspace `node_modules`.
+`new-game` copies [skills/await-arcade-game/templates/game](skills/await-arcade-game/templates/game) into `games/my-game/`, replaces the id and title placeholders, and runs `npm run aa -- sync` to regenerate both [packages/shell/src/registry.generated.ts](packages/shell/src/registry.generated.ts) and [packages/server/src/registry.generated.ts](packages/server/src/registry.generated.ts). Running `npm install` afterward links `@await-arcade/game-my-game` in workspace `node_modules`. Commit the updated `package-lock.json` with the new workspace — CI runs `npm ci`, which fails when the lock file is missing the package.
 
 ### 2. Build manually or with an AI coding agent
 

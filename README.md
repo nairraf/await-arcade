@@ -47,7 +47,7 @@ node await-arcade-beta-2/install.mjs --dry-run
 ### From source
 
 ```sh
-npm install
+npm ci
 npm run build:hosts
 AWAIT_ARCADE_API_URL=https://api.awaitarcade.com ./scripts/install-hosts.sh
 ```
@@ -160,7 +160,7 @@ npm run typecheck
 ## Develop
 
 ```sh
-npm install
+npm ci
 npm run dev        # browser demo at http://localhost:5199
 npm run check      # typecheck, host typecheck, tests, core scan, fixtures
 npm run build      # browser demo
@@ -174,6 +174,23 @@ npm run build:hosts
 
 Build the hosts after changing the shell, framework, or games.
 
+### Dev hosts, side by side
+
+`npm run build:hosts` overwrites the bundles the installed release points at. To
+keep the release working and run a dev build next to it:
+
+```sh
+npm run build:hosts:dev            # writes packages/host-opencode/.dev/
+./scripts/install-hosts.sh --dev
+```
+
+`--dev` installs as `await-arcade-dev` / **Await Arcade (Dev)**, with its own
+Antigravity sidecar and project, so the released `await-arcade` is untouched.
+`ARCADE_DEV=1` (set by `build:hosts:dev`) is what selects the `.dev/` output
+directory in both `packages/host-opencode` vite configs.
+
+### Release and site
+
 To produce a release tarball:
 
 ```sh
@@ -181,7 +198,20 @@ npm run package:release
 ```
 
 This writes `dist-release/await-arcade-beta-2.tar.gz`, its checksum, and the
-unpacked release directory containing `install.mjs`.
+unpacked release directory containing `install.mjs`. The version defaults to
+`0.2.0`, which maps to the `await-arcade-beta-2` release name; override it with
+`RELEASE_VERSION` (and `RELEASE_NAME` when the artifact should not follow the
+version).
+
+To publish `site/` to Firebase Hosting:
+
+```sh
+FIREBASE_ACCESS_TOKEN=<oauth token> npm run deploy:hosting
+```
+
+The script talks to the Hosting REST API directly — no Firebase CLI needed.
+`FIREBASE_SITE` picks the site (default `await-arcade`), `HOSTING_DRY_RUN=1`
+prints the plan without uploading, and a successful run prints the release URL.
 
 ## How it fits together
 
