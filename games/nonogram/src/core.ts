@@ -15,7 +15,27 @@ export type NonogramMark =
 export const MAX_CHECKS = 10
 export const MAX_SCORE = 10_000
 export const WIN_FLOOR = 100
+/**
+ * Check budgets per mode. A smaller board gets a tighter budget: five checks on
+ * a 6 x 6 grid, ten on the 10 x 10 grid.
+ */
+export const EASY_CHECKS = 5
+/**
+ * Precision penalties per mode. One miss should cost a similar share of the
+ * ceiling in either mode, so easy charges less than hard.
+ */
+export const EASY_FAILED_CHECK_PENALTY = 100
 export const FAILED_CHECK_PENALTY = 250
+
+/** The number of checks a mode allows before the run is lost. */
+export function checkBudgetFor(modeId: string): number {
+  return modeId === "easy" ? EASY_CHECKS : MAX_CHECKS
+}
+
+/** Points deducted per failed check in the given mode. */
+export function failedCheckPenaltyFor(modeId: string): number {
+  return modeId === "easy" ? EASY_FAILED_CHECK_PENALTY : FAILED_CHECK_PENALTY
+}
 export const UNDONE_FILL_PENALTY = 25
 export const CLEAR_BOARD_PENALTY = 100
 
@@ -39,6 +59,8 @@ export interface NonogramState {
   draft: number[]
   /** Checks consumed, including the check that won the run. */
   checksUsed: number
+  /** Checks this mode allows before the run is lost. */
+  readonly checkBudget: number
   /** Number of filled cells erased or overwritten before solving. */
   undoneFills: number
   /** Number of non-empty board wipes via Clear board. */
@@ -142,7 +164,7 @@ function checkBoard(state: NonogramState): NonogramState {
   return {
     ...state,
     checksUsed,
-    phase: checksUsed >= MAX_CHECKS ? "lost" : "playing",
+    phase: checksUsed >= state.checkBudget ? "lost" : "playing",
   }
 }
 
@@ -184,6 +206,7 @@ export const core: GameCore<NonogramState, NonogramInput> = {
       complexity,
       draft: Array<number>(puzzle.width * puzzle.height).fill(MARK_EMPTY),
       checksUsed: 0,
+      checkBudget: checkBudgetFor(mode.id),
       undoneFills: 0,
       clearsUsed: 0,
       phase: "playing",
@@ -216,7 +239,7 @@ export const core: GameCore<NonogramState, NonogramInput> = {
     const failedChecks = solved ? Math.max(0, state.checksUsed - 1) : state.checksUsed
     const rawBase =
       state.complexity -
-      failedChecks * FAILED_CHECK_PENALTY -
+      failedChecks * failedCheckPenaltyFor(state.modeId) -
       state.undoneFills * UNDONE_FILL_PENALTY -
       state.clearsUsed * CLEAR_BOARD_PENALTY
     const baseScore = solved ? rawBase : 0

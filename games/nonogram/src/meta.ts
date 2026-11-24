@@ -6,20 +6,20 @@ export const meta: GameMeta = {
   description:
     "Read the row and column clues, fill the right cells, and reveal the hidden pattern using pure logic — never a guess.",
   author: "Await Arcade",
-  version: "1.2.0",
+  version: "1.3.0",
   engines: { arcade: "^0.1.0" },
   kind: "turn",
   modes: [
     {
       id: "easy",
       title: "Easy",
-      description: "6 × 6 grid · pure line logic",
+      description: "6 × 6 grid · 5 checks · pure line logic",
       difficulty: 1,
     },
     {
       id: "hard",
       title: "Hard",
-      description: "10 × 10 grid · pure line logic",
+      description: "10 × 10 grid · 10 checks · pure line logic",
       difficulty: 2,
     },
   ],

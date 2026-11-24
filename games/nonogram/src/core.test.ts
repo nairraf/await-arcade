@@ -9,6 +9,8 @@ import {
   MARK_FILLED,
   MAX_CHECKS,
   MAX_SCORE,
+  checkBudgetFor,
+  failedCheckPenaltyFor,
   UNDONE_FILL_PENALTY,
   WIN_FLOOR,
   core,
@@ -274,7 +276,7 @@ describe("nonogram rules and scoring", () => {
     ]
     const durationMs = 40_000
     const result = playTurn(core, meta, { seed: 50, mode: easy, inputs, durationMs })
-    const expectedBase = fresh.complexity - FAILED_CHECK_PENALTY - UNDONE_FILL_PENALTY
+    const expectedBase = fresh.complexity - failedCheckPenaltyFor("easy") - UNDONE_FILL_PENALTY
 
     expect(result.state.phase).toBe("won")
     expect(result.state.checksUsed).toBe(2)
@@ -364,27 +366,73 @@ describe("nonogram rules and scoring", () => {
     expect(JSON.stringify(serialized)).not.toContain("feedback")
   })
 
-  it("loses after ten failed checks with no leaderboard eligibility", () => {
+  it("sets the check budget per mode: five on easy, ten on hard", () => {
+    expect(core.create(60, easy).checkBudget).toBe(5)
+    expect(core.create(60, hard).checkBudget).toBe(10)
+    expect(core.create(60, hard).checkBudget).toBe(MAX_CHECKS)
+    expect(checkBudgetFor("easy")).toBe(5)
+    expect(checkBudgetFor("hard")).toBe(10)
+    expect(checkBudgetFor("unknown")).toBe(MAX_CHECKS)
+  })
+
+  it("loses an easy run on the fifth failed check with no leaderboard eligibility", () => {
     let state = core.create(44, easy)
-    for (let check = 0; check < MAX_CHECKS; check += 1) {
+    for (let check = 0; check < 4; check += 1) {
       state = core.step(state, [{ type: "check" }], 0)
+      expect(state.phase).toBe("playing")
     }
 
+    state = core.step(state, [{ type: "check" }], 0)
     expect(state.phase).toBe("lost")
-    expect(state.checksUsed).toBe(MAX_CHECKS)
-    const score = core.score(state, { elapsedMs: 0, ticks: MAX_CHECKS })
+    expect(state.checksUsed).toBe(5)
+    const score = core.score(state, { elapsedMs: 0, ticks: 5 })
     expect(score).toMatchObject({ value: 0, won: false, ranked: false, type: "higher" })
-    expect(score.detail).toMatchObject({ checksUsed: MAX_CHECKS, solved: false })
+    expect(score.detail).toMatchObject({ checksUsed: 5, solved: false })
 
     const result = playTurn(core, meta, {
       seed: 44,
       mode: easy,
-      inputs: Array.from({ length: MAX_CHECKS }, () => ({ type: "check" }) as NonogramInput),
+      inputs: Array.from({ length: 5 }, () => ({ type: "check" }) as NonogramInput),
       durationMs: 10_000,
     })
     expect(result.state.phase).toBe("lost")
     expect(result.verified.ok).toBe(false)
     expect(result.verified.reason).toContain("not eligible")
+  })
+
+  it("loses a hard run on the tenth failed check, not before", () => {
+    let state = core.create(44, hard)
+    for (let check = 0; check < MAX_CHECKS - 1; check += 1) {
+      state = core.step(state, [{ type: "check" }], 0)
+    }
+    expect(state.phase).toBe("playing")
+
+    state = core.step(state, [{ type: "check" }], 0)
+    expect(state.phase).toBe("lost")
+    expect(state.checksUsed).toBe(MAX_CHECKS)
+  })
+
+  it("charges 100 per failed check on easy and 250 on hard", () => {
+    expect(failedCheckPenaltyFor("easy")).toBe(100)
+    expect(failedCheckPenaltyFor("hard")).toBe(FAILED_CHECK_PENALTY)
+
+    for (const mode of [easy, hard]) {
+      const fresh = core.create(61, mode)
+      const missed = core.step(fresh, [{ type: "check" }], 0)
+      const solved = run(fresh, [...solutionInputs(fresh), { type: "check" }])
+      const solvedAfterMiss = run(fresh, [{ type: "check" }, ...solutionInputs(fresh), { type: "check" }])
+
+      if (mode.id === "easy") {
+        // Only four misses are available before the run is lost, so the curve
+        // is measured on a won run that burned one check.
+        expect(missed.phase).toBe("playing")
+      }
+      expect(core.score(missed, { elapsedMs: 0, ticks: 1 }).value).toBe(0)
+      expect(core.score(solved, { elapsedMs: 0, ticks: 1 }).value).toBe(fresh.complexity)
+      expect(core.score(solvedAfterMiss, { elapsedMs: 0, ticks: 2 }).value).toBe(
+        fresh.complexity - failedCheckPenaltyFor(mode.id),
+      )
+    }
   })
 
   it("still wins when only empty solution cells are crossed", () => {
@@ -578,7 +626,7 @@ describe("nonogram rules and scoring", () => {
     expect(core.serialize(after)).toEqual(frozen)
 
     let lost = core.create(48, easy)
-    for (let check = 0; check < MAX_CHECKS; check += 1) {
+    for (let check = 0; check < lost.checkBudget; check += 1) {
       lost = core.step(lost, [{ type: "check" }], 0)
     }
     const lostBefore = core.serialize(lost)
@@ -632,6 +680,7 @@ describe("nonogram rules and scoring", () => {
       complexity: serialized.complexity,
       draft: [...serialized.draft],
       checksUsed: serialized.checksUsed,
+      checkBudget: checkBudgetFor(serialized.mode),
       undoneFills: serialized.undoneFills,
       clearsUsed: serialized.clearsUsed,
       phase: serialized.phase,
@@ -643,7 +692,7 @@ describe("nonogram rules and scoring", () => {
     expect(meta.score).toEqual({ type: "higher", min: 0, max: MAX_SCORE, unit: "points" })
     expect(meta.leaderboard).toBe("replay")
     expect(meta.kind).toBe("turn")
-    expect(meta.version).toBe("1.2.0")
+    expect(meta.version).toBe("1.3.0")
     expect(meta.modes.map((mode) => mode.id)).toEqual(["easy", "hard"])
     expect(meta.modes.every((mode) => mode.ranked !== false)).toBe(true)
     expect(meta.controls.map((control) => control.keys)).toContain("Click / Drag")
