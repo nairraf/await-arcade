@@ -131,6 +131,14 @@ interface CascadeResult {
   readonly cleared: number
   readonly cracked: number
   readonly points: number
+  readonly trace: CascadeWave[]
+}
+
+/** One wave of a cascade, captured before removal and gravity. */
+export interface CascadeWave {
+  readonly board: Cell[][]
+  readonly clears: readonly Point[]
+  readonly cracked: readonly Point[]
 }
 
 /**
@@ -190,16 +198,25 @@ function firstWaveClears(board: readonly (readonly Cell[])[]): WaveClear {
   return { numbered: clearCoords, cracked: crackedCoords }
 }
 
-function resolveCascade(start: readonly (readonly Cell[])[]): CascadeResult {
+function runCascade(start: readonly (readonly Cell[])[], captureTrace: boolean): CascadeResult {
   let board = cloneBoard(start)
   let waves = 0
   let cleared = 0
   let cracked = 0
   let points = 0
+  const trace: CascadeWave[] = []
 
   while (waves < MAX_CASCADE_WAVES) {
     const wave = firstWaveClears(board)
     if (wave.numbered.length === 0) break
+
+    if (captureTrace) {
+      trace.push({
+        board: cloneBoard(board),
+        clears: wave.numbered,
+        cracked: wave.cracked,
+      })
+    }
 
     waves += 1
     const removed = new Set<string>(
@@ -217,7 +234,15 @@ function resolveCascade(start: readonly (readonly Cell[])[]): CascadeResult {
     board = gravity(board)
   }
 
-  return { board, waves, cleared, cracked, points }
+  return { board, waves, cleared, cracked, points, trace }
+}
+
+function landingRowFor(board: readonly (readonly Cell[])[], col: number): number {
+  if (!Number.isInteger(col) || col < 0 || col >= COLS) return -1
+  if (board[0]![col] !== null) return -1
+  let landing = ROWS - 1
+  while (landing >= 0 && board[landing]![col] !== null) landing -= 1
+  return landing
 }
 
 /** What a drop into `col` would do right now, for teaching overlays. Pure. */
@@ -232,11 +257,7 @@ export interface DropPreview {
 
 export function previewDrop(state: TilechainState, col: number): DropPreview | null {
   if (state.phase !== "playing") return null
-  if (!Number.isInteger(col) || col < 0 || col >= COLS) return null
-  if (state.board[0]![col] !== null) return null
-
-  let landing = ROWS - 1
-  while (landing >= 0 && state.board[landing]![col] !== null) landing -= 1
+  const landing = landingRowFor(state.board, col)
   if (landing < 0) return null
 
   const board = cloneBoard(state.board)
@@ -245,19 +266,33 @@ export function previewDrop(state: TilechainState, col: number): DropPreview | n
   return { landing, clears: wave.numbered, cracked: wave.cracked }
 }
 
+/** Step-by-step cascade frames for animating a drop in the view. Pure. */
+export interface DropTrace {
+  readonly landing: number
+  readonly waves: readonly CascadeWave[]
+}
+
+export function traceDrop(state: TilechainState, col: number): DropTrace | null {
+  if (state.phase !== "playing") return null
+  const landing = landingRowFor(state.board, col)
+  if (landing < 0) return null
+
+  const board = cloneBoard(state.board)
+  board[landing]![col] = state.currentTile
+  const cascade = runCascade(board, true)
+  return { landing, waves: cascade.trace }
+}
+
 function applyDrop(state: TilechainState, col: number): TilechainState {
   if (state.phase !== "playing") return state
   // A full column is a no-op: it must not consume the current tile or a drop.
-  if (state.board[0]![col] !== null) return state
-
-  const board = cloneBoard(state.board)
-  let landing = ROWS - 1
-  while (landing >= 0 && board[landing]![col] !== null) landing -= 1
+  const landing = landingRowFor(state.board, col)
   if (landing < 0) return state
 
+  const board = cloneBoard(state.board)
   board[landing]![col] = state.currentTile
 
-  const cascade = resolveCascade(board)
+  const cascade = runCascade(board, false)
   let nextBoard = cascade.board
 
   const dropsUsed = state.dropsUsed + 1
@@ -391,7 +426,7 @@ export const core: GameCore<TilechainState, TilechainInput> = {
     if (state.modeId === "endless") {
       const ended = state.phase === "lost"
       const raw = state.chainPoints + Math.max(0, state.depth - 1) * ENDLESS_DEPTH_BONUS
-      value = ended ? Math.min(MAX_SCORE, Math.max(0, raw)) : 0
+      value = Math.min(MAX_SCORE, Math.max(0, raw))
       // A zero-point instant loss is not a leaderboard run; any scored run is.
       ranked = ended && value > 0
     } else if (won) {
@@ -401,6 +436,9 @@ export const core: GameCore<TilechainState, TilechainInput> = {
         SKIRMISH_WIN_BONUS
       value = Math.min(MAX_SCORE, Math.max(1, raw))
       ranked = true
+    } else {
+      // Show earned chain points live and on unranked losses instead of wiping to 0.
+      value = Math.min(MAX_SCORE, Math.max(0, state.chainPoints))
     }
 
     return {
@@ -414,7 +452,7 @@ export const core: GameCore<TilechainState, TilechainInput> = {
         crackedCleared: state.crackedCleared,
         dropsUsed: state.dropsUsed,
         depth: state.depth,
-        level: state.depth,
+        ...(state.modeId === "endless" ? { level: state.depth } : {}),
         maxChain: state.maxChain,
         chainPoints: state.chainPoints,
         won,

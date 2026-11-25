@@ -44,13 +44,18 @@ export function formatBoardScore(score: Score, meta: GameMeta): string {
   const base = formatScore(score, meta)
   if (depth) return `${base} · ${depth}`
   const elapsed = score.detail?.elapsedMs
-  if (meta.id === "nonogram" && typeof elapsed === "number" && Number.isFinite(elapsed) && elapsed >= 0) {
+  if (
+    (meta.id === "nonogram" || meta.id === "tilechain") &&
+    typeof elapsed === "number" &&
+    Number.isFinite(elapsed) &&
+    elapsed >= 0
+  ) {
     return `${base} · ${formatDuration(elapsed)}`
   }
   return base
 }
 
-/** Compact daily Mineflag/Nonogram display: headline score, server time, attempt. */
+/** Compact daily Mineflag/Nonogram/Tilechain display: headline score, server time, attempt. */
 export function formatDailyScore(score: Score, meta: GameMeta): string {
   const moves = score.detail?.moves
   const elapsed = score.detail?.elapsedMs
@@ -59,8 +64,15 @@ export function formatDailyScore(score: Score, meta: GameMeta): string {
   if (typeof moves === "number" && typeof elapsed === "number") {
     return `${moves} mv · ${formatDuration(elapsed)}${tryLabel}`
   }
-  if (meta.id === "nonogram" && typeof elapsed === "number" && Number.isFinite(elapsed) && elapsed >= 0) {
-    return `${formatScore(score, meta)} · ${formatDuration(elapsed)}${tryLabel}`
+  if (
+    (meta.id === "nonogram" || meta.id === "tilechain") &&
+    typeof elapsed === "number" &&
+    Number.isFinite(elapsed) &&
+    elapsed >= 0
+  ) {
+    const depth = depthLabel(score)
+    const depthPart = depth ? ` · ${depth}` : ""
+    return `${formatScore(score, meta)}${depthPart} · ${formatDuration(elapsed)}${tryLabel}`
   }
   return formatBoardScore(score, meta)
 }

@@ -10,7 +10,8 @@ drop can chain into several waves.
 - **Skirmish** — clear 32 tiles within 35 drops. The run is won as soon as the
   clear objective is met; otherwise it is lost at the drop cap or when the top
   row fills. A win scores
-  `chainPoints + (35 - dropsUsed) × 25 + 200`; a loss scores 0 and is unranked.
+  `chainPoints + (35 - dropsUsed) × 25 + 200`; a loss keeps `chainPoints` as
+  its score and is unranked.
 - **Endless** — every 10 drops pushes the stack up one row and inserts a row of
   seven cracked tiles, raising the depth. The run ends when the push would
   overflow row 0 or when the top row is full. Any ended run with a positive
@@ -47,8 +48,8 @@ drop can chain into several waves.
 - `src/core.test.ts` — determinism, bag wrap, clear/cascade/cracked rules, both
   game-over paths, scoring invariance, serialize round-trip, input hardening,
   and the replay fixture.
-- `replay.json` — a verified 29-drop skirmish win (`seed 20260420`): 29 clears,
-  3 cracked tiles, max chain 2, 410 chain points, score 760.
+- `replay.json` — a verified 28-drop skirmish win (`seed 285`): 32 clears,
+  4 cracked tiles, max chain 7, 3420 chain points, score 3795.
 - `arcade.config.ts` — tells `aa sync` where the three parts live.
 - `README.md` — this file.
 
@@ -59,6 +60,7 @@ drop can chain into several waves.
 | `←` / `→` / `A` / `D` | Select column (wraps) |
 | `Space` / `Enter` / Click | Drop into the selected column |
 | `1`–`7` | Drop directly into column 1–7 |
+| `H` | Show or hide the how-to guide |
 
 Touch works by tapping any cell in a column. Keyboard input is scoped to the
 cartridge surface; held keys never repeat a drop.
