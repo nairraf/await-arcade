@@ -688,18 +688,31 @@ describe("crates preview and trace", () => {
       expect(trace.solved).toBe(next.phase === "won")
 
       if (next.phase === "lost" && next.lossReason === "stuck") {
-        const stuck = findStuckCrate(
-          next.crates,
-          next.goals,
-          next.walls,
-          width,
-          next.height,
-        )
-        expect(stuck).toBeGreaterThanOrEqual(0)
-        const cell = next.crates[stuck]!
+        // Independent corner check: both axes blocked by static walls/borders,
+        // and the cell is not a goal. Never calls findStuckCrate.
+        let stuckCell: number | null = null
+        for (const cell of next.crates) {
+          if (next.goals.includes(cell)) continue
+          const up = cellAfter(cell, "up", width, next.height)
+          const down = cellAfter(cell, "down", width, next.height)
+          const left = cellAfter(cell, "left", width, next.height)
+          const right = cellAfter(cell, "right", width, next.height)
+          const verticalBlocked =
+            up === null || down === null || next.walls[up] === true || next.walls[down] === true
+          const horizontalBlocked =
+            left === null ||
+            right === null ||
+            next.walls[left] === true ||
+            next.walls[right] === true
+          if (verticalBlocked && horizontalBlocked) {
+            stuckCell = cell
+            break
+          }
+        }
+        expect(stuckCell).not.toBeNull()
         expect(trace.stuckCell).toEqual({
-          x: cell % width,
-          y: Math.floor(cell / width),
+          x: stuckCell! % width,
+          y: Math.floor(stuckCell! / width),
         })
       } else {
         expect(trace.stuckCell).toBeNull()
@@ -742,11 +755,14 @@ describe("crates preview and trace", () => {
 describe("crates scoring and serialization", () => {
   it("projects the live score while playing and floors it at 100", () => {
     const par = 14
+    const walked = core.step(makeState({ par, moveBudget: 20 }), [move("left")], 0)
+    expect(walked.phase).toBe("playing")
+    expect(walked.movesUsed).toBe(1)
+
     const state = makeState({ movesUsed: par + 2, par })
-    expect(state.phase).toBe("playing")
     const score = core.score(state, { elapsedMs: 123_456, ticks: state.movesUsed })
     expect(score.value).toBe(1_900)
-    expect(score.value).toBe(2_000 - 2 * 50)
+    expect(score.detail).toMatchObject({ overPar: 2, baseScore: 2_000 })
     expect(score.won).toBe(false)
     expect(score.ranked).toBe(false)
 
@@ -755,7 +771,6 @@ describe("crates scoring and serialization", () => {
 
     const atPar = makeState({ movesUsed: par, par })
     expect(core.score(atPar, { elapsedMs: 0, ticks: 0 }).value).toBe(2_000)
-    expect(core.score(atPar, { elapsedMs: 0, ticks: 0 }).value).toBeLessThanOrEqual(10_000)
   })
 
   it("pins the score literals for both modes", () => {
