@@ -119,13 +119,29 @@ Check: switch modes — the goal strip and the hint both change to match.
 
 ## F10 — Difficulty is measured, not assumed
 
-Before the PR is ready, measure with a simulation across **at least 200 seeds**
-per mode: a uniform-random policy and a naive greedy policy (maximise the visible
-objective one step ahead).
+Measure across **at least 200 seeds** per mode, with a uniform-random policy
+always, and the mode's shape deciding the second policy.
+
+**Arcade / endless modes** (the outcome depends on play quality): also run a
+naive greedy policy that maximises the visible objective one step ahead.
 
 - Random should win well under a third of runs; naive-greedy roughly half.
 - If random wins more than a third, the target or the board is too generous.
-- Publish both win rates in the PR body, and re-measure after any rules change.
+
+**Puzzle / solver modes** (the outcome depends on finding a solution): a one-step
+greedy policy is the wrong instrument — it plateaus and cycles, so its win rate
+measures the policy, not the puzzle. Measured on one Netwalk board set, three
+different policies produced 6%, 22% and 28–41%. For these modes require instead:
+
+- random ≈ 0% (a puzzle a random walker can finish is not a puzzle);
+- the board is **provably solvable at par by construction** — generated from a
+  solved state and restored by a test — with the budget at least **1.6 × par**;
+- a bounded-lookahead policy's solve rate is **reported, not gated**, as a feel
+  signal;
+- the human acceptance is a playtest, recorded in the PR.
+
+Publish every measured rate in the PR body, name the policy that produced it, and
+re-measure after any rules change.
 
 Check: the numbers are in the PR and reproducible from a script in the tree.
 
