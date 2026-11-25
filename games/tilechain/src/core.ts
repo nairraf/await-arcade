@@ -141,6 +141,55 @@ interface CascadeResult {
  * Every active wave removes at least one tile and gravity adds none, so the
  * 49-wave cap can never be reached by a legal board; it exists as a guard.
  */
+interface WaveClear {
+  readonly numbered: Point[]
+  readonly cracked: Point[]
+}
+
+/**
+ * The first wave of a cascade: every numbered tile whose value equals its run
+ * length on the row or column, plus the cracked tiles orthogonally adjacent to
+ * one of them. Pure — it reads a snapshot and returns coordinates.
+ */
+function firstWaveClears(board: readonly (readonly Cell[])[]): WaveClear {
+  const clearCoords: Point[] = []
+  const clearKeys = new Set<string>()
+
+  for (let y = 0; y < ROWS; y += 1) {
+    for (let x = 0; x < COLS; x += 1) {
+      const cell = board[y]![x]!
+      if (typeof cell !== "number") continue
+
+      // Both sizes come from the same snapshot, so scan order is irrelevant.
+      if (horizontalSize(board, x, y) === cell || verticalSize(board, x, y) === cell) {
+        clearKeys.add(`${x},${y}`)
+        clearCoords.push({ x, y })
+      }
+    }
+  }
+
+  const crackedCoords: Point[] = []
+  if (clearCoords.length === 0) return { numbered: clearCoords, cracked: crackedCoords }
+
+  for (let y = 0; y < ROWS; y += 1) {
+    for (let x = 0; x < COLS; x += 1) {
+      if (board[y]![x] !== "cracked") continue
+
+      // Cracked tiles only die to an adjacent clearing numbered tile; a removed
+      // cracked tile never propagates to another cracked tile.
+      const adjacent =
+        clearKeys.has(`${x},${y - 1}`) ||
+        clearKeys.has(`${x},${y + 1}`) ||
+        clearKeys.has(`${x - 1},${y}`) ||
+        clearKeys.has(`${x + 1},${y}`)
+
+      if (adjacent) crackedCoords.push({ x, y })
+    }
+  }
+
+  return { numbered: clearCoords, cracked: crackedCoords }
+}
+
 function resolveCascade(start: readonly (readonly Cell[])[]): CascadeResult {
   let board = cloneBoard(start)
   let waves = 0
@@ -149,61 +198,51 @@ function resolveCascade(start: readonly (readonly Cell[])[]): CascadeResult {
   let points = 0
 
   while (waves < MAX_CASCADE_WAVES) {
-    const clearCoords: Point[] = []
-    const clearKeys = new Set<string>()
-
-    for (let y = 0; y < ROWS; y += 1) {
-      for (let x = 0; x < COLS; x += 1) {
-        const cell = board[y]![x]!
-        if (typeof cell !== "number") continue
-
-        // Both sizes come from the same snapshot, so scan order is irrelevant.
-        if (horizontalSize(board, x, y) === cell || verticalSize(board, x, y) === cell) {
-          clearKeys.add(`${x},${y}`)
-          clearCoords.push({ x, y })
-        }
-      }
-    }
-
-    if (clearCoords.length === 0) break
-
-    const crackedCoords: Point[] = []
-    const crackedKeys = new Set<string>()
-
-    for (let y = 0; y < ROWS; y += 1) {
-      for (let x = 0; x < COLS; x += 1) {
-        if (board[y]![x] !== "cracked") continue
-
-        // Cracked tiles only die to an adjacent clearing numbered tile; a
-        // removed cracked tile never propagates to another cracked tile.
-        const adjacent =
-          clearKeys.has(`${x},${y - 1}`) ||
-          clearKeys.has(`${x},${y + 1}`) ||
-          clearKeys.has(`${x - 1},${y}`) ||
-          clearKeys.has(`${x + 1},${y}`)
-
-        if (adjacent) {
-          crackedKeys.add(`${x},${y}`)
-          crackedCoords.push({ x, y })
-        }
-      }
-    }
+    const wave = firstWaveClears(board)
+    if (wave.numbered.length === 0) break
 
     waves += 1
-    const removed = new Set<string>([...clearKeys, ...crackedKeys])
-    for (const point of [...clearCoords, ...crackedCoords]) {
+    const removed = new Set<string>(
+      [...wave.numbered, ...wave.cracked].map((point) => `${point.x},${point.y}`),
+    )
+    for (const point of [...wave.numbered, ...wave.cracked]) {
       if (removed.has(`${point.x},${point.y}`)) board[point.y]![point.x] = null
     }
 
-    const k = clearCoords.length + crackedCoords.length
+    const k = wave.numbered.length + wave.cracked.length
     cleared += k
-    cracked += crackedCoords.length
+    cracked += wave.cracked.length
     points += 10 * waves * waves * k
 
     board = gravity(board)
   }
 
   return { board, waves, cleared, cracked, points }
+}
+
+/** What a drop into `col` would do right now, for teaching overlays. Pure. */
+export interface DropPreview {
+  /** Row the current tile would land on. */
+  readonly landing: number
+  /** Numbered tiles that would clear in the first wave, including the dropped one. */
+  readonly clears: readonly Point[]
+  /** Cracked tiles broken as collateral of that first wave. */
+  readonly cracked: readonly Point[]
+}
+
+export function previewDrop(state: TilechainState, col: number): DropPreview | null {
+  if (state.phase !== "playing") return null
+  if (!Number.isInteger(col) || col < 0 || col >= COLS) return null
+  if (state.board[0]![col] !== null) return null
+
+  let landing = ROWS - 1
+  while (landing >= 0 && state.board[landing]![col] !== null) landing -= 1
+  if (landing < 0) return null
+
+  const board = cloneBoard(state.board)
+  board[landing]![col] = state.currentTile
+  const wave = firstWaveClears(board)
+  return { landing, clears: wave.numbered, cracked: wave.cracked }
 }
 
 function applyDrop(state: TilechainState, col: number): TilechainState {

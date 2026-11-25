@@ -5,9 +5,9 @@ export const meta: GameMeta = {
   id: "tilechain",
   title: "Tile Chain Drop",
   description:
-    "Drop numbered tiles into seven columns to match group sizes and trigger chain cascades.",
+    "Drop one numbered tile at a time. It clears when its number matches its row or column run, and clears cascade.",
   author: "Await Arcade",
-  version: "1.0.0",
+  version: "1.1.0",
   engines: { arcade: "^0.1.0" },
   kind: "turn",
   modes: [
@@ -33,6 +33,7 @@ export const meta: GameMeta = {
     { keys: "← / → / A / D", action: "Select column" },
     { keys: "Space / Enter / Click", action: "Drop tile" },
     { keys: "1–7", action: "Drop directly into column 1–7" },
+    { keys: "H", action: "Show or hide the how-to guide" },
   ],
   display: { surface: "dom", width: 7, height: 7 },
   glyph: "+--+--+--+\n| 3|  | 1|\n+--+--+--+\n| 2|##| 2|\n+--+--+--+",

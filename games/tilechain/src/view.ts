@@ -9,6 +9,7 @@ import {
   type Tile,
   type TilechainInput,
   type TilechainState,
+  previewDrop,
 } from "./core"
 
 const css = `
@@ -254,6 +255,50 @@ const css = `
   color: var(--game-accent, #38bdf8);
 }
 
+.tc-cell.is-would-clear {
+  box-shadow: inset 0 0 0 2px var(--game-accent, #38bdf8);
+}
+
+.tc-cell.is-would-break {
+  box-shadow: inset 0 0 0 2px #f59e0b;
+}
+
+.tc-help {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--game-accent, #38bdf8) 35%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--game-accent, #38bdf8) 8%, transparent);
+  color: var(--arcade-text, #e6edf6);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.tc-help[hidden] {
+  display: none;
+}
+
+.tc-help h3 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--game-accent, #38bdf8);
+}
+
+.tc-help ul {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.tc-help li {
+  margin: 0 0 4px;
+}
+
+.tc-help li:last-child {
+  margin-bottom: 0;
+}
+
 .tc-hint {
   margin: 0;
   text-align: center;
@@ -357,6 +402,9 @@ export function view(
     nextMini.className = `tc-mini ${tileClass(state.nextTile)}`
 
     const landing = state.phase === "playing" ? landingRow(state, cursor) : -1
+    const dropPreview = state.phase === "playing" ? previewDrop(state, cursor) : null
+    const willClear = new Set((dropPreview?.clears ?? []).map((point) => `${point.x},${point.y}`))
+    const willBreak = new Set((dropPreview?.cracked ?? []).map((point) => `${point.x},${point.y}`))
 
     for (let y = 0; y < ROWS; y += 1) {
       for (let x = 0; x < COLS; x += 1) {
@@ -366,9 +414,15 @@ export function view(
         const isCursor = x === cursor
         const isLanding = x === cursor && y === landing
 
+        const key = `${x},${y}`
+        const clearsHere = willClear.has(key)
+        const breaksHere = willBreak.has(key)
+
         item.button.className = "tc-cell"
         if (isCursor) item.button.classList.add("is-cursor")
         if (isLanding) item.button.classList.add("is-landing")
+        if (clearsHere) item.button.classList.add("is-would-clear")
+        if (breaksHere) item.button.classList.add("is-would-break")
         if (cell !== null) item.button.classList.add(...tileClass(cell).split(" "))
         item.button.disabled = state.phase !== "playing"
         item.glyph.textContent = cell === null ? (isLanding ? "" : "·") : tileText(cell)
@@ -376,11 +430,19 @@ export function view(
           "aria-label",
           `Column ${x + 1}, row ${y + 1}: ${cellLabel(cell)}${
             isCursor ? ", selected column" : ""
-          }${state.phase === "playing" ? ", click to drop here" : ""}`,
+          }${clearsHere ? ", would clear" : ""}${breaksHere ? ", would break" : ""}${
+            state.phase === "playing" ? ", click to drop here" : ""
+          }`,
         )
         if (isLanding) item.button.setAttribute("aria-current", "true")
         else item.button.removeAttribute("aria-current")
       }
+    }
+
+    // The guide stays open until the first drop, then gets out of the way.
+    if (state.dropsUsed > 0 && !helpDismissed) {
+      helpDismissed = true
+      setHelp(false)
     }
 
     const playing = state.phase === "playing"
@@ -395,8 +457,15 @@ export function view(
         ? `The stack overflowed at depth ${state.depth}. Chain points ${state.chainPoints}.`
         : `No room left after ${state.dropsUsed} drops. ${state.clearedTiles}/${SKIRMISH_TARGET_CLEARS} tiles cleared.`
     } else {
+      const clears = dropPreview?.clears.length ?? 0
+      const broke = dropPreview?.cracked.length ?? 0
+      const rule = "A tile clears when its number equals the tiles in its row or column run."
       hint.textContent =
-        "← → select · Space / Enter drop · 1–7 direct drop · Tile clears when its number matches its run."
+        clears > 0
+          ? `Dropping ${tileText(state.currentTile)} in column ${cursor + 1} clears ${clears} tile${
+              clears === 1 ? "" : "s"
+            }${broke > 0 ? ` and breaks ${broke} cracked` : ""}. ${rule}`
+          : `Nothing clears in column ${cursor + 1} yet — try a column where the number matches the run. ${rule}`
     }
 
     if (state.dropsUsed !== lastDrops || state.phase !== lastPhase) {
@@ -412,6 +481,7 @@ export function view(
   }
 
   let cursor = 3
+  let helpDismissed = false
   let lastDrops = 0
   let lastPhase = "playing"
   let lastPoints = 0
@@ -453,12 +523,48 @@ export function view(
   dropBtn.setAttribute("aria-label", "Drop the current tile into the selected column")
   controls.append(prevBtn, nextBtn, dropBtn)
 
+  const helpBtn = el("button", "tc-btn", "How to play")
+  helpBtn.type = "button"
+  helpBtn.dataset.tcControl = "true"
+  helpBtn.setAttribute("aria-expanded", "true")
+  controls.append(helpBtn)
+
+  const help = el("div", "tc-help")
+  help.append(
+    el("h3", "", "How to play"),
+    (() => {
+      const list = el("ul", "")
+      for (const line of [
+        "One tile at a time — pick a column and the tile drops to the bottom of that stack. Nothing falls or rotates, so this is not Tetris.",
+        "A tile clears when its number equals how many numbered tiles sit in its unbroken row or column run. A 4 needs a run of four.",
+        "Clears cascade: tiles fall, runs re-form, and later waves score more (wave squared).",
+        "Cracked tiles never count toward a run and only break when they sit next to a clearing tile.",
+        "Skirmish: clear 25 tiles within 35 drops. Endless: a cracked row rises every 10 drops.",
+        "The outlined tiles are what your current column would clear if you dropped now.",
+      ])
+        list.append(el("li", "", line))
+      return list
+    })(),
+  )
+
   const hint = el("p", "tc-hint")
+  const setHelp = (open: boolean): void => {
+    help.hidden = !open
+    helpBtn.textContent = open ? "Hide guide" : "How to play"
+    helpBtn.setAttribute("aria-expanded", open ? "true" : "false")
+  }
+  setHelp(true)
+  helpBtn.addEventListener("click", () => {
+    const open = help.hasAttribute("hidden")
+    if (!open) helpDismissed = true
+    setHelp(open)
+  })
+
   const live = el("div", "tc-sr")
   live.setAttribute("aria-live", "polite")
   live.setAttribute("aria-atomic", "true")
 
-  wrap.append(bar, preview, board, controls, hint, live)
+  wrap.append(bar, preview, board, controls, help, hint, live)
   ctx.container.append(wrap)
 
   const move = (delta: number): void => {
@@ -497,6 +603,8 @@ export function view(
       key === "D" ||
       key === " " ||
       key === "Enter" ||
+      key === "h" ||
+      key === "H" ||
       digit
 
     if (!handled) return
@@ -506,6 +614,13 @@ export function view(
     // Claim a held key so it never scrolls the shell, but never repeat a drop.
     event.preventDefault()
     if (event.repeat) return
+
+    if (key === "h" || key === "H") {
+      const open = help.hasAttribute("hidden")
+      if (!open) helpDismissed = true
+      setHelp(open)
+      return
+    }
 
     if (ctx.state().phase !== "playing") return
 
