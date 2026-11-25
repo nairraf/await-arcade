@@ -12,6 +12,7 @@ import {
   type Cell,
   type TilechainInput,
   type TilechainState,
+  previewDrop,
 } from "./core"
 import { meta } from "./meta"
 import fixture from "../replay.json"
@@ -523,5 +524,68 @@ describe("tilechain replay fixture", () => {
     expect(played.score.value).toBe(760)
     expect(played.score.won).toBe(true)
     expect(played.score.ranked).toBe(true)
+  })
+})
+
+describe("tilechain drop preview", () => {
+  const skirmish = meta.modes.find((mode) => mode.id === "skirmish")!
+
+  it("reports the landing row and no clears for a neutral drop", () => {
+    const state = core.create(7, skirmish)
+    const preview = previewDrop(state, 3)!
+    expect(preview).not.toBeNull()
+    expect(preview.landing).toBe(6)
+    expect(preview.clears).toEqual([])
+    expect(preview.cracked).toEqual([])
+  })
+
+  it("reports the landing row as the top of an existing stack", () => {
+    const state = core.create(7, skirmish)
+    const preview = previewDrop(state, 0)!
+    // The seeded valley is [2,1,2,0,2,1,2], so column 0 holds two tiles.
+    expect(preview.landing).toBe(4)
+  })
+
+  it("refuses a full column, an out-of-range column and a finished run", () => {
+    let state = core.create(7, skirmish)
+    for (let i = 0; i < 5; i += 1) state = core.step(state, [{ type: "drop", col: 0 }], 0)
+    const fullish = previewDrop(state, 0)
+    if (state.board[0]![0] !== null) expect(fullish).toBeNull()
+
+    expect(previewDrop(state, -1)).toBeNull()
+    expect(previewDrop(state, 7)).toBeNull()
+    expect(previewDrop({ ...state, phase: "lost" }, 3)).toBeNull()
+  })
+
+  it("shows the tiles that would clear, including the dropped one", () => {
+    // Hand-built board: column 0 holds three tiles, so a dropped 4 completes a
+    // vertical run of four and only the 4 itself matches that run length.
+    const base = core.create(7, skirmish)
+    const board: Cell[][] = Array.from({ length: ROWS }, () => Array<Cell>(COLS).fill(null))
+    // Horizontal runs are all 1 and the vertical run is 4, so only the dropped 4
+    // matches a run length; 5, 6 and 7 do not.
+    board[4]![0] = 5
+    board[5]![0] = 6
+    board[6]![0] = 7
+    const state: TilechainState = { ...base, board, currentTile: 4 }
+
+    const preview = previewDrop(state, 0)!
+    expect(preview.landing).toBe(3)
+    // Only the dropped 4 matches the run length of four; the 9s need a run of
+    // nine, so joining a run is not the same as clearing it.
+    expect(preview.clears).toEqual([{ x: 0, y: 3 }])
+    expect(preview.cracked).toEqual([])
+
+    // The preview agrees with what the real drop clears.
+    const after = core.step(state, [{ type: "drop", col: 0 }], 0)
+    expect(after.clearedTiles).toBe(state.clearedTiles + 1)
+  })
+
+  it("does not mutate the state it previews", () => {
+    const state = core.create(9, skirmish)
+    const before = JSON.stringify(core.serialize(state))
+    previewDrop(state, 3)
+    previewDrop(state, 0)
+    expect(JSON.stringify(core.serialize(state))).toBe(before)
   })
 })
