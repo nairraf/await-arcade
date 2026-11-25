@@ -2,16 +2,12 @@ import { describe, expect, it } from "vitest"
 import { playTurn } from "@await-arcade/framework"
 import {
   EAST,
-  MAX_SCORE,
   NORTH,
-  OVER_PAR_PENALTY,
   SOUTH,
   WEST,
-  WIN_FLOOR,
   analyzeCircuit,
   core,
   generateBoard,
-  modeBase,
   periodOf,
   previewRotate,
   rotateCCW,
@@ -457,21 +453,41 @@ describe("score invariance", () => {
     expect(fast.won).toBe(slow.won)
     expect(fast.ranked).toBe(slow.ranked)
     expect(fast.detail).toEqual(slow.detail)
-    expect(fast.value).toBe(modeBase("easy"))
+    expect(fast.value).toBe(2500)
   })
 
-  it("drops by exactly 50 per turn over par and floors at 100", () => {
-    const generated = generateBoard(20260420, specFor("easy"))
-    const overPar = 12
-    const won: RouterState = {
-      ...core.create(20260420, easy),
-      masks: [...generated.solvedMasks],
-      rotationsUsed: generated.par + overPar,
-      phase: "won",
-    }
-    expect(core.score(won, { elapsedMs: 0, ticks: 0 }).value).toBe(
-      Math.min(MAX_SCORE, Math.max(WIN_FLOOR, modeBase("easy") - overPar * OVER_PAR_PENALTY)),
-    )
+  it("scores concrete base, over-par, and floor values", () => {
+    const easyBoard = generateBoard(20260420, specFor("easy"))
+    const hardBoard = generateBoard(20260420, specFor("hard"))
+    const easyScore = (rotationsUsed: number): number =>
+      core.score(
+        {
+          ...core.create(20260420, easy),
+          masks: [...easyBoard.solvedMasks],
+          par: easyBoard.par,
+          rotationsUsed,
+          phase: "won",
+        },
+        { elapsedMs: 0, ticks: 0 },
+      ).value
+    const hardScore = (rotationsUsed: number): number =>
+      core.score(
+        {
+          ...core.create(20260420, hard),
+          masks: [...hardBoard.solvedMasks],
+          par: hardBoard.par,
+          rotationsUsed,
+          phase: "won",
+        },
+        { elapsedMs: 0, ticks: 0 },
+      ).value
+
+    expect(easyScore(easyBoard.par)).toBe(2500)
+    expect(easyScore(easyBoard.par - 1)).toBe(2500)
+    expect(hardScore(hardBoard.par)).toBe(5000)
+    expect(hardScore(hardBoard.par - 1)).toBe(5000)
+    expect(easyScore(easyBoard.par + 12)).toBe(1900)
+    expect(easyScore(easyBoard.par + 60)).toBe(100)
   })
 })
 
@@ -635,13 +651,16 @@ describe("replay fixture", () => {
   })
 
   it("has the brief's pinned shape and a verified replay", () => {
-    expect(played.state.par).toBe(generated.par)
-    expect(inputs.length).toBe(generated.par + 2)
-    expect(played.state.rotationsUsed).toBe(generated.par + 2)
+    expect(generated.par).toBe(19)
+    expect(played.state.par).toBe(19)
+    expect(inputs.length).toBe(21)
+    expect(played.state.rotationsUsed).toBe(21)
     expect(played.state.phase).toBe("won")
     expect(played.score.value).toBe(2400)
     expect(played.verified.ok).toBe(true)
     expect(fixture.gameId).toBe("router")
-    expect(fixture.inputs.length).toBe(inputs.length)
+    expect(fixture.gameVersion).toBe(meta.version)
+    expect(fixture.stateHash).toBe(played.replay.stateHash)
+    expect(fixture.inputs.length).toBe(21)
   })
 })

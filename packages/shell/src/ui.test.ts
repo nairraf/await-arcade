@@ -265,6 +265,22 @@ describe("shell format and board normalisation helpers", () => {
     }
     expect(formatBoardScore(endlessScore, tilechainMeta)).toBe("440 · L3")
     expect(formatDailyScore(endlessScore, tilechainMeta)).toBe("440 · L3 · 25.0s · try 2")
+
+    const routerMeta: GameMeta = {
+      ...makeMeta({
+        score: { type: "higher", min: 0, max: 10_000, unit: "points" },
+      }),
+      id: "router",
+    }
+    const routerScore: Score = {
+      value: 2400,
+      type: "higher",
+      won: true,
+      ranked: true,
+      detail: { elapsedMs: 42_300, attempt: 2, rankKey: "007600|0000042300" },
+    }
+    expect(formatBoardScore(routerScore, routerMeta)).toBe("2,400 · 42.3s")
+    expect(formatDailyScore(routerScore, routerMeta)).toBe("2,400 · 42.3s · try 2")
   })
 
   it("compares lower-is-better and higher-is-better scores accurately", () => {
