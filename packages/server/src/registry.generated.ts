@@ -5,20 +5,22 @@ import { core as core0 } from "../../../games/brickstorm/src/core"
 import { meta as meta0 } from "../../../games/brickstorm/src/meta"
 import { core as core1 } from "../../../games/codebreaker/src/core"
 import { meta as meta1 } from "../../../games/codebreaker/src/meta"
-import { core as core2 } from "../../../games/light-cycles/src/core"
-import { meta as meta2 } from "../../../games/light-cycles/src/meta"
-import { core as core3 } from "../../../games/lockstep/src/core"
-import { meta as meta3 } from "../../../games/lockstep/src/meta"
-import { core as core4 } from "../../../games/mergegrid/src/core"
-import { meta as meta4 } from "../../../games/mergegrid/src/meta"
-import { core as core5 } from "../../../games/mineflag/src/core"
-import { meta as meta5 } from "../../../games/mineflag/src/meta"
-import { core as core6 } from "../../../games/nonogram/src/core"
-import { meta as meta6 } from "../../../games/nonogram/src/meta"
-import { core as core7 } from "../../../games/router/src/core"
-import { meta as meta7 } from "../../../games/router/src/meta"
-import { core as core8 } from "../../../games/tilechain/src/core"
-import { meta as meta8 } from "../../../games/tilechain/src/meta"
+import { core as core2 } from "../../../games/crates/src/core"
+import { meta as meta2 } from "../../../games/crates/src/meta"
+import { core as core3 } from "../../../games/light-cycles/src/core"
+import { meta as meta3 } from "../../../games/light-cycles/src/meta"
+import { core as core4 } from "../../../games/lockstep/src/core"
+import { meta as meta4 } from "../../../games/lockstep/src/meta"
+import { core as core5 } from "../../../games/mergegrid/src/core"
+import { meta as meta5 } from "../../../games/mergegrid/src/meta"
+import { core as core6 } from "../../../games/mineflag/src/core"
+import { meta as meta6 } from "../../../games/mineflag/src/meta"
+import { core as core7 } from "../../../games/nonogram/src/core"
+import { meta as meta7 } from "../../../games/nonogram/src/meta"
+import { core as core8 } from "../../../games/router/src/core"
+import { meta as meta8 } from "../../../games/router/src/meta"
+import { core as core9 } from "../../../games/tilechain/src/core"
+import { meta as meta9 } from "../../../games/tilechain/src/meta"
 
 export const verifiers: Record<string, VerifierEntry> = {
   [meta0.id]: { meta: meta0, core: core0 },
@@ -30,4 +32,5 @@ export const verifiers: Record<string, VerifierEntry> = {
   [meta6.id]: { meta: meta6, core: core6 },
   [meta7.id]: { meta: meta7, core: core7 },
   [meta8.id]: { meta: meta8, core: core8 },
+  [meta9.id]: { meta: meta9, core: core9 },
 }

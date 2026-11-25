@@ -45,7 +45,10 @@ export function formatBoardScore(score: Score, meta: GameMeta): string {
   if (depth) return `${base} · ${depth}`
   const elapsed = score.detail?.elapsedMs
   if (
-    (meta.id === "nonogram" || meta.id === "router" || meta.id === "tilechain") &&
+    (meta.id === "nonogram" ||
+      meta.id === "router" ||
+      meta.id === "tilechain" ||
+      meta.id === "crates") &&
     typeof elapsed === "number" &&
     Number.isFinite(elapsed) &&
     elapsed >= 0
@@ -65,7 +68,10 @@ export function formatDailyScore(score: Score, meta: GameMeta): string {
     return `${moves} mv · ${formatDuration(elapsed)}${tryLabel}`
   }
   if (
-    (meta.id === "nonogram" || meta.id === "router" || meta.id === "tilechain") &&
+    (meta.id === "nonogram" ||
+      meta.id === "router" ||
+      meta.id === "tilechain" ||
+      meta.id === "crates") &&
     typeof elapsed === "number" &&
     Number.isFinite(elapsed) &&
     elapsed >= 0

@@ -71,6 +71,7 @@ function usesRankKey(gameId: string, challengeId?: string): boolean {
     gameId === "nonogram" ||
     gameId === "router" ||
     gameId === "tilechain" ||
+    gameId === "crates" ||
     (gameId === "mineflag" && Boolean(challengeId))
   )
 }
@@ -772,7 +773,8 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
         } else if (
           run.gameId === "nonogram" ||
           run.gameId === "router" ||
-          run.gameId === "tilechain"
+          run.gameId === "tilechain" ||
+          run.gameId === "crates"
         ) {
           // The ranked value is the verifier's own: pure, replay-derived, and
           // identical whenever the same replay is checked. Elapsed time is a

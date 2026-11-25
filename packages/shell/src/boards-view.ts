@@ -257,7 +257,8 @@ export async function renderBoardsView(options: ShowBoardsOptions): Promise<void
       ? "Daily rank: moves, then server time. Attempts are shown only."
       : entry.meta.id === "nonogram" ||
           entry.meta.id === "router" ||
-          entry.meta.id === "tilechain"
+          entry.meta.id === "tilechain" ||
+          entry.meta.id === "crates"
         ? daily
           ? "Daily rank: score, then server time. Attempts are shown only."
           : "Rank: score, then server time."

@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "gameId": "crates",
+  "gameVersion": "1.0.0",
+  "frameworkVersion": "0.1.0",
+  "modeId": "easy",
+  "seed": 20260421,
+  "kind": "turn",
+  "durationMs": 30000,
+  "inputs": [
+    {
+      "tick": 0,
+      "input": {
+        "type": "move",
+        "dir": "up"
+      }
+    },
+    {
+      "tick": 1,
+      "input": {
+        "type": "move",
+        "dir": "down"
+      }
+    },
+    {
+      "tick": 2,
+      "input": {
+        "type": "move",
+        "dir": "right"
+      }
+    },
+    {
+      "tick": 3,
+      "input": {
+        "type": "move",
+        "dir": "right"
+      }
+    },
+    {
+      "tick": 4,
+      "input": {
+        "type": "move",
+        "dir": "right"
+      }
+    },
+    {
+      "tick": 5,
+      "input": {
+        "type": "move",
+        "dir": "down"
+      }
+    },
+    {
+      "tick": 6,
+      "input": {
+        "type": "move",
+        "dir": "right"
+      }
+    },
+    {
+      "tick": 7,
+      "input": {
+        "type": "move",
+        "dir": "up"
+      }
+    },
+    {
+      "tick": 8,
+      "input": {
+        "type": "move",
+        "dir": "up"
+      }
+    },
+    {
+      "tick": 9,
+      "input": {
+        "type": "move",
+        "dir": "left"
+      }
+    },
+    {
+      "tick": 10,
+      "input": {
+        "type": "move",
+        "dir": "left"
+      }
+    },
+    {
+      "tick": 11,
+      "input": {
+        "type": "move",
+        "dir": "up"
+      }
+    },
+    {
+      "tick": 12,
+      "input": {
+        "type": "move",
+        "dir": "left"
+      }
+    },
+    {
+      "tick": 13,
+      "input": {
+        "type": "move",
+        "dir": "up"
+      }
+    },
+    {
+      "tick": 14,
+      "input": {
+        "type": "move",
+        "dir": "right"
+      }
+    },
+    {
+      "tick": 15,
+      "input": {
+        "type": "move",
+        "dir": "right"
+      }
+    }
+  ],
+  "stateHash": "e3ed65ed"
+}
