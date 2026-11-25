@@ -256,6 +256,22 @@ describe("shell format and board normalisation helpers", () => {
     expect(formatBoardScore(skirmishScore, tilechainMeta)).toBe("3,795 · 18.4s")
     expect(formatDailyScore(skirmishScore, tilechainMeta)).toBe("3,795 · 18.4s · try 1")
 
+    const cratesMeta: GameMeta = {
+      ...makeMeta({
+        score: { type: "higher", min: 0, max: 10_000, unit: "points" },
+      }),
+      id: "crates",
+    }
+    const cratesScore: Score = {
+      value: 2_000,
+      type: "higher",
+      won: true,
+      ranked: true,
+      detail: { par: 14, movesUsed: 14, elapsedMs: 18_400, attempt: 1, rankKey: "008000|0000018400" },
+    }
+    expect(formatBoardScore(cratesScore, cratesMeta)).toBe("2,000 · 18.4s")
+    expect(formatDailyScore(cratesScore, cratesMeta)).toBe("2,000 · 18.4s · try 1")
+
     const endlessScore: Score = {
       value: 440,
       type: "higher",

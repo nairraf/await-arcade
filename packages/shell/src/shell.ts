@@ -331,7 +331,8 @@ export function createArcade(options: ArcadeOptions): Arcade {
     } else if (
       entry.meta.id === "nonogram" ||
       entry.meta.id === "router" ||
-      entry.meta.id === "tilechain"
+      entry.meta.id === "tilechain" ||
+      entry.meta.id === "crates"
     ) {
       body.append(
         el("div", "arcade-mode-hint", "Daily rank: score, then server time. Attempts are shown only."),
@@ -1089,7 +1090,8 @@ export function createArcade(options: ArcadeOptions): Arcade {
           elapsed !== undefined &&
           (entry.meta.id === "nonogram" ||
             entry.meta.id === "router" ||
-            entry.meta.id === "tilechain")
+            entry.meta.id === "tilechain" ||
+            entry.meta.id === "crates")
         ) {
           detailParts.push(
             `Attempt ${attempt} · server ${formatDuration(elapsed)}.`,
@@ -1101,7 +1103,8 @@ export function createArcade(options: ArcadeOptions): Arcade {
         !daily &&
         (entry.meta.id === "nonogram" ||
           entry.meta.id === "router" ||
-          entry.meta.id === "tilechain")
+          entry.meta.id === "tilechain" ||
+          entry.meta.id === "crates")
       ) {
         const serverElapsed = submit.score?.detail?.elapsedMs
         detailParts.push(

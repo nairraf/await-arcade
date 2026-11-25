@@ -32,6 +32,9 @@ import {
 } from "../games/router/src/core"
 import type { RouterInput } from "../games/router/src/core"
 import { meta as routerMeta } from "../games/router/src/meta"
+import { core as crateCore, generateBoard } from "../games/crates/src/core"
+import { meta as crateMeta } from "../games/crates/src/meta"
+import type { CrateInput } from "../games/crates/src/core"
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 
@@ -245,6 +248,26 @@ const router = playTurn(routerCore, routerMeta, {
   durationMs: 60_000,
 })
 
+/**
+ * Crate Pusher fixture: one deliberate walk detour (up then down) followed by
+ * the true-optimal 14-move solution for seed 20260421 on easy. Sixteen committed
+ * moves against par 14 score 2000 - 2 × 50 = 1900.
+ */
+const CRATES_MODE = crateMeta.modes.find((mode) => mode.id === "easy")!
+const CRATES_SEED = 20260421
+const cratesBoard = generateBoard(CRATES_SEED, "easy")
+const cratesScript: CrateInput[] = [
+  { type: "move", dir: "up" },
+  { type: "move", dir: "down" },
+  ...cratesBoard.optimalSolution,
+]
+const crates = playTurn(crateCore, crateMeta, {
+  seed: CRATES_SEED,
+  mode: CRATES_MODE,
+  inputs: cratesScript,
+  durationMs: 30_000,
+})
+
 if (!mines.verified.ok) throw new Error(`mineflag fixture failed: ${mines.verified.reason}`)
 if (!cycles.verified.ok) throw new Error(`light-cycles fixture failed: ${cycles.verified.reason}`)
 if (!merge.verified.ok) throw new Error(`mergegrid fixture failed: ${merge.verified.reason}`)
@@ -254,6 +277,7 @@ if (!code.verified.ok) throw new Error(`codebreaker fixture failed: ${code.verif
 if (!nonogram.verified.ok) throw new Error(`nonogram fixture failed: ${nonogram.verified.reason}`)
 if (!tilechain.verified.ok) throw new Error(`tilechain fixture failed: ${tilechain.verified.reason}`)
 if (!router.verified.ok) throw new Error(`router fixture failed: ${router.verified.reason}`)
+if (!crates.verified.ok) throw new Error(`crates fixture failed: ${crates.verified.reason}`)
 if (code.state.attemptsUsed !== 2 || code.score.value !== 900) {
   throw new Error(
     `codebreaker fixture shape drifted: attempts=${code.state.attemptsUsed} score=${code.score.value}`,
@@ -292,6 +316,18 @@ if (
     `router fixture shape drifted: expected par=19 inputs=21 rotations=21 score=3076 version=${routerMeta.version}; got par=${routerGenerated.par} statePar=${router.state.par} inputs=${routerScript.length} rotations=${router.state.rotationsUsed} phase=${router.state.phase} score=${router.score.value} version=${router.replay.gameVersion}`,
   )
 }
+if (
+  cratesScript.length !== 16 ||
+  crates.replay.gameVersion !== "1.0.0" ||
+  cratesBoard.par !== 14 ||
+  crates.state.phase !== "won" ||
+  crates.state.movesUsed !== 16 ||
+  crates.score.value !== 1900
+) {
+  throw new Error(
+    `crates fixture shape drifted: inputs=${cratesScript.length} version=${crates.replay.gameVersion} par=${cratesBoard.par} phase=${crates.state.phase} moves=${crates.state.movesUsed} score=${crates.score.value}`,
+  )
+}
 
 writeFileSync(path.join(root, "games/mineflag/replay.json"), `${JSON.stringify(mines.replay, null, 2)}\n`)
 writeFileSync(path.join(root, "games/light-cycles/replay.json"), `${JSON.stringify(cycles.replay, null, 2)}\n`)
@@ -302,6 +338,7 @@ writeFileSync(path.join(root, "games/codebreaker/replay.json"), `${JSON.stringif
 writeFileSync(path.join(root, "games/nonogram/replay.json"), `${JSON.stringify(nonogram.replay, null, 2)}\n`)
 writeFileSync(path.join(root, "games/tilechain/replay.json"), `${JSON.stringify(tilechain.replay, null, 2)}\n`)
 writeFileSync(path.join(root, "games/router/replay.json"), `${JSON.stringify(router.replay, null, 2)}\n`)
+writeFileSync(path.join(root, "games/crates/replay.json"), `${JSON.stringify(crates.replay, null, 2)}\n`)
 
 console.log(`mineflag: ${mines.state.phase} score=${mines.score.value} verified=${mines.verified.ok}`)
 console.log(`light-cycles: ${cycles.state.phase} score=${cycles.score.value} verified=${cycles.verified.ok}`)
@@ -312,3 +349,4 @@ console.log(`codebreaker: ${code.state.phase} score=${code.score.value} verified
 console.log(`nonogram: ${nonogram.state.phase} score=${nonogram.score.value} verified=${nonogram.verified.ok}`)
 console.log(`tilechain: ${tilechain.state.phase} score=${tilechain.score.value} verified=${tilechain.verified.ok}`)
 console.log(`router: ${router.state.phase} score=${router.score.value} verified=${router.verified.ok}`)
+console.log(`crates: ${crates.state.phase} score=${crates.score.value} verified=${crates.verified.ok}`)
