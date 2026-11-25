@@ -2,14 +2,17 @@ import type { GameView, ViewContext } from "@await-arcade/contract"
 import { el, ensureStyle } from "@await-arcade/framework"
 import {
   COLS,
+  ENDLESS_DROPS_PER_DEPTH,
   ROWS,
   SKIRMISH_MAX_DROPS,
   SKIRMISH_TARGET_CLEARS,
+  type CascadeWave,
   type Cell,
   type Tile,
   type TilechainInput,
   type TilechainState,
   previewDrop,
+  traceDrop,
 } from "./core"
 
 const css = `
@@ -63,6 +66,63 @@ const css = `
 .tc-stat.is-warn {
   color: var(--game-accent-2, #f59e0b);
   border-color: color-mix(in srgb, var(--game-accent-2, #f59e0b) 38%, transparent);
+}
+
+.tc-goal {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 7px 10px;
+  border: 1px solid color-mix(in srgb, var(--game-accent, #38bdf8) 32%, transparent);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--game-accent, #38bdf8) 6%, transparent);
+}
+
+.tc-goal.is-warn {
+  border-color: color-mix(in srgb, var(--game-accent-2, #f59e0b) 48%, transparent);
+  background: color-mix(in srgb, var(--game-accent-2, #f59e0b) 7%, transparent);
+}
+
+.tc-goal-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tc-goal-target {
+  font-weight: 700;
+  color: var(--arcade-fg, #e8eef5);
+}
+
+.tc-goal-left {
+  font-weight: 600;
+  color: var(--game-accent, #38bdf8);
+}
+
+.tc-goal.is-warn .tc-goal-left {
+  color: var(--game-accent-2, #f59e0b);
+}
+
+.tc-goal-track {
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--arcade-fg, #e8eef5) 12%, transparent);
+  overflow: hidden;
+}
+
+.tc-goal-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: var(--game-accent, #38bdf8);
+  transition: width 180ms ease-out;
+}
+
+.tc-goal.is-warn .tc-goal-fill {
+  background: var(--game-accent-2, #f59e0b);
 }
 
 .tc-preview {
@@ -260,7 +320,70 @@ const css = `
 }
 
 .tc-cell.is-would-break {
-  box-shadow: inset 0 0 0 2px #f59e0b;
+  box-shadow: inset 0 0 0 2px var(--game-accent-2, #f59e0b);
+}
+
+@keyframes tc-land {
+  0% {
+    transform: translateY(-7px) scale(1.06);
+    box-shadow: 0 0 0 2px var(--game-accent, #38bdf8);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    box-shadow: none;
+  }
+}
+
+@keyframes tc-pop {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 2px var(--game-accent, #38bdf8);
+  }
+  35% {
+    transform: scale(1.13);
+    background: color-mix(in srgb, var(--game-accent, #38bdf8) 38%, transparent);
+    border-color: var(--game-accent, #38bdf8);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--game-accent, #38bdf8) 70%, transparent);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.62);
+    background: color-mix(in srgb, var(--game-accent, #38bdf8) 20%, transparent);
+    border-color: var(--game-accent, #38bdf8);
+    opacity: 0.14;
+  }
+}
+
+@keyframes tc-shatter {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 2px var(--game-accent-2, #f59e0b);
+  }
+  35% {
+    transform: scale(1.1) rotate(-4deg);
+    background: color-mix(in srgb, var(--game-accent-2, #f59e0b) 36%, transparent);
+    border-color: var(--game-accent-2, #f59e0b);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--game-accent-2, #f59e0b) 65%, transparent);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.6) rotate(6deg);
+    opacity: 0.14;
+  }
+}
+
+.tc-cell.is-landed {
+  animation: tc-land 190ms ease-out;
+}
+
+.tc-cell.is-popping {
+  z-index: 1;
+  animation: tc-pop 260ms ease-out forwards;
+}
+
+.tc-cell.is-breaking {
+  z-index: 1;
+  animation: tc-shatter 260ms ease-out forwards;
 }
 
 .tc-help {
@@ -269,7 +392,7 @@ const css = `
   border: 1px solid color-mix(in srgb, var(--game-accent, #38bdf8) 35%, transparent);
   border-radius: 10px;
   background: color-mix(in srgb, var(--game-accent, #38bdf8) 8%, transparent);
-  color: var(--arcade-text, #e6edf6);
+  color: var(--arcade-fg, #e8eef5);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -278,12 +401,46 @@ const css = `
   display: none;
 }
 
+.tc-help-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
 .tc-help h3 {
-  margin: 0 0 6px;
-  font-size: 12px;
+  margin: 0;
+  font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--game-accent, #38bdf8);
+}
+
+.tc-help-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--arcade-muted, #8b98a9);
+}
+
+.tc-help-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tc-help-swatch::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 2px var(--game-accent, #38bdf8);
+}
+
+.tc-help-swatch.is-break::before {
+  box-shadow: inset 0 0 0 2px var(--game-accent-2, #f59e0b);
 }
 
 .tc-help ul {
@@ -292,11 +449,15 @@ const css = `
 }
 
 .tc-help li {
-  margin: 0 0 4px;
+  margin: 0 0 5px;
 }
 
 .tc-help li:last-child {
   margin-bottom: 0;
+}
+
+.tc-help strong {
+  color: var(--arcade-fg, #e8eef5);
 }
 
 .tc-hint {
@@ -321,8 +482,14 @@ const css = `
 
 @media (prefers-reduced-motion: reduce) {
   .tc-cell,
-  .tc-btn {
+  .tc-btn,
+  .tc-goal-fill {
     transition: none;
+  }
+  .tc-cell.is-landed,
+  .tc-cell.is-popping,
+  .tc-cell.is-breaking {
+    animation: none;
   }
 }
 `
@@ -363,11 +530,19 @@ export function view(
 
   const bar = el("div", "tc-bar")
   const modeStat = el("span", "tc-stat is-accent")
-  const dropsStat = el("span", "tc-stat")
-  const clearsStat = el("span", "tc-stat")
   const chainStat = el("span", "tc-stat is-warn")
   const pointsStat = el("span", "tc-stat")
-  bar.append(modeStat, dropsStat, clearsStat, chainStat, pointsStat)
+  bar.append(modeStat, chainStat, pointsStat)
+
+  const goalBox = el("div", "tc-goal")
+  const goalRow = el("div", "tc-goal-row")
+  const goalTarget = el("span", "tc-goal-target")
+  const goalLeft = el("span", "tc-goal-left")
+  goalRow.append(goalTarget, goalLeft)
+  const goalTrack = el("div", "tc-goal-track")
+  const goalFill = el("div", "tc-goal-fill")
+  goalTrack.append(goalFill)
+  goalBox.append(goalRow, goalTrack)
 
   const preview = el("div", "tc-preview")
   const currentWrap = el("div", "tc-next")
@@ -384,45 +559,59 @@ export function view(
 
   const cells: Array<{ button: HTMLButtonElement; glyph: HTMLElement }> = []
 
-  const paint = (state: TilechainState): void => {
-    const endless = state.modeId === "endless"
-    modeStat.textContent = endless ? "Endless" : "Skirmish"
-    dropsStat.textContent = endless
-      ? `Depth ${state.depth}`
-      : `Drops ${state.dropsUsed}/${SKIRMISH_MAX_DROPS}`
-    clearsStat.textContent = endless
-      ? `Clears ${state.clearedTiles}`
-      : `Clears ${state.clearedTiles}/${SKIRMISH_TARGET_CLEARS}`
-    chainStat.textContent = `Chain ×${state.maxChain}`
-    pointsStat.textContent = `Chain pts ${state.chainPoints}`
+  interface BoardVisual {
+    readonly board: readonly (readonly Cell[])[]
+    readonly popping: ReadonlySet<string>
+    readonly breaking: ReadonlySet<string>
+    readonly landedKey: string | null
+  }
 
-    currentMini.textContent = tileText(state.currentTile)
-    currentMini.className = `tc-mini is-current ${tileClass(state.currentTile)}`
-    nextMini.textContent = tileText(state.nextTile)
-    nextMini.className = `tc-mini ${tileClass(state.nextTile)}`
+  const prefersReducedMotion = (): boolean =>
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
-    const landing = state.phase === "playing" ? landingRow(state, cursor) : -1
-    const dropPreview = state.phase === "playing" ? previewDrop(state, cursor) : null
+  const cancelAnim = (): void => {
+    if (animTimer !== null) {
+      clearTimeout(animTimer)
+      animTimer = null
+    }
+    animVisual = null
+    landedHighlight = null
+  }
+
+  const renderCells = (state: TilechainState, visual: BoardVisual | null): void => {
+    const activeBoard = visual ? visual.board : state.board
+    const showPreview = visual === null && state.phase === "playing"
+    const landing = showPreview ? landingRow(state, cursor) : -1
+    const dropPreview = showPreview ? previewDrop(state, cursor) : null
     const willClear = new Set((dropPreview?.clears ?? []).map((point) => `${point.x},${point.y}`))
     const willBreak = new Set((dropPreview?.cracked ?? []).map((point) => `${point.x},${point.y}`))
+    const landedKey = visual ? visual.landedKey : landedHighlight
 
     for (let y = 0; y < ROWS; y += 1) {
       for (let x = 0; x < COLS; x += 1) {
         const index = y * COLS + x
         const item = cells[index]!
-        const cell = state.board[y]![x]!
-        const isCursor = x === cursor
-        const isLanding = x === cursor && y === landing
+        const cell = activeBoard[y]![x]!
+        const isCursor = showPreview && x === cursor
+        const isLanding = showPreview && x === cursor && y === landing
 
         const key = `${x},${y}`
         const clearsHere = willClear.has(key)
         const breaksHere = willBreak.has(key)
+        const isPopping = visual?.popping.has(key) ?? false
+        const isBreaking = visual?.breaking.has(key) ?? false
+        const isLanded = landedKey === key && !isPopping && !isBreaking
 
         item.button.className = "tc-cell"
         if (isCursor) item.button.classList.add("is-cursor")
         if (isLanding) item.button.classList.add("is-landing")
         if (clearsHere) item.button.classList.add("is-would-clear")
         if (breaksHere) item.button.classList.add("is-would-break")
+        if (isLanded) item.button.classList.add("is-landed")
+        if (isPopping) item.button.classList.add("is-popping")
+        if (isBreaking) item.button.classList.add("is-breaking")
         if (cell !== null) item.button.classList.add(...tileClass(cell).split(" "))
         item.button.disabled = state.phase !== "playing"
         item.glyph.textContent = cell === null ? (isLanding ? "" : "·") : tileText(cell)
@@ -438,11 +627,71 @@ export function view(
         else item.button.removeAttribute("aria-current")
       }
     }
+  }
 
-    // The guide stays open until the first drop, then gets out of the way.
+  const playWave = (
+    waves: readonly CascadeWave[],
+    landedKey: string,
+    finalState: TilechainState,
+    waveIndex: number,
+  ): void => {
+    const wave = waves[waveIndex]
+    if (!wave) {
+      animTimer = null
+      animVisual = null
+      renderCells(finalState, null)
+      return
+    }
+
+    animVisual = {
+      board: wave.board,
+      popping: new Set(wave.clears.map((point) => `${point.x},${point.y}`)),
+      breaking: new Set(wave.cracked.map((point) => `${point.x},${point.y}`)),
+      landedKey: waveIndex === 0 ? landedKey : null,
+    }
+    renderCells(finalState, animVisual)
+    animTimer = window.setTimeout(() => {
+      playWave(waves, landedKey, finalState, waveIndex + 1)
+    }, 260)
+  }
+
+  const paint = (state: TilechainState): void => {
+    const endless = state.modeId === "endless"
+    modeStat.textContent = endless ? `Endless · Depth ${state.depth}` : "Skirmish"
+    chainStat.textContent = `Chain ×${state.maxChain}`
+    pointsStat.textContent = `Pts ${state.chainPoints}`
+
+    if (endless) {
+      const intoCycle = state.dropsUsed % ENDLESS_DROPS_PER_DEPTH
+      const untilPush = ENDLESS_DROPS_PER_DEPTH - intoCycle
+      const pct = Math.round((intoCycle / ENDLESS_DROPS_PER_DEPTH) * 100)
+      goalTarget.textContent = `Clears ${state.clearedTiles}`
+      goalLeft.textContent =
+        untilPush === 1 ? "Cracked row next drop" : `Next cracked row in ${untilPush} drops`
+      goalFill.style.width = `${pct}%`
+      goalBox.classList.toggle("is-warn", untilPush <= 2)
+    } else {
+      const dropsLeft = Math.max(0, SKIRMISH_MAX_DROPS - state.dropsUsed)
+      const clearsLeft = Math.max(0, SKIRMISH_TARGET_CLEARS - state.clearedTiles)
+      const pct = Math.min(100, Math.round((state.clearedTiles / SKIRMISH_TARGET_CLEARS) * 100))
+      goalTarget.textContent =
+        state.phase === "won"
+          ? `Goal met: ${state.clearedTiles}/${SKIRMISH_TARGET_CLEARS} clears`
+          : `Goal: ${state.clearedTiles}/${SKIRMISH_TARGET_CLEARS} clears (${clearsLeft} left)`
+      goalLeft.textContent = `${dropsLeft} drop${dropsLeft === 1 ? "" : "s"} left`
+      goalFill.style.width = `${pct}%`
+      goalBox.classList.toggle("is-warn", state.phase === "playing" && dropsLeft <= 10 && clearsLeft > 0)
+    }
+
+    currentMini.textContent = tileText(state.currentTile)
+    currentMini.className = `tc-mini is-current ${tileClass(state.currentTile)}`
+    nextMini.textContent = tileText(state.nextTile)
+    nextMini.className = `tc-mini ${tileClass(state.nextTile)}`
+
+    // Auto-collapse the guide after the first drop and remember it for future runs.
     if (state.dropsUsed > 0 && !helpDismissed) {
       helpDismissed = true
-      setHelp(false)
+      setHelp(false, true)
     }
 
     const playing = state.phase === "playing"
@@ -450,41 +699,109 @@ export function view(
     nextBtn.disabled = !playing
     dropBtn.disabled = !playing
 
+    const dropHappened = state.dropsUsed > lastDrops
+    const dClears = state.clearedTiles - lastCleared
+    const dCracked = state.crackedCleared - lastCracked
+    const dPoints = state.chainPoints - lastPoints
+
+    if (dropHappened) {
+      if (dClears > 0) {
+        lastOutcome = `Cleared ${dClears} tile${dClears === 1 ? "" : "s"}${
+          dCracked > 0 ? ` (${dCracked} ✕)` : ""
+        } for +${dPoints} pts.`
+      } else {
+        lastOutcome = ""
+      }
+
+      if (state.phase === "won") ctx.host.audio.play("win")
+      else if (state.phase === "lost") ctx.host.audio.play("lose")
+      else if (dClears > 0) ctx.host.audio.play("reveal")
+      else ctx.host.audio.play("turn")
+    } else if (state.phase !== lastPhase) {
+      if (state.phase === "won") ctx.host.audio.play("win")
+      else if (state.phase === "lost") ctx.host.audio.play("lose")
+    }
+
+    const landing = state.phase === "playing" ? landingRow(state, cursor) : -1
+    const dropPreview = state.phase === "playing" ? previewDrop(state, cursor) : null
+
     if (state.phase === "won") {
-      hint.textContent = `Cleared ${state.clearedTiles} tiles in ${state.dropsUsed} drops. Skirmish won.`
+      const left = Math.max(0, SKIRMISH_MAX_DROPS - state.dropsUsed)
+      hint.textContent = `Goal reached! Cleared ${state.clearedTiles} tiles with ${left} drop${
+        left === 1 ? "" : "s"
+      } to spare.`
     } else if (state.phase === "lost") {
       hint.textContent = endless
         ? `The stack overflowed at depth ${state.depth}. Chain points ${state.chainPoints}.`
-        : `No room left after ${state.dropsUsed} drops. ${state.clearedTiles}/${SKIRMISH_TARGET_CLEARS} tiles cleared.`
+        : state.dropsUsed >= SKIRMISH_MAX_DROPS
+          ? `Out of drops — cleared ${state.clearedTiles}/${SKIRMISH_TARGET_CLEARS} tiles (${state.chainPoints} pts).`
+          : `Board filled up after ${state.dropsUsed} drops — ${state.clearedTiles}/${SKIRMISH_TARGET_CLEARS} tiles cleared (${state.chainPoints} pts).`
+    } else if (landing < 0) {
+      hint.textContent = `${lastOutcome ? `${lastOutcome} ` : ""}Column ${cursor + 1} is full — pick another column.`
     } else {
       const clears = dropPreview?.clears.length ?? 0
       const broke = dropPreview?.cracked.length ?? 0
-      const rule = "A tile clears when its number equals the tiles in its row or column run."
-      hint.textContent =
+      const previewText =
         clears > 0
-          ? `Dropping ${tileText(state.currentTile)} in column ${cursor + 1} clears ${clears} tile${
+          ? `Col ${cursor + 1}: ${tileText(state.currentTile)} pops ${clears} tile${
               clears === 1 ? "" : "s"
-            }${broke > 0 ? ` and breaks ${broke} cracked` : ""}. ${rule}`
-          : `Nothing clears in column ${cursor + 1} yet — try a column where the number matches the run. ${rule}`
+            }${broke > 0 ? ` + ${broke} cracked` : ""}.`
+          : `Col ${cursor + 1}: no immediate pop — match a tile's number to its row or column length.`
+      hint.textContent = lastOutcome ? `${lastOutcome} ${previewText}` : previewText
     }
 
-    if (state.dropsUsed !== lastDrops || state.phase !== lastPhase) {
+    if (dropHappened || state.phase !== lastPhase) {
       if (state.phase === "won") live.textContent = `Won after ${state.dropsUsed} drops.`
       else if (state.phase === "lost") live.textContent = "Game over."
-      else if (state.chainPoints > lastPoints) {
+      else if (dPoints > 0) {
         live.textContent = `Chain cleared ${state.clearedTiles} tiles total for ${state.chainPoints} points.`
       }
-      lastDrops = state.dropsUsed
-      lastPhase = state.phase
-      lastPoints = state.chainPoints
     }
+
+    const dropCol = pendingDropCol
+    pendingDropCol = null
+    if (dropHappened && prevState !== null && dropCol !== null && !prefersReducedMotion()) {
+      const trace = traceDrop(prevState, dropCol)
+      cancelAnim()
+      if (trace && trace.waves.length > 0) {
+        playWave(trace.waves, `${dropCol},${trace.landing}`, state, 0)
+      } else if (trace) {
+        landedHighlight = `${dropCol},${trace.landing}`
+        renderCells(state, null)
+        animTimer = window.setTimeout(() => {
+          animTimer = null
+          landedHighlight = null
+          renderCells(ctx.state(), null)
+        }, 200)
+      } else {
+        renderCells(state, null)
+      }
+    } else if (animVisual === null) {
+      renderCells(state, null)
+    }
+
+    prevState = state
+    lastDrops = state.dropsUsed
+    lastCleared = state.clearedTiles
+    lastCracked = state.crackedCleared
+    lastPhase = state.phase
+    lastPoints = state.chainPoints
   }
 
+  const guideKey = "tilechain.guideSeen"
   let cursor = 3
-  let helpDismissed = false
+  let helpDismissed = ctx.host.storage.get<boolean>(guideKey) === true
+  let prevState: TilechainState | null = null
+  let pendingDropCol: number | null = null
+  let animTimer: number | null = null
+  let animVisual: BoardVisual | null = null
+  let landedHighlight: string | null = null
   let lastDrops = 0
+  let lastCleared = 0
+  let lastCracked = 0
   let lastPhase = "playing"
   let lastPoints = 0
+  let lastOutcome = ""
 
   for (let y = 0; y < ROWS; y += 1) {
     for (let x = 0; x < COLS; x += 1) {
@@ -496,14 +813,15 @@ export function view(
       button.append(glyph)
       button.addEventListener("pointerenter", () => {
         if (ctx.state().phase !== "playing") return
+        if (cursor !== x) {
+          lastOutcome = ""
+          cancelAnim()
+        }
         cursor = x
         paint(ctx.state())
       })
       button.addEventListener("click", () => {
-        const state = ctx.state()
-        if (state.phase !== "playing") return
-        cursor = x
-        ctx.dispatch({ type: "drop", col: x })
+        dropAt(x)
       })
       board.append(button)
       cells.push({ button, glyph })
@@ -530,52 +848,76 @@ export function view(
   controls.append(helpBtn)
 
   const help = el("div", "tc-help")
-  help.append(
-    el("h3", "", "How to play"),
-    (() => {
-      const list = el("ul", "")
-      for (const line of [
-        "One tile at a time — pick a column and the tile drops to the bottom of that stack. Nothing falls or rotates, so this is not Tetris.",
-        "A tile clears when its number equals how many numbered tiles sit in its unbroken row or column run. A 4 needs a run of four.",
-        "Clears cascade: tiles fall, runs re-form, and later waves score more (wave squared).",
-        "Cracked tiles never count toward a run and only break when they sit next to a clearing tile.",
-        "Skirmish: clear 25 tiles within 35 drops. Endless: a cracked row rises every 10 drops.",
-        "The outlined tiles are what your current column would clear if you dropped now.",
-      ])
-        list.append(el("li", "", line))
-      return list
-    })(),
+  const helpHead = el("div", "tc-help-head")
+  const helpLegend = el("div", "tc-help-legend")
+  helpLegend.append(
+    el("span", "tc-help-swatch", "Will pop"),
+    el("span", "tc-help-swatch is-break", "Will break"),
   )
+  helpHead.append(el("h3", "", "How to play"), helpLegend)
+
+  const helpRule = (label: string, body: string): HTMLLIElement => {
+    const li = document.createElement("li")
+    li.append(el("strong", "", `${label}: `), body)
+    return li
+  }
+
+  const helpList = el("ul", "")
+  helpList.append(
+    helpRule(
+      "Goal",
+      `In Skirmish, clear ${SKIRMISH_TARGET_CLEARS} tiles within ${SKIRMISH_MAX_DROPS} drops before the board fills up. In Endless, survive rising cracked rows every ${ENDLESS_DROPS_PER_DEPTH} drops for the highest chain score.`,
+    ),
+    helpRule(
+      "How tiles pop",
+      "A tile pops when its number equals how many numbered tiles sit in its unbroken row or column (other tiles in the line don't have to match it). Extending a line updates every tile in it — dropping a 6 next to 3 · 5 makes a 3-tile row and pops the 3. A 1 only stays if tucked both on top of and beside another number.",
+    ),
+    helpRule(
+      "What to look for",
+      "Move across columns to preview your drop — highlighted tiles will pop or break right away. Popping lower tiles makes tiles above fall into new lines, setting off 2×, 3×… chain waves (wave² × tiles bonus points).",
+    ),
+    helpRule(
+      "Cracked tiles (✕)",
+      "They block and split lines (never counted toward line length) and shatter only when a numbered tile pops right beside them.",
+    ),
+  )
+  help.append(helpHead, helpList)
 
   const hint = el("p", "tc-hint")
-  const setHelp = (open: boolean): void => {
+  const setHelp = (open: boolean, remember = false): void => {
     help.hidden = !open
     helpBtn.textContent = open ? "Hide guide" : "How to play"
     helpBtn.setAttribute("aria-expanded", open ? "true" : "false")
+    if (!open && remember) ctx.host.storage.set(guideKey, true)
   }
-  setHelp(true)
+  setHelp(!helpDismissed)
   helpBtn.addEventListener("click", () => {
     const open = help.hasAttribute("hidden")
     if (!open) helpDismissed = true
-    setHelp(open)
+    setHelp(open, true)
   })
 
   const live = el("div", "tc-sr")
   live.setAttribute("aria-live", "polite")
   live.setAttribute("aria-atomic", "true")
 
-  wrap.append(bar, preview, board, controls, help, hint, live)
+  wrap.append(bar, goalBox, preview, board, controls, help, hint, live)
   ctx.container.append(wrap)
 
   const move = (delta: number): void => {
     if (ctx.state().phase !== "playing") return
+    lastOutcome = ""
+    cancelAnim()
     cursor = ((cursor + delta) % COLS + COLS) % COLS
     paint(ctx.state())
   }
 
   const dropAt = (col: number): void => {
-    if (ctx.state().phase !== "playing") return
+    const state = ctx.state()
+    if (state.phase !== "playing") return
+    cancelAnim()
     cursor = col
+    if (landingRow(state, col) >= 0) pendingDropCol = col
     ctx.dispatch({ type: "drop", col })
   }
 
@@ -618,7 +960,7 @@ export function view(
     if (key === "h" || key === "H") {
       const open = help.hasAttribute("hidden")
       if (!open) helpDismissed = true
-      setHelp(open)
+      setHelp(open, true)
       return
     }
 
@@ -650,6 +992,7 @@ export function view(
       paint(state)
     },
     destroy() {
+      cancelAnim()
       ctx.container.removeEventListener("keydown", onKeyDown)
       wrap.remove()
     },

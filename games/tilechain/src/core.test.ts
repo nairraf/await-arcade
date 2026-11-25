@@ -13,6 +13,7 @@ import {
   type TilechainInput,
   type TilechainState,
   previewDrop,
+  traceDrop,
 } from "./core"
 import { meta } from "./meta"
 import fixture from "../replay.json"
@@ -214,6 +215,18 @@ describe("tilechain game over", () => {
 
     const score = core.score(state, { elapsedMs: 0, ticks: 35 })
     expect(score).toMatchObject({ value: 0, won: false, ranked: false, type: "higher" })
+
+    const partialLoss = core.score(
+      { ...state, chainPoints: 420, clearedTiles: 27 },
+      { elapsedMs: 0, ticks: 35 },
+    )
+    expect(partialLoss).toMatchObject({ value: 420, won: false, ranked: false, type: "higher" })
+
+    const inProgress = core.score(
+      { ...base, phase: "playing", chainPoints: 180 },
+      { elapsedMs: 0, ticks: 10 },
+    )
+    expect(inProgress).toMatchObject({ value: 180, won: false, ranked: false, type: "higher" })
   })
 
   it("loses skirmish when the top row fills", () => {
@@ -388,14 +401,14 @@ describe("tilechain scoring", () => {
       clearedTiles: 32,
       dropsUsed: 28,
       depth: 1,
-      level: 1,
       maxChain: 7,
       chainPoints: 3420,
       won: true,
     })
+    expect(fast.detail).not.toHaveProperty("level")
   })
 
-  it("scores endless only after a game over, with depth as a bonus", () => {
+  it("tracks endless score live with depth bonus, and ranks only after game over", () => {
     const base = withBoard(core.create(8, endless), [], {
       phase: "lost",
       chainPoints: 240,
@@ -405,9 +418,10 @@ describe("tilechain scoring", () => {
     expect(ended.value).toBe(240 + 2 * 100)
     expect(ended.won).toBe(false)
     expect(ended.ranked).toBe(true)
+    expect(ended.detail).toMatchObject({ depth: 3, level: 3 })
 
     const playing = core.score({ ...base, phase: "playing" }, { elapsedMs: 0, ticks: 30 })
-    expect(playing.value).toBe(0)
+    expect(playing.value).toBe(240 + 2 * 100)
     expect(playing.ranked).toBe(false)
   })
 })
@@ -572,8 +586,8 @@ describe("tilechain drop preview", () => {
 
     const preview = previewDrop(state, 0)!
     expect(preview.landing).toBe(3)
-    // Only the dropped 4 matches the run length of four; the 9s need a run of
-    // nine, so joining a run is not the same as clearing it.
+    // Only the dropped 4 matches the run length of four; 5, 6, and 7 each need
+    // a run matching their own value, so joining a run is not the same as clearing it.
     expect(preview.clears).toEqual([{ x: 0, y: 3 }])
     expect(preview.cracked).toEqual([])
 
@@ -587,6 +601,33 @@ describe("tilechain drop preview", () => {
     const before = JSON.stringify(core.serialize(state))
     previewDrop(state, 3)
     previewDrop(state, 0)
+    expect(JSON.stringify(core.serialize(state))).toBe(before)
+  })
+
+  it("traces multi-wave cascades step by step without mutating state", () => {
+    const base = withBoard(core.create(1, skirmish), [
+      [1, 4, 2],
+      [1, 5, "cracked"],
+      [1, 6, 2],
+      [2, 5, 3],
+      [3, 4, 3],
+      [3, 6, 4],
+      [4, 5, 3],
+    ])
+    const state = { ...base, currentTile: 3 as const, nextTile: 1 as const, dropsUsed: 0 }
+    const before = JSON.stringify(core.serialize(state))
+
+    const trace = traceDrop(state, 3)!
+    expect(trace).not.toBeNull()
+    expect(trace.landing).toBe(5)
+    expect(trace.waves).toHaveLength(2)
+    expect(trace.waves[0]!.board[5]![3]).toBe(3)
+    expect(trace.waves[0]!.clears).toHaveLength(4)
+    expect(trace.waves[0]!.cracked).toEqual([{ x: 1, y: 5 }])
+    expect(trace.waves[1]!.clears).toEqual([
+      { x: 1, y: 5 },
+      { x: 1, y: 6 },
+    ])
     expect(JSON.stringify(core.serialize(state))).toBe(before)
   })
 })

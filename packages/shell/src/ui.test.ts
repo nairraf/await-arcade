@@ -239,6 +239,32 @@ describe("shell format and board normalisation helpers", () => {
     }
     expect(formatBoardScore(nonogramScore, nonogramMeta)).toBe("1,000 · 42.3s")
     expect(formatDailyScore(nonogramScore, nonogramMeta)).toBe("1,000 · 42.3s · try 2")
+
+    const tilechainMeta: GameMeta = {
+      ...makeMeta({
+        score: { type: "higher", min: 0, max: 999_999, unit: "points" },
+      }),
+      id: "tilechain",
+    }
+    const skirmishScore: Score = {
+      value: 3795,
+      type: "higher",
+      won: true,
+      ranked: true,
+      detail: { depth: 1, elapsedMs: 18_400, attempt: 1, rankKey: "996204|0000018400" },
+    }
+    expect(formatBoardScore(skirmishScore, tilechainMeta)).toBe("3,795 · 18.4s")
+    expect(formatDailyScore(skirmishScore, tilechainMeta)).toBe("3,795 · 18.4s · try 1")
+
+    const endlessScore: Score = {
+      value: 440,
+      type: "higher",
+      won: false,
+      ranked: true,
+      detail: { depth: 3, level: 3, elapsedMs: 25_000, attempt: 2, rankKey: "999559|0000025000" },
+    }
+    expect(formatBoardScore(endlessScore, tilechainMeta)).toBe("440 · L3")
+    expect(formatDailyScore(endlessScore, tilechainMeta)).toBe("440 · L3 · 25.0s · try 2")
   })
 
   it("compares lower-is-better and higher-is-better scores accurately", () => {
