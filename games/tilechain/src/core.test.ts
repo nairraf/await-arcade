@@ -20,11 +20,12 @@ import fixture from "../replay.json"
 const skirmish = meta.modes.find((mode) => mode.id === "skirmish")!
 const endless = meta.modes.find((mode) => mode.id === "endless")!
 
-const FIXTURE_SEED = 20260420
-const FIXTURE_COLUMNS = [
-  3, 0, 3, 1, 0, 0, 0, 0, 0, 3, 0, 0, 1, 0, 0, 0, 1, 3, 0, 1, 0, 0, 0, 1, 1, 1, 2, 0, 0,
-]
-const FIXTURE_INPUTS: TilechainInput[] = FIXTURE_COLUMNS.map((col) => ({ type: "drop", col }))
+// Read the fixture from the committed replay so a regenerated fixture cannot
+// leave these expectations behind.
+const FIXTURE = fixture as unknown as Replay<TilechainInput>
+const FIXTURE_SEED = FIXTURE.seed
+const FIXTURE_INPUTS: TilechainInput[] = FIXTURE.inputs.map((event) => event.input)
+const FIXTURE_COLUMNS = FIXTURE_INPUTS.map((input) => input.col)
 
 function emptyBoard(): Cell[][] {
   return Array.from({ length: ROWS }, () =>
@@ -327,15 +328,15 @@ describe("tilechain game over", () => {
       currentTile: 2,
       nextTile: 2,
       dropsUsed: 34,
-      clearedTiles: 24,
+      clearedTiles: SKIRMISH_TARGET_CLEARS - 2,
     })
 
-    // The drop completes a horizontal pair of 2s (two clears, reaching 26),
-    // and this is the 35th drop. The clear objective must win before the drop
+    // The drop completes a horizontal pair of 2s, taking the run exactly to the
+    // clear objective on the 35th drop. The objective must win before the drop
     // cap is allowed to end the run.
     const state = drop(base, 1)
     expect(state.dropsUsed).toBe(35)
-    expect(state.clearedTiles).toBe(26)
+    expect(state.clearedTiles).toBe(SKIRMISH_TARGET_CLEARS)
     expect(state.phase).toBe("won")
 
     const score = core.score(state, { elapsedMs: 0, ticks: 35 })
@@ -377,19 +378,19 @@ describe("tilechain scoring", () => {
     })
 
     expect(result.state.phase).toBe("won")
-    const fast = core.score(result.state, { elapsedMs: 1_500, ticks: 29 })
-    const slow = core.score(result.state, { elapsedMs: 3_500_000, ticks: 29 })
+    const fast = core.score(result.state, { elapsedMs: 1_500, ticks: 28 })
+    const slow = core.score(result.state, { elapsedMs: 3_500_000, ticks: 28 })
 
     expect(fast).toEqual(slow)
-    expect(fast).toMatchObject({ value: 760, type: "higher", won: true, ranked: true })
+    expect(fast).toMatchObject({ value: 3795, type: "higher", won: true, ranked: true })
     expect(fast.detail).toMatchObject({
       mode: "skirmish",
-      clearedTiles: 29,
-      dropsUsed: 29,
+      clearedTiles: 32,
+      dropsUsed: 28,
       depth: 1,
       level: 1,
-      maxChain: 2,
-      chainPoints: 410,
+      maxChain: 7,
+      chainPoints: 3420,
       won: true,
     })
   })
@@ -498,12 +499,12 @@ describe("tilechain replay fixture", () => {
     expect(replay.modeId).toBe("skirmish")
     expect(replay.seed).toBe(FIXTURE_SEED)
     expect(replay.durationMs).toBe(45_000)
-    expect(replay.inputs).toHaveLength(29)
+    expect(replay.inputs).toHaveLength(28)
 
     const verified = verifyReplay(core, meta, replay)
     expect(verified.ok).toBe(true)
     expect(verified.score).toMatchObject({
-      value: 760,
+      value: 3795,
       type: "higher",
       won: true,
       ranked: true,
@@ -516,12 +517,12 @@ describe("tilechain replay fixture", () => {
       durationMs: replay.durationMs,
     })
     expect(played.state.phase).toBe("won")
-    expect(played.state.dropsUsed).toBe(29)
-    expect(played.state.clearedTiles).toBe(29)
-    expect(played.state.crackedCleared).toBe(3)
-    expect(played.state.maxChain).toBe(2)
-    expect(played.state.chainPoints).toBe(410)
-    expect(played.score.value).toBe(760)
+    expect(played.state.dropsUsed).toBe(28)
+    expect(played.state.clearedTiles).toBe(32)
+    expect(played.state.crackedCleared).toBe(4)
+    expect(played.state.maxChain).toBe(7)
+    expect(played.state.chainPoints).toBe(3420)
+    expect(played.score.value).toBe(3795)
     expect(played.score.won).toBe(true)
     expect(played.score.ranked).toBe(true)
   })

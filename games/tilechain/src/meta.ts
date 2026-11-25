@@ -7,14 +7,14 @@ export const meta: GameMeta = {
   description:
     "Drop one numbered tile at a time. It clears when its number matches its row or column run, and clears cascade.",
   author: "Await Arcade",
-  version: "1.1.0",
+  version: "1.2.0",
   engines: { arcade: "^0.1.0" },
   kind: "turn",
   modes: [
     {
       id: "skirmish",
       title: "Skirmish",
-      description: "Clear 25 tiles within 35 drops",
+      description: "Clear 32 tiles within 35 drops",
       difficulty: 1,
       ranked: true,
     },

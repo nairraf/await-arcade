@@ -1,10 +1,10 @@
 {
   "version": 1,
   "gameId": "tilechain",
-  "gameVersion": "1.1.0",
+  "gameVersion": "1.2.0",
   "frameworkVersion": "0.1.0",
   "modeId": "skirmish",
-  "seed": 20260420,
+  "seed": 285,
   "kind": "turn",
   "durationMs": 45000,
   "inputs": [
@@ -26,14 +26,14 @@
       "tick": 2,
       "input": {
         "type": "drop",
-        "col": 3
+        "col": 0
       }
     },
     {
       "tick": 3,
       "input": {
         "type": "drop",
-        "col": 1
+        "col": 0
       }
     },
     {
@@ -75,21 +75,21 @@
       "tick": 9,
       "input": {
         "type": "drop",
-        "col": 3
+        "col": 0
       }
     },
     {
       "tick": 10,
       "input": {
         "type": "drop",
-        "col": 0
+        "col": 1
       }
     },
     {
       "tick": 11,
       "input": {
         "type": "drop",
-        "col": 0
+        "col": 1
       }
     },
     {
@@ -103,7 +103,7 @@
       "tick": 13,
       "input": {
         "type": "drop",
-        "col": 0
+        "col": 3
       }
     },
     {
@@ -124,14 +124,14 @@
       "tick": 16,
       "input": {
         "type": "drop",
-        "col": 1
+        "col": 0
       }
     },
     {
       "tick": 17,
       "input": {
         "type": "drop",
-        "col": 3
+        "col": 0
       }
     },
     {
@@ -145,7 +145,7 @@
       "tick": 19,
       "input": {
         "type": "drop",
-        "col": 1
+        "col": 0
       }
     },
     {
@@ -166,28 +166,28 @@
       "tick": 22,
       "input": {
         "type": "drop",
-        "col": 0
+        "col": 2
       }
     },
     {
       "tick": 23,
       "input": {
         "type": "drop",
-        "col": 1
+        "col": 4
       }
     },
     {
       "tick": 24,
       "input": {
         "type": "drop",
-        "col": 1
+        "col": 0
       }
     },
     {
       "tick": 25,
       "input": {
         "type": "drop",
-        "col": 1
+        "col": 0
       }
     },
     {
@@ -203,14 +203,7 @@
         "type": "drop",
         "col": 0
       }
-    },
-    {
-      "tick": 28,
-      "input": {
-        "type": "drop",
-        "col": 0
-      }
     }
   ],
-  "stateHash": "acddeffd"
+  "stateHash": "318044d6"
 }

@@ -166,15 +166,16 @@ const nonogram = playTurn(nonogramCore, nonogramMeta, {
 })
 
 /**
- * Tile Chain Drop fixture: the exact 29-drop skirmish win from the design
- * brief. Seed 20260420 finishes with 29 clears (including 3 cracked tiles),
- * a two-wave max chain, and 410 chain points; 6 drops saved add 150 and the
- * win bonus adds 200 for a verified score of 760.
+ * Tile Chain Drop fixture: a 28-drop skirmish win found by a greedy rollout at
+ * the 32-clear target. Seed 285 clears 32 tiles (4 of them cracked) with a
+ * seven-wave chain and 3420 chain points; 7 drops saved add 175 and the win
+ * bonus adds 200 for a verified score of 3795.
  */
 const TILECHAIN_MODE = tileMeta.modes.find((mode) => mode.id === "skirmish")!
-const TILECHAIN_SEED = 20260420
+const TILECHAIN_SEED = 285
+// 28 drops, 32 clears (the skirmish target), 4 cracked tiles and a seven-wave chain.
 const TILECHAIN_COLUMNS = [
-  3, 0, 3, 1, 0, 0, 0, 0, 0, 3, 0, 0, 1, 0, 0, 0, 1, 3, 0, 1, 0, 0, 0, 1, 1, 1, 2, 0, 0,
+  3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 3, 0, 0, 0, 0, 0, 0, 0, 0, 2, 4, 0, 0, 2, 0,
 ]
 const tilechainScript: TilechainInput[] = TILECHAIN_COLUMNS.map((col) => ({
   type: "drop",
@@ -207,14 +208,14 @@ if (nonogramChecks !== 2 || nonogram.state.checksUsed !== 2 || nonogram.score.va
   )
 }
 if (
-  tilechainScript.length !== 29 ||
+  tilechainScript.length !== 28 ||
   tilechain.state.phase !== "won" ||
-  tilechain.state.dropsUsed !== 29 ||
-  tilechain.state.clearedTiles !== 29 ||
-  tilechain.state.crackedCleared !== 3 ||
-  tilechain.state.maxChain !== 2 ||
-  tilechain.state.chainPoints !== 410 ||
-  tilechain.score.value !== 760
+  tilechain.state.dropsUsed !== 28 ||
+  tilechain.state.clearedTiles !== 32 ||
+  tilechain.state.crackedCleared !== 4 ||
+  tilechain.state.maxChain !== 7 ||
+  tilechain.state.chainPoints !== 3420 ||
+  tilechain.score.value !== 3795
 ) {
   throw new Error(
     `tilechain fixture shape drifted: inputs=${tilechainScript.length} phase=${tilechain.state.phase} drops=${tilechain.state.dropsUsed} cleared=${tilechain.state.clearedTiles} cracked=${tilechain.state.crackedCleared} maxChain=${tilechain.state.maxChain} chainPoints=${tilechain.state.chainPoints} score=${tilechain.score.value}`,
