@@ -142,6 +142,10 @@ Check: `reference/rendering.md` performance notes plus an idle CPU sanity check.
 
 - **Architect brief:** quote F1–F9 as numbered player-facing requirements with
   the specific affordances for this game, and F10 as a measurement plan.
+- **Brief review before any code:** a second reviewer reads only the brief and
+  answers "what case does this not cover?". The defects that cost a whole
+  remediation round live in briefs — an unstated overflow rule, a missing terminal
+  state — and a diff review cannot see them until the implementation exists.
 - **Reviewer:** review them explicitly, separately from determinism and scoring;
   a finding must point at a line or a missing element, and a verdict cannot be
   APPROVE with an unmet F1–F5.
