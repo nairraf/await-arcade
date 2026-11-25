@@ -2,6 +2,12 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { playRealtime, playTurn } from "@await-arcade/framework"
 import { greedySolve } from "../../../games/lockstep/solver"
 import { failedCheckPenaltyFor } from "../../../games/nonogram/src/core"
+import {
+  generateBoard as generateRouterBoard,
+  periodOf as routerPeriodOf,
+  rotateMask as rotateRouterMask,
+} from "../../../games/router/src/core"
+import type { RouterInput } from "../../../games/router/src/core"
 import { COLS, core as tilechainCore } from "../../../games/tilechain/src/core"
 import type { TilechainInput } from "../../../games/tilechain/src/core"
 import { meta as tilechainMeta } from "../../../games/tilechain/src/meta"
@@ -1113,6 +1119,121 @@ describe("daily challenge", () => {
         keyFor(15_000),
       ])
       expect(board.entries.every((item) => item.score.value === played.score.value)).toBe(true)
+    } finally {
+      nowSpy.mockRestore()
+      await local.close()
+    }
+  })
+
+  it("ranks router submissions by score with the elapsed-time tiebreak", async () => {
+    let now = Date.UTC(2026, 10, 20, 12, 0, 0)
+    const nowSpy = vi.spyOn(Date, "now").mockImplementation(() => now)
+    const local = createArcadeServer()
+    const port = await local.listen(0)
+    const root = `http://127.0.0.1:${port}`
+
+    try {
+      const entry = verifiers["router"]!
+      const mode = entry.meta.modes.find((candidate) => candidate.id === "easy")!
+
+      const routerInputs = (seed: number): RouterInput[] => {
+        const generated = generateRouterBoard(seed, mode)
+        const inputs: RouterInput[] = []
+        for (let index = 0; index < generated.initialMasks.length; index += 1) {
+          const solved = generated.solvedMasks[index]!
+          const initial = generated.initialMasks[index]!
+          const period = routerPeriodOf(solved)
+          if (period === 1) continue
+          const offset = [0, 1, 2, 3].find(
+            (steps) => rotateRouterMask(solved, steps) === initial,
+          )!
+          const dirs: ReadonlyArray<1 | -1> =
+            offset === 0 ? [] : offset === 1 ? [-1] : offset === 2 ? [1, 1] : [1]
+          for (const dir of dirs) {
+            inputs.push({
+              type: "rotate",
+              x: index % generated.width,
+              y: Math.floor(index / generated.width),
+              dir,
+            })
+          }
+        }
+        return inputs
+      }
+
+      const start = async (playerId: string) => {
+        const response = await fetch(`${root}/v1/runs`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ gameId: "router", modeId: "easy", playerId }),
+        })
+        expect(response.status).toBe(201)
+        return (await response.json()) as { runId: string; seed: number }
+      }
+
+      const fastRun = await start("router-fast")
+      const slowRun = await start("router-slow")
+      const fastPlayed = playTurn(entry.core, entry.meta, {
+        seed: fastRun.seed,
+        mode,
+        inputs: routerInputs(fastRun.seed),
+        durationMs: 0,
+      })
+      const slowPlayed = playTurn(entry.core, entry.meta, {
+        seed: slowRun.seed,
+        mode,
+        inputs: routerInputs(slowRun.seed),
+        durationMs: 0,
+      })
+
+      expect(fastPlayed.state.phase).toBe("won")
+      expect(slowPlayed.state.phase).toBe("won")
+      expect(fastPlayed.score.value).toBe(2500)
+      expect(slowPlayed.score.value).toBe(2500)
+
+      const penalty = Math.max(0, entry.meta.score.max - fastPlayed.score.value)
+      const keyFor = (elapsedMs: number) =>
+        `${String(penalty).padStart(6, "0")}|${String(elapsedMs).padStart(10, "0")}`
+
+      now += 5_000
+      const fastRes = await submitReplay(root, fastRun.runId, fastPlayed.replay)
+      expect(fastRes.status).toBe(200)
+      const fastBody = (await fastRes.json()) as {
+        ok: boolean
+        rank: number
+        score: { value: number; detail?: Record<string, number | string | boolean> }
+      }
+      expect(fastBody.ok).toBe(true)
+      expect(fastBody.rank).toBe(1)
+      expect(fastBody.score.value).toBe(2500)
+      expect(fastBody.score.detail?.elapsedMs).toBe(5_000)
+      expect(fastBody.score.detail?.rankKey).toBe(keyFor(5_000))
+
+      now += 10_000
+      const slowRes = await submitReplay(root, slowRun.runId, slowPlayed.replay)
+      expect(slowRes.status).toBe(200)
+      const slowBody = (await slowRes.json()) as {
+        ok: boolean
+        rank: number
+        score: { value: number; detail?: Record<string, number | string | boolean> }
+      }
+      expect(slowBody.ok).toBe(true)
+      expect(slowBody.rank).toBe(2)
+      expect(slowBody.score.value).toBe(2500)
+      expect(slowBody.score.detail?.elapsedMs).toBe(15_000)
+      expect(slowBody.score.detail?.rankKey).toBe(keyFor(15_000))
+
+      const board = (await fetch(`${root}/v1/boards/router/easy`).then((res) =>
+        res.json(),
+      )) as {
+        entries: Array<{ playerId: string; score: { value: number }; rankKey?: string }>
+      }
+      expect(board.entries.map((item) => item.playerId)).toEqual(["router-fast", "router-slow"])
+      expect(board.entries.map((item) => item.rankKey)).toEqual([
+        keyFor(5_000),
+        keyFor(15_000),
+      ])
+      expect(board.entries.every((item) => item.score.value === 2500)).toBe(true)
     } finally {
       nowSpy.mockRestore()
       await local.close()

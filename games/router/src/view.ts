@@ -128,6 +128,11 @@ const css = `
   color: var(--game-accent, #22d3ee);
 }
 
+.cr-goal-sep {
+  color: var(--arcade-muted, #8b98a9);
+  flex: none;
+}
+
 .cr-goal.is-warn .cr-goal-left {
   color: var(--game-accent-2, #f59e0b);
 }
@@ -469,6 +474,17 @@ function dirNames(mask: number): string {
   return names.length === 1 ? names[0]! : names.join(" and ")
 }
 
+/** Preview power delta: `+g`, `-l`, or `+g / -l`. */
+function previewDelta(preview: {
+  readonly newlyPowered: readonly Point[]
+  readonly lostPower: readonly Point[]
+}): string {
+  const gained = preview.newlyPowered.length
+  const lost = preview.lostPower.length
+  if (lost === 0) return `+${gained}`
+  return gained > 0 ? `+${gained} / -${lost}` : `-${lost}`
+}
+
 function leakDirs(state: RouterState, index: number, mask: number): number[] {
   const x = index % state.width
   const y = Math.floor(index / state.width)
@@ -511,7 +527,7 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
   const goalRow = el("div", "cr-goal-row")
   const goalTarget = el("span", "cr-goal-target")
   const goalLeft = el("span", "cr-goal-left")
-  goalRow.append(goalTarget, goalLeft)
+  goalRow.append(goalTarget, el("span", "cr-goal-sep", "·"), goalLeft)
   const goalTrack = el("div", "cr-goal-track")
   const goalFill = el("div", "cr-goal-fill")
   goalTrack.append(goalFill)
@@ -755,7 +771,7 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
       if (isCursor) parts.push("selected")
       if (isCursor && preview?.valid === true) {
         parts.push(
-          `next clockwise would power ${preview.newlyPowered.length} more and leave ${plural(
+          `next clockwise: ${previewDelta(preview)} powered and ${plural(
             preview.danglingCount,
             "open end",
           )}`,
@@ -768,13 +784,27 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
 
   const playWaves = (trace: RotateTrace, state: RouterState): void => {
     cancelAnim()
-    if (prefersReducedMotion() || trace.waves.length === 0) {
+    if (prefersReducedMotion()) {
       renderCells(state)
       return
     }
 
     animTurning = keyOf(trace.rotated)
     animDepowered = new Set(trace.lost.map(keyOf))
+
+    // Zero-gain and pure de-powering turns still get one 160 ms cue frame.
+    if (trace.waves.length === 0) {
+      renderCells(state)
+      animTimer = window.setTimeout(() => {
+        animTimer = null
+        animTurning = null
+        animDepowered = new Set()
+        animWave = null
+        renderCells(ctx.state())
+      }, 160)
+      return
+    }
+
     let waveIndex = 0
     const step = (): void => {
       if (waveIndex >= trace.waves.length) {
@@ -786,7 +816,10 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
         return
       }
       animWave = new Set(trace.waves[waveIndex]!.map(keyOf))
-      if (waveIndex > 0) animTurning = null
+      if (waveIndex > 0) {
+        animTurning = null
+        animDepowered = new Set()
+      }
       renderCells(ctx.state())
       waveIndex += 1
       animTimer = window.setTimeout(step, 160)
@@ -802,7 +835,7 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
     }
     const preview = previewRotate(state, cursorX, cursorY, 1)
     if (!preview || !preview.valid) return ""
-    return `Next CW at (${cursorX},${cursorY}): +${preview.newlyPowered.length} powered (${preview.poweredCount}/${
+    return `Next CW at (${cursorX},${cursorY}): ${previewDelta(preview)} powered (${preview.poweredCount}/${
       state.width * state.height
     }), ${plural(preview.danglingCount, "open end")}.`
   }
@@ -869,8 +902,8 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
     }
     pendingRotate = null
 
-    // A committed rotation (never a blocked cross) collapses an open guide.
-    if (state.rotationsUsed > 0 && !help.hidden) setHelp(false, true)
+    // Auto-collapse only on the first committed rotation, before any dismissal.
+    if (justRotated && !helpDismissed) setHelp(false, true)
 
     modeStat.textContent = `${state.modeId === "hard" ? "Hard" : "Easy"} · ${state.width}×${state.height}`
     baseStat.textContent = `Base ${formatNumber(modeBase(state.modeId))}`

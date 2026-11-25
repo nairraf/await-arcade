@@ -12,7 +12,7 @@ import {
   analyzeCircuit,
   core,
   periodOf,
-  rotateMask,
+  previewRotate,
   type Point,
   type RouterState,
 } from "./src/core"
@@ -109,7 +109,7 @@ function randomPolicy(modeId: ModeId, seed: number): RunOutcome {
 interface Candidate {
   readonly index: number
   readonly dir: 1 | -1
-  /** Fewest quarter turns needed to reach this orientation. */
+  /** One committed input is one quarter turn. */
   readonly turns: number
   readonly masks: readonly number[]
   readonly danglingCount: number
@@ -166,25 +166,23 @@ function greedyPolicy(modeId: ModeId, seed: number): RunOutcome {
     const current = analyzeCircuit(state.masks, state.width, state.height, state.source)
     const candidates: Candidate[] = []
 
-    // Every distinct orientation of every movable tile, scored by the engine.
+    // One-turn, player-legal rotations only: every movable tile × {CW, CCW}.
     for (let index = 0; index < state.masks.length; index += 1) {
-      const period = periodAt(state, index)
-      if (period <= 1) continue
-      const mask = state.masks[index]!
-      for (let k = 1; k < period; k += 1) {
+      if (periodAt(state, index) <= 1) continue
+      const point = pointFor(state, index)
+      for (const dir of [1, -1] as const) {
+        const preview = previewRotate(state, point.x, point.y, dir)
+        if (!preview?.valid) continue
         const masks = [...state.masks]
-        masks[index] = rotateMask(mask, k)
-        const after = analyzeCircuit(masks, state.width, state.height, state.source)
-        const turns = Math.min(k, period - k)
-        const dir: 1 | -1 = k <= period - k ? 1 : -1
+        masks[index] = preview.nextMask
         candidates.push({
           index,
           dir,
-          turns,
+          turns: 1,
           masks,
-          danglingCount: after.danglingCount,
-          poweredCount: after.poweredCount,
-          solved: after.solved,
+          danglingCount: preview.danglingCount,
+          poweredCount: preview.poweredCount,
+          solved: preview.solved,
         })
       }
     }
@@ -200,16 +198,9 @@ function greedyPolicy(modeId: ModeId, seed: number): RunOutcome {
       best.danglingCount < current.danglingCount ||
       (best.danglingCount === current.danglingCount && best.poweredCount > current.poweredCount)
 
+    // The best candidate already minimizes dangling, so if it does not
+    // improve there is no dangling-reducing move to fall back to.
     let chosen: Candidate | null = improves ? best : null
-
-    // If the ordering's best move does not improve, prefer any strict
-    // dangling-reducing move before resorting to the escape turn.
-    if (chosen === null) {
-      for (const candidate of candidates) {
-        if (candidate.danglingCount >= current.danglingCount) continue
-        if (chosen === null || betterCandidate(candidate, chosen)) chosen = candidate
-      }
-    }
 
     // Anti-cycle: when a state repeats, take the best candidate that has not
     // been visited yet before falling back to the escape turn.
