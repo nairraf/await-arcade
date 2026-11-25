@@ -109,6 +109,12 @@ npm --workspace @await-arcade/server run dev
 ## Game review checklist
 
 - [ ] Fun for 30 seconds; clear fail state; instant restart.
+- [ ] **Feel requirements met** (`skills/await-arcade-game/reference/feel.md`
+      F1–F11): goal strip with live progress, a score explainable from the UI, a
+      guide that opens on a fresh run and re-opens from a listed control,
+      foresight before a committed move, per-wave action feedback, specific copy
+      for every terminal state, and measured difficulty (random + naive-greedy
+      win rates over 200+ seeds per mode, in the PR).
 - [ ] Keyboard playable; pause; mute; reduced-motion respected.
 - [ ] Score is derived from state, not trusted from the client.
 - [ ] Replay fixture verifies (`npm run aa -- verify <id> games/<id>/replay.json`).

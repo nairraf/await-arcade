@@ -61,6 +61,12 @@ The server imports `core.ts`, never `view.ts`.
 - The game is keyboard-playable, pauses, mutes, and respects reduced motion.
 - The cartridge reads in both light and dark mode, uses the shared shell frame,
   and sets its accent instead of inventing chrome.
+- **`reference/feel.md` F1–F9 are satisfied**: a goal strip with live progress, a
+  live score you can explain from the UI, a guide that opens on a fresh run and
+  re-opens from a listed control, foresight before a committed move, per-wave
+  action feedback, and specific copy for every terminal state.
+- **Difficulty is measured (F10)**: random and naive-greedy win rates over 200+
+  seeds per mode are in the PR, with random well under a third.
 - The bundle is small and the game holds 60fps on a modest laptop.
 - The name and art are original; mechanics are fine, trademarks are not.
 
@@ -71,6 +77,8 @@ The server imports `core.ts`, never `view.ts`.
 - `reference/replay.md` — replay format and the verifier.
 - `reference/scoring.md` — `score`, `ranked`, modes, and leaderboards.
 - `reference/rendering.md` — DOM vs canvas, input, focus, pause.
+- `reference/feel.md` — the player-facing requirements: goal legibility, live
+  score, guidance, foresight, feedback, measured difficulty.
 - `reference/visual-language.md` — the cartridge/cartridge system, per-game accents, light/dark, accessibility.
 - `reference/assets.md` — art, audio, licensing, and naming.
 - `reference/multiplayer.md` — daily seeds, ghosts, async PvP, realtime.
