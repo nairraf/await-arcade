@@ -24,6 +24,14 @@ import type { NonogramInput } from "../games/nonogram/src/core"
 import { core as tileCore } from "../games/tilechain/src/core"
 import { meta as tileMeta } from "../games/tilechain/src/meta"
 import type { TilechainInput } from "../games/tilechain/src/core"
+import {
+  core as routerCore,
+  generateBoard as generateRouterBoard,
+  periodOf as routerPeriodOf,
+  rotateMask as rotateRouterMask,
+} from "../games/router/src/core"
+import type { RouterInput } from "../games/router/src/core"
+import { meta as routerMeta } from "../games/router/src/meta"
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 
@@ -188,6 +196,55 @@ const tilechain = playTurn(tileCore, tileMeta, {
   durationMs: 45_000,
 })
 
+/**
+ * Circuit Router fixture: one redundant clockwise/counter-clockwise pair on the
+ * first movable tile, then the shortest restoration of every tile to the
+ * generator's reference spanning tree. Seed 20260420 is pinned so the guard
+ * below notices any silent change to generation, par, or scoring.
+ */
+const ROUTER_MODE = routerMeta.modes.find((mode) => mode.id === "easy")!
+const ROUTER_SEED = 20260420
+const routerGenerated = generateRouterBoard(ROUTER_SEED, ROUTER_MODE)
+
+function routerInputs(): RouterInput[] {
+  const first = routerGenerated.initialMasks.findIndex((mask) => routerPeriodOf(mask) > 1)
+  if (first < 0) throw new Error("router fixture needs a rotatable tile")
+  const inputs: RouterInput[] = [
+    { type: "rotate", x: first % routerGenerated.width, y: Math.floor(first / routerGenerated.width), dir: 1 },
+    { type: "rotate", x: first % routerGenerated.width, y: Math.floor(first / routerGenerated.width), dir: -1 },
+  ]
+
+  for (let index = 0; index < routerGenerated.initialMasks.length; index += 1) {
+    const solved = routerGenerated.solvedMasks[index]!
+    const initial = routerGenerated.initialMasks[index]!
+    const period = routerPeriodOf(solved)
+    if (period === 1) continue
+    const offset = [0, 1, 2, 3].find((steps) => rotateRouterMask(solved, steps) === initial)
+    if (offset === undefined) throw new Error(`router fixture: cell ${index} is not a rotation of solved`)
+
+    const dirs: ReadonlyArray<1 | -1> =
+      offset === 0 ? [] : offset === 1 ? [-1] : offset === 2 ? [1, 1] : [1]
+    for (const dir of dirs) {
+      inputs.push({
+        type: "rotate",
+        x: index % routerGenerated.width,
+        y: Math.floor(index / routerGenerated.width),
+        dir,
+      })
+    }
+  }
+
+  return inputs
+}
+
+const routerScript = routerInputs()
+const router = playTurn(routerCore, routerMeta, {
+  seed: ROUTER_SEED,
+  mode: ROUTER_MODE,
+  inputs: routerScript,
+  durationMs: 60_000,
+})
+
 if (!mines.verified.ok) throw new Error(`mineflag fixture failed: ${mines.verified.reason}`)
 if (!cycles.verified.ok) throw new Error(`light-cycles fixture failed: ${cycles.verified.reason}`)
 if (!merge.verified.ok) throw new Error(`mergegrid fixture failed: ${merge.verified.reason}`)
@@ -196,6 +253,7 @@ if (!lock.verified.ok) throw new Error(`lockstep fixture failed: ${lock.verified
 if (!code.verified.ok) throw new Error(`codebreaker fixture failed: ${code.verified.reason}`)
 if (!nonogram.verified.ok) throw new Error(`nonogram fixture failed: ${nonogram.verified.reason}`)
 if (!tilechain.verified.ok) throw new Error(`tilechain fixture failed: ${tilechain.verified.reason}`)
+if (!router.verified.ok) throw new Error(`router fixture failed: ${router.verified.reason}`)
 if (code.state.attemptsUsed !== 2 || code.score.value !== 900) {
   throw new Error(
     `codebreaker fixture shape drifted: attempts=${code.state.attemptsUsed} score=${code.score.value}`,
@@ -221,6 +279,17 @@ if (
     `tilechain fixture shape drifted: inputs=${tilechainScript.length} phase=${tilechain.state.phase} drops=${tilechain.state.dropsUsed} cleared=${tilechain.state.clearedTiles} cracked=${tilechain.state.crackedCleared} maxChain=${tilechain.state.maxChain} chainPoints=${tilechain.state.chainPoints} score=${tilechain.score.value}`,
   )
 }
+if (
+  router.state.par !== routerGenerated.par ||
+  routerScript.length !== routerGenerated.par + 2 ||
+  router.state.rotationsUsed !== routerGenerated.par + 2 ||
+  router.state.phase !== "won" ||
+  router.score.value !== 2400
+) {
+  throw new Error(
+    `router fixture shape drifted: par=${routerGenerated.par} statePar=${router.state.par} inputs=${routerScript.length} rotations=${router.state.rotationsUsed} phase=${router.state.phase} score=${router.score.value}`,
+  )
+}
 
 writeFileSync(path.join(root, "games/mineflag/replay.json"), `${JSON.stringify(mines.replay, null, 2)}\n`)
 writeFileSync(path.join(root, "games/light-cycles/replay.json"), `${JSON.stringify(cycles.replay, null, 2)}\n`)
@@ -230,6 +299,7 @@ writeFileSync(path.join(root, "games/lockstep/replay.json"), `${JSON.stringify(l
 writeFileSync(path.join(root, "games/codebreaker/replay.json"), `${JSON.stringify(code.replay, null, 2)}\n`)
 writeFileSync(path.join(root, "games/nonogram/replay.json"), `${JSON.stringify(nonogram.replay, null, 2)}\n`)
 writeFileSync(path.join(root, "games/tilechain/replay.json"), `${JSON.stringify(tilechain.replay, null, 2)}\n`)
+writeFileSync(path.join(root, "games/router/replay.json"), `${JSON.stringify(router.replay, null, 2)}\n`)
 
 console.log(`mineflag: ${mines.state.phase} score=${mines.score.value} verified=${mines.verified.ok}`)
 console.log(`light-cycles: ${cycles.state.phase} score=${cycles.score.value} verified=${cycles.verified.ok}`)
@@ -239,3 +309,4 @@ console.log(`lockstep: ${lock.state.phase} score=${lock.score.value} verified=${
 console.log(`codebreaker: ${code.state.phase} score=${code.score.value} verified=${code.verified.ok}`)
 console.log(`nonogram: ${nonogram.state.phase} score=${nonogram.score.value} verified=${nonogram.verified.ok}`)
 console.log(`tilechain: ${tilechain.state.phase} score=${tilechain.score.value} verified=${tilechain.verified.ok}`)
+console.log(`router: ${router.state.phase} score=${router.score.value} verified=${router.verified.ok}`)

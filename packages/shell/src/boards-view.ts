@@ -255,7 +255,9 @@ export async function renderBoardsView(options: ShowBoardsOptions): Promise<void
   const scoringHintText =
     daily && entry.meta.id === "mineflag"
       ? "Daily rank: moves, then server time. Attempts are shown only."
-      : entry.meta.id === "nonogram" || entry.meta.id === "tilechain"
+      : entry.meta.id === "nonogram" ||
+          entry.meta.id === "router" ||
+          entry.meta.id === "tilechain"
         ? daily
           ? "Daily rank: score, then server time. Attempts are shown only."
           : "Rank: score, then server time."

@@ -22,9 +22,12 @@ import { view as view5 } from "../../../games/mineflag/src/view"
 import { core as core6 } from "../../../games/nonogram/src/core"
 import { meta as meta6 } from "../../../games/nonogram/src/meta"
 import { view as view6 } from "../../../games/nonogram/src/view"
-import { core as core7 } from "../../../games/tilechain/src/core"
-import { meta as meta7 } from "../../../games/tilechain/src/meta"
-import { view as view7 } from "../../../games/tilechain/src/view"
+import { core as core7 } from "../../../games/router/src/core"
+import { meta as meta7 } from "../../../games/router/src/meta"
+import { view as view7 } from "../../../games/router/src/view"
+import { core as core8 } from "../../../games/tilechain/src/core"
+import { meta as meta8 } from "../../../games/tilechain/src/meta"
+import { view as view8 } from "../../../games/tilechain/src/view"
 
 export const games: readonly GameEntry[] = [
   { meta: meta0, core: core0, view: view0 },
@@ -35,4 +38,5 @@ export const games: readonly GameEntry[] = [
   { meta: meta5, core: core5, view: view5 },
   { meta: meta6, core: core6, view: view6 },
   { meta: meta7, core: core7, view: view7 },
+  { meta: meta8, core: core8, view: view8 },
 ]
