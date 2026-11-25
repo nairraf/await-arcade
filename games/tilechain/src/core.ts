@@ -17,7 +17,7 @@ export const ENDLESS_BAG: readonly Tile[] = [1, 2, 3, 4, 5, 6, 7, "cracked", "cr
 export const MAX_CASCADE_WAVES = 49
 
 /** Skirmish win objective and hard drop cap. */
-export const SKIRMISH_TARGET_CLEARS = 25
+export const SKIRMISH_TARGET_CLEARS = 32
 export const SKIRMISH_MAX_DROPS = 35
 /** Every ten drops in Endless pushes a new cracked row from below. */
 export const ENDLESS_DROPS_PER_DEPTH = 10

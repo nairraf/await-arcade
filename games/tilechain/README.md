@@ -7,7 +7,7 @@ drop can chain into several waves.
 
 ## Modes
 
-- **Skirmish** — clear 25 tiles within 35 drops. The run is won as soon as the
+- **Skirmish** — clear 32 tiles within 35 drops. The run is won as soon as the
   clear objective is met; otherwise it is lost at the drop cap or when the top
   row fills. A win scores
   `chainPoints + (35 - dropsUsed) × 25 + 200`; a loss scores 0 and is unranked.
