@@ -244,7 +244,7 @@ const css = `
   color: #ef4444;
 }
 
-.cp-cell.is-on-goal::after {
+.cp-cell.is-on-goal::before {
   content: "✓";
   position: absolute;
   right: 3px;
@@ -594,7 +594,7 @@ function previewCellWithPushes(
     parts.push(`would receive a crate pushed ${receives.dir}`)
   }
 
-  if (state.phase === "playing" && isAdjacentDir(state, cell) !== null) {
+  if (state.phase === "playing" && isAdjacentDir(state, cell) !== null && (!push || push.preview.valid)) {
     parts.push("click to move here")
   }
 
@@ -730,6 +730,8 @@ export function view(
   let lastMovesUsed = 0
   let lastPhase = "playing"
   let lastOutcome = ""
+  let pendingRefusal = ""
+  let refusalShown = false
   let postGameNotice = ""
   let pendingTrace: MoveTrace | null = null
   let hoverDir: MoveDir | null = null
@@ -795,12 +797,6 @@ export function view(
     if (list.length === 1) return describe(list[0]!, true)
     return `Adjacent pushes: ${list.map((push) => describe(push, false)).join("; ")}.`
   }
-
-  const isRefusalCopy = (text: string): boolean =>
-    text.startsWith("Board edge") ||
-    text.startsWith("Blocked by wall") ||
-    text.startsWith("Cannot push crate") ||
-    text.startsWith("Click a cell")
 
   const refusalCopy = (preview: MovePreview | null, dir: MoveDir): string => {
     if (preview === null) return "Click a cell next to the operator (or use Arrows / WASD) to move."
@@ -955,6 +951,9 @@ export function view(
 
     const pushes = adjacentPushes(state)
     const sentence = previewSentence(state)
+    const refusal = pendingRefusal
+    pendingRefusal = ""
+    refusalShown = refusal !== ""
 
     if (postGameNotice !== "") {
       hint.textContent = postGameNotice
@@ -967,6 +966,8 @@ export function view(
       hint.textContent = `Crate trapped in a non-goal corner at ${at} — run lost (${onGoals}/${total} on goals).`
     } else if (state.phase === "lost") {
       hint.textContent = `Out of moves — placed ${onGoals}/${total} crates in ${state.moveBudget} moves.`
+    } else if (refusal !== "") {
+      hint.textContent = sentence === "" ? refusal : `${refusal} ${sentence}`
     } else if (lastOutcome !== "") {
       hint.textContent = sentence === "" ? lastOutcome : `${lastOutcome} ${sentence}`
     } else if (state.movesUsed === 0) {
@@ -993,7 +994,6 @@ export function view(
         live.textContent = lastOutcome
       }
     }
-    if (postGameNotice !== "") live.textContent = postGameNotice
 
     renderCells(state, pushes)
 
@@ -1005,9 +1005,8 @@ export function view(
   const clearHover = (): void => {
     const state = ctx.state()
     if (state.phase !== "playing") return
-    const hadRefusal = isRefusalCopy(lastOutcome)
-    if (!hadRefusal && hoverDir === null) return
-    if (hadRefusal) lastOutcome = ""
+    if (!refusalShown && hoverDir === null) return
+    refusalShown = false
     hoverDir = null
     paint(state)
   }
@@ -1029,7 +1028,6 @@ export function view(
       button.addEventListener("pointerenter", () => {
         const state = ctx.state()
         if (state.phase !== "playing") return
-        if (isRefusalCopy(lastOutcome)) lastOutcome = ""
         const dir = isAdjacentDir(state, cell)
         hoverDir = dir
         paint(state)
@@ -1037,7 +1035,6 @@ export function view(
       button.addEventListener("focus", () => {
         const state = ctx.state()
         if (state.phase !== "playing") return
-        if (isRefusalCopy(lastOutcome)) lastOutcome = ""
         hoverDir = isAdjacentDir(state, cell)
         paint(state)
       })
@@ -1047,15 +1044,15 @@ export function view(
         const state = ctx.state()
         if (state.phase !== "playing") {
           postGameNotice = "Puzzle finished — start a new run to play again."
+          live.textContent = postGameNotice
           paint(state)
           return
         }
         const dir = isAdjacentDir(state, cell)
         if (dir === null) {
-          lastOutcome = "Click a cell next to the operator (or use Arrows / WASD) to move."
-          live.textContent = lastOutcome
+          pendingRefusal = "Click a cell next to the operator (or use Arrows / WASD) to move."
+          live.textContent = pendingRefusal
           paint(state)
-          lastOutcome = ""
           return
         }
         attempt(dir)
@@ -1069,15 +1066,15 @@ export function view(
     const state = ctx.state()
     if (state.phase !== "playing") {
       postGameNotice = "Puzzle finished — start a new run to play again."
+      live.textContent = postGameNotice
       paint(state)
       return
     }
     const preview = previewMove(state, dir)
     if (preview === null || !preview.valid) {
-      lastOutcome = refusalCopy(preview, dir)
-      live.textContent = lastOutcome
+      pendingRefusal = refusalCopy(preview, dir)
+      live.textContent = pendingRefusal
       paint(state)
-      lastOutcome = ""
       return
     }
     const trace = traceMove(state, dir)
@@ -1092,14 +1089,12 @@ export function view(
     entry.button.addEventListener("click", () => attempt(entry.dir))
     entry.button.addEventListener("pointerenter", () => {
       if (ctx.state().phase !== "playing") return
-      if (isRefusalCopy(lastOutcome)) lastOutcome = ""
       hoverDir = entry.dir
       paint(ctx.state())
     })
     entry.button.addEventListener("pointerleave", clearHover)
     entry.button.addEventListener("focus", () => {
       if (ctx.state().phase !== "playing") return
-      if (isRefusalCopy(lastOutcome)) lastOutcome = ""
       hoverDir = entry.dir
       paint(ctx.state())
     })
