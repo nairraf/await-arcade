@@ -1,0 +1,202 @@
+{
+  "version": 1,
+  "gameId": "router",
+  "gameVersion": "1.1.0",
+  "frameworkVersion": "0.1.0",
+  "modeId": "easy",
+  "seed": 20260420,
+  "kind": "turn",
+  "durationMs": 60000,
+  "inputs": [
+    {
+      "tick": 0,
+      "input": {
+        "type": "rotate",
+        "x": 0,
+        "y": 0,
+        "dir": 1
+      }
+    },
+    {
+      "tick": 1,
+      "input": {
+        "type": "rotate",
+        "x": 0,
+        "y": 0,
+        "dir": -1
+      }
+    },
+    {
+      "tick": 2,
+      "input": {
+        "type": "rotate",
+        "x": 2,
+        "y": 0,
+        "dir": -1
+      }
+    },
+    {
+      "tick": 3,
+      "input": {
+        "type": "rotate",
+        "x": 3,
+        "y": 0,
+        "dir": -1
+      }
+    },
+    {
+      "tick": 4,
+      "input": {
+        "type": "rotate",
+        "x": 4,
+        "y": 0,
+        "dir": 1
+      }
+    },
+    {
+      "tick": 5,
+      "input": {
+        "type": "rotate",
+        "x": 0,
+        "y": 1,
+        "dir": -1
+      }
+    },
+    {
+      "tick": 6,
+      "input": {
+        "type": "rotate",
+        "x": 1,
+        "y": 1,
+        "dir": 1
+      }
+    },
+    {
+      "tick": 7,
+      "input": {
+        "type": "rotate",
+        "x": 2,
+        "y": 1,
+        "dir": 1
+      }
+    },
+    {
+      "tick": 8,
+      "input": {
+        "type": "rotate",
+        "x": 2,
+        "y": 1,
+        "dir": 1
+      }
+    },
+    {
+      "tick": 9,
+      "input": {
+        "type": "rotate",
+        "x": 0,
+        "y": 2,
+        "dir": 1
+      }
+    },
+    {
+      "tick": 10,
+      "input": {
+        "type": "rotate",
+        "x": 1,
+        "y": 2,
+        "dir": 1
+      }
+    },
+    {
+      "tick": 11,
+      "input": {
+        "type": "rotate",
+        "x": 2,
+        "y": 2,
+        "dir": 1
+      }
+    },
+    {
+      "tick": 12,
+      "input": {
+        "type": "rotate",
+        "x": 4,
+        "y": 2,
+        "dir": -1
+      }
+    },
+    {
+      "tick": 13,
+      "input": {
+        "type": "rotate",
+        "x": 2,
+        "y": 3,
+        "dir": -1
+      }
+    },
+    {
+      "tick": 14,
+      "input": {
+        "type": "rotate",
+        "x": 3,
+        "y": 3,
+        "dir": -1
+      }
+    },
+    {
+      "tick": 15,
+      "input": {
+        "type": "rotate",
+        "x": 4,
+        "y": 3,
+        "dir": -1
+      }
+    },
+    {
+      "tick": 16,
+      "input": {
+        "type": "rotate",
+        "x": 1,
+        "y": 4,
+        "dir": 1
+      }
+    },
+    {
+      "tick": 17,
+      "input": {
+        "type": "rotate",
+        "x": 1,
+        "y": 4,
+        "dir": 1
+      }
+    },
+    {
+      "tick": 18,
+      "input": {
+        "type": "rotate",
+        "x": 3,
+        "y": 4,
+        "dir": 1
+      }
+    },
+    {
+      "tick": 19,
+      "input": {
+        "type": "rotate",
+        "x": 3,
+        "y": 4,
+        "dir": 1
+      }
+    },
+    {
+      "tick": 20,
+      "input": {
+        "type": "rotate",
+        "x": 4,
+        "y": 4,
+        "dir": 1
+      }
+    }
+  ],
+  "stateHash": "da74a59f"
+}

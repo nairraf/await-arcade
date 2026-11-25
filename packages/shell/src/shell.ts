@@ -328,7 +328,11 @@ export function createArcade(options: ArcadeOptions): Arcade {
       body.append(
         el("div", "arcade-mode-hint", "Daily rank: moves, then server time. Attempts are shown only."),
       )
-    } else if (entry.meta.id === "nonogram" || entry.meta.id === "tilechain") {
+    } else if (
+      entry.meta.id === "nonogram" ||
+      entry.meta.id === "router" ||
+      entry.meta.id === "tilechain"
+    ) {
       body.append(
         el("div", "arcade-mode-hint", "Daily rank: score, then server time. Attempts are shown only."),
       )
@@ -1083,7 +1087,9 @@ export function createArcade(options: ArcadeOptions): Arcade {
           )
         } else if (
           elapsed !== undefined &&
-          (entry.meta.id === "nonogram" || entry.meta.id === "tilechain")
+          (entry.meta.id === "nonogram" ||
+            entry.meta.id === "router" ||
+            entry.meta.id === "tilechain")
         ) {
           detailParts.push(
             `Attempt ${attempt} · server ${formatDuration(elapsed)}.`,
@@ -1091,7 +1097,12 @@ export function createArcade(options: ArcadeOptions): Arcade {
         }
       } else if (!daily && entry.meta.id === "mineflag") {
         detailParts.push(`Time ${formatDuration(result.replay.durationMs)}.`)
-      } else if (!daily && (entry.meta.id === "nonogram" || entry.meta.id === "tilechain")) {
+      } else if (
+        !daily &&
+        (entry.meta.id === "nonogram" ||
+          entry.meta.id === "router" ||
+          entry.meta.id === "tilechain")
+      ) {
         const serverElapsed = submit.score?.detail?.elapsedMs
         detailParts.push(
           typeof serverElapsed === "number"
