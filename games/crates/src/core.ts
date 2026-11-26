@@ -9,7 +9,8 @@ import { createRng } from "@await-arcade/framework"
  */
 
 export type MoveDir = "up" | "down" | "left" | "right"
-export type LossReason = "none" | "stuck" | "budget"
+export type LossReason = "none" | "stuck"
+export type CrateModeId = "easy" | "hard" | "endless"
 
 /** Fixed cardinal scan order everywhere (BFS, pull enumeration, wall checks). */
 export const DIRS: readonly MoveDir[] = ["up", "right", "down", "left"]
@@ -22,11 +23,16 @@ export const OPP: Readonly<Record<MoveDir, MoveDir>> = {
   right: "left",
 }
 
-export const MAX_SCORE = 10_000
+export const MAX_SCORE = 999_999
 export const WIN_FLOOR = 100
-export const OVER_PAR_PENALTY = 50
-export const EASY_BASE = 2_000
-export const HARD_BASE = 4_000
+export const EASY_ROOMS = 3
+export const HARD_ROOMS = 3
+export const EASY_BASE = 500
+export const HARD_BASE = 900
+export const EASY_PAR_BONUS = 50
+export const HARD_PAR_BONUS = 80
+export const ENDLESS_STAGE_BONUS = 150
+export const EFFICIENCY_EXPONENT = 1.5
 
 export const MAX_GEN_ATTEMPTS = 64
 export const OPTIMUM_MAX_NODES = 300_000
@@ -35,7 +41,9 @@ export type CrateInput = { readonly type: "move"; readonly dir: MoveDir }
 
 export interface CrateState {
   readonly seed: number
-  readonly modeId: "easy" | "hard"
+  readonly modeId: CrateModeId
+  readonly room: number
+  readonly totalRooms: number | null
   readonly width: number
   readonly height: number
   readonly walls: readonly boolean[]
@@ -43,8 +51,9 @@ export interface CrateState {
   readonly crates: readonly number[]
   readonly operator: number
   readonly par: number
-  readonly moveBudget: number
+  readonly roomMoves: number
   readonly movesUsed: number
+  readonly bankedPoints: number
   readonly phase: Phase
   readonly lossReason: LossReason
 }
@@ -99,7 +108,6 @@ export interface GeneratedBoard {
   readonly initialCrates: readonly number[]
   readonly initialOperator: number
   readonly par: number
-  readonly moveBudget: number
   readonly optimalSolution: readonly CrateInput[]
   readonly canonicalSolution: readonly CrateInput[]
 }
@@ -109,9 +117,9 @@ const EASY_SPEC: ModeSpec = {
   width: 6,
   height: 6,
   goalCount: 2,
-  wallCount: 5,
-  targetPulls: 7,
-  minPar: 8,
+  wallCount: 6,
+  targetPulls: 9,
+  minPar: 10,
   modeBase: EASY_BASE,
 }
 
@@ -119,24 +127,53 @@ const HARD_SPEC: ModeSpec = {
   id: "hard",
   width: 7,
   height: 7,
-  goalCount: 2,
-  wallCount: 8,
-  targetPulls: 9,
-  minPar: 12,
+  goalCount: 3,
+  wallCount: 10,
+  targetPulls: 12,
+  minPar: 15,
   modeBase: HARD_BASE,
 }
 
-export function specFor(mode: Pick<Mode, "id"> | string): ModeSpec {
+export function normalizeModeId(mode: Pick<Mode, "id"> | string): CrateModeId {
   const id = typeof mode === "string" ? mode : mode.id
-  return id === "hard" ? HARD_SPEC : EASY_SPEC
+  if (id === "hard" || id === "endless") return id
+  return "easy"
 }
 
-export function modeBase(modeId: string): number {
-  return modeId === "hard" ? HARD_BASE : EASY_BASE
+export function totalRoomsFor(modeId: CrateModeId): number | null {
+  return modeId === "endless" ? null : modeId === "hard" ? HARD_ROOMS : EASY_ROOMS
 }
 
-export function budgetFor(par: number): number {
-  return par + Math.max(6, Math.ceil(par * 0.75))
+export function boardModeFor(modeId: CrateModeId, room: number): "easy" | "hard" {
+  if (modeId === "hard") return "hard"
+  if (modeId === "endless" && room >= 3) return "hard"
+  return "easy"
+}
+
+export function roomSeed(seed: number, room: number): number {
+  const base = seed >>> 0
+  return room <= 1 ? base : (base ^ Math.imul(room - 1, 0x9e3779b1)) >>> 0
+}
+
+export function specFor(mode: Pick<Mode, "id"> | string, room = 1): ModeSpec {
+  const modeId = normalizeModeId(mode)
+  return boardModeFor(modeId, room) === "hard" ? HARD_SPEC : EASY_SPEC
+}
+
+export function roomCeiling(modeId: CrateModeId, room: number, par: number): number {
+  const hardBoard = boardModeFor(modeId, room) === "hard"
+  const base = hardBoard ? HARD_BASE : EASY_BASE
+  const perPar = hardBoard ? HARD_PAR_BONUS : EASY_PAR_BONUS
+  const stageBonus = modeId === "endless" ? Math.max(0, room - 1) * ENDLESS_STAGE_BONUS : 0
+  return base + par * perPar + stageBonus
+}
+
+export function roomScore(modeId: CrateModeId, room: number, par: number, moves: number): number {
+  const ceiling = roomCeiling(modeId, room, par)
+  if (moves <= par) return Math.min(MAX_SCORE, ceiling)
+  const ratio = par / moves
+  const scaled = Math.round(ceiling * ratio * Math.sqrt(ratio))
+  return Math.min(MAX_SCORE, Math.max(WIN_FLOOR, scaled))
 }
 
 /** `index = y * width + x`, or `null` when the step leaves the board. */
@@ -286,6 +323,7 @@ function resolveMove(state: CrateState, dir: MoveDir): ResolvedMove {
 interface Outcome {
   readonly phase: Phase
   readonly lossReason: LossReason
+  readonly roomCleared: boolean
   readonly wouldWin: boolean
   readonly stuckCell: number | null
 }
@@ -295,8 +333,17 @@ function classify(
   state: CrateState,
 ): Outcome {
   const goalSet = new Set(state.goals)
-  const won = nextCrates.every((cell) => goalSet.has(cell))
-  if (won) return { phase: "won", lossReason: "none", wouldWin: true, stuckCell: null }
+  const roomCleared = nextCrates.every((cell) => goalSet.has(cell))
+  if (roomCleared) {
+    const finalWin = state.totalRooms !== null && state.room >= state.totalRooms
+    return {
+      phase: finalWin ? "won" : "playing",
+      lossReason: "none",
+      roomCleared: true,
+      wouldWin: finalWin,
+      stuckCell: null,
+    }
+  }
 
   const stuck = findStuckCrate(
     nextCrates,
@@ -309,16 +356,19 @@ function classify(
     return {
       phase: "lost",
       lossReason: "stuck",
+      roomCleared: false,
       wouldWin: false,
       stuckCell: nextCrates[stuck]!,
     }
   }
 
-  if (state.movesUsed + 1 >= state.moveBudget) {
-    return { phase: "lost", lossReason: "budget", wouldWin: false, stuckCell: null }
+  return {
+    phase: "playing",
+    lossReason: "none",
+    roomCleared: false,
+    wouldWin: false,
+    stuckCell: null,
   }
-
-  return { phase: "playing", lossReason: "none", wouldWin: false, stuckCell: null }
 }
 
 export function previewMove(state: CrateState, dir: MoveDir): MovePreview | null {
@@ -448,7 +498,7 @@ interface RawState {
   readonly crates: readonly number[]
 }
 
-/** Raw forward move/push rules: no budget cap, no stuck check. */
+/** Raw forward move/push rules without stuck detection. */
 function rawStep(
   state: RawState,
   dir: MoveDir,
@@ -500,6 +550,13 @@ interface Optimum {
   readonly solution: readonly MoveDir[]
 }
 
+function packStateKey(operator: number, crates: readonly number[], total: number): number {
+  const sorted = [...crates].sort((a, b) => a - b)
+  let key = operator
+  for (const cell of sorted) key = key * total + cell
+  return key
+}
+
 /**
  * Exhaustive BFS optimal `par` from the scrambled start under raw rules.
  * Rejects only when the popped-node cap is exceeded or no solution exists.
@@ -514,9 +571,7 @@ function solveOptimum(
 ): Optimum | null {
   const total = width * height
   const goalSet = new Set(goals)
-  const min = Math.min(crates[0]!, crates[1]!)
-  const max = Math.max(crates[0]!, crates[1]!)
-  const startKey = (operator * total + min) * total + max
+  const startKey = packStateKey(operator, crates, total)
 
   const visited = new Set<number>([startKey])
   const parent = new Map<number, { readonly previous: number; readonly dir: MoveDir }>()
@@ -546,9 +601,7 @@ function solveOptimum(
       }
       if (dead) continue
 
-      const nextMin = Math.min(next.crates[0]!, next.crates[1]!)
-      const nextMax = Math.max(next.crates[0]!, next.crates[1]!)
-      const key = (next.operator * total + nextMin) * total + nextMax
+      const key = packStateKey(next.operator, next.crates, total)
       if (visited.has(key)) continue
       visited.add(key)
       parent.set(key, { previous: current.key, dir })
@@ -748,7 +801,6 @@ export function generateBoard(
       initialCrates,
       initialOperator: operator,
       par: optimum.par,
-      moveBudget: budgetFor(optimum.par),
       optimalSolution,
       canonicalSolution,
     }
@@ -766,68 +818,78 @@ export const FALLBACK_EASY: GeneratedBoard = {
   height: 6,
   modeId: "easy",
   walls: [
-    false, false, true, false, false, true,
-    false, false, false, false, false, false,
-    false, false, false, true, false, false,
     true, false, false, false, false, false,
-    false, false, false, false, true, false,
+    false, false, false, true, false, false,
     false, false, false, false, false, false,
+    true, false, false, false, true, false,
+    false, false, false, false, false, false,
+    false, false, false, true, false, true,
   ],
-  goals: [8, 11],
-  initialCrates: [20, 29],
-  initialOperator: 21,
-  par: 13,
-  moveBudget: 23,
+  goals: [21, 25],
+  initialCrates: [14, 28],
+  initialOperator: 20,
+  par: 17,
   optimalSolution: [
-    { type: "move", dir: "down" },
     { type: "move", dir: "left" },
     { type: "move", dir: "up" },
     { type: "move", dir: "up" },
+    { type: "move", dir: "right" },
     { type: "move", dir: "down" },
+    { type: "move", dir: "left" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "right" },
+    { type: "move", dir: "up" },
+    { type: "move", dir: "right" },
+    { type: "move", dir: "right" },
     { type: "move", dir: "right" },
     { type: "move", dir: "down" },
     { type: "move", dir: "down" },
-    { type: "move", dir: "right" },
-    { type: "move", dir: "right" },
-    { type: "move", dir: "up" },
-    { type: "move", dir: "up" },
-    { type: "move", dir: "up" },
+    { type: "move", dir: "left" },
+    { type: "move", dir: "left" },
+    { type: "move", dir: "left" },
   ],
   canonicalSolution: [
-    { type: "move", dir: "left" },
-    { type: "move", dir: "right" },
-    { type: "move", dir: "down" },
-    { type: "move", dir: "down" },
-    { type: "move", dir: "right" },
-    { type: "move", dir: "right" },
     { type: "move", dir: "up" },
+    { type: "move", dir: "right" },
+    { type: "move", dir: "right" },
+    { type: "move", dir: "right" },
+    { type: "move", dir: "down" },
     { type: "move", dir: "down" },
     { type: "move", dir: "left" },
-    { type: "move", dir: "left" },
-    { type: "move", dir: "up" },
-    { type: "move", dir: "left" },
-    { type: "move", dir: "left" },
-    { type: "move", dir: "up" },
-    { type: "move", dir: "up" },
-    { type: "move", dir: "right" },
-    { type: "move", dir: "down" },
-    { type: "move", dir: "right" },
-    { type: "move", dir: "down" },
-    { type: "move", dir: "down" },
-    { type: "move", dir: "right" },
-    { type: "move", dir: "right" },
-    { type: "move", dir: "up" },
-    { type: "move", dir: "up" },
-    { type: "move", dir: "up" },
     { type: "move", dir: "left" },
     { type: "move", dir: "up" },
     { type: "move", dir: "left" },
     { type: "move", dir: "left" },
     { type: "move", dir: "down" },
-    { type: "move", dir: "left" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "right" },
+    { type: "move", dir: "up" },
     { type: "move", dir: "left" },
     { type: "move", dir: "up" },
+    { type: "move", dir: "up" },
+    { type: "move", dir: "up" },
+    { type: "move", dir: "up" },
     { type: "move", dir: "right" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "left" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "right" },
+    { type: "move", dir: "left" },
+    { type: "move", dir: "up" },
+    { type: "move", dir: "up" },
+    { type: "move", dir: "right" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "up" },
+    { type: "move", dir: "right" },
+    { type: "move", dir: "right" },
+    { type: "move", dir: "right" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "left" },
+    { type: "move", dir: "left" },
+    { type: "move", dir: "left" },
   ],
 }
 
@@ -836,54 +898,96 @@ export const FALLBACK_HARD: GeneratedBoard = {
   height: 7,
   modeId: "hard",
   walls: [
-    false, false, false, false, true, false, false,
-    true, false, false, true, false, false, false,
-    false, false, false, false, false, false, true,
-    false, false, false, false, false, true, false,
-    false, false, false, false, false, false, false,
-    false, false, true, true, false, false, false,
     true, false, false, false, false, false, false,
+    false, true, true, false, false, true, false,
+    false, false, false, false, false, false, false,
+    false, false, false, true, false, true, false,
+    false, false, false, false, false, false, false,
+    false, false, false, false, true, false, true,
+    false, false, false, false, true, false, true,
   ],
-  goals: [15, 44],
-  initialCrates: [32, 36],
-  initialOperator: 43,
-  par: 12,
-  moveBudget: 21,
+  goals: [2, 17, 47],
+  initialCrates: [18, 32, 40],
+  initialOperator: 11,
+  par: 32,
   optimalSolution: [
-    { type: "move", dir: "up" },
-    { type: "move", dir: "up" },
-    { type: "move", dir: "up" },
-    { type: "move", dir: "right" },
+    { type: "move", dir: "down" },
     { type: "move", dir: "right" },
     { type: "move", dir: "right" },
     { type: "move", dir: "down" },
     { type: "move", dir: "down" },
+    { type: "move", dir: "left" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "up" },
+    { type: "move", dir: "left" },
+    { type: "move", dir: "left" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "left" },
+    { type: "move", dir: "up" },
+    { type: "move", dir: "up" },
+    { type: "move", dir: "left" },
+    { type: "move", dir: "up" },
     { type: "move", dir: "right" },
     { type: "move", dir: "down" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "right" },
+    { type: "move", dir: "right" },
+    { type: "move", dir: "up" },
+    { type: "move", dir: "up" },
+    { type: "move", dir: "up" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "right" },
+    { type: "move", dir: "right" },
+    { type: "move", dir: "up" },
+    { type: "move", dir: "up" },
+    { type: "move", dir: "left" },
     { type: "move", dir: "left" },
     { type: "move", dir: "left" },
   ],
   canonicalSolution: [
+    { type: "move", dir: "down" },
+    { type: "move", dir: "right" },
+    { type: "move", dir: "right" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "left" },
+    { type: "move", dir: "left" },
+    { type: "move", dir: "left" },
+    { type: "move", dir: "right" },
+    { type: "move", dir: "up" },
+    { type: "move", dir: "up" },
+    { type: "move", dir: "up" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "left" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "left" },
     { type: "move", dir: "up" },
     { type: "move", dir: "up" },
     { type: "move", dir: "left" },
     { type: "move", dir: "up" },
     { type: "move", dir: "right" },
     { type: "move", dir: "down" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "right" },
+    { type: "move", dir: "right" },
+    { type: "move", dir: "right" },
     { type: "move", dir: "right" },
     { type: "move", dir: "up" },
-    { type: "move", dir: "right" },
+    { type: "move", dir: "up" },
+    { type: "move", dir: "up" },
     { type: "move", dir: "up" },
     { type: "move", dir: "left" },
-    { type: "move", dir: "right" },
-    { type: "move", dir: "right" },
-    { type: "move", dir: "down" },
-    { type: "move", dir: "down" },
-    { type: "move", dir: "down" },
-    { type: "move", dir: "right" },
-    { type: "move", dir: "down" },
     { type: "move", dir: "left" },
     { type: "move", dir: "left" },
+    { type: "move", dir: "right" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "down" },
+    { type: "move", dir: "right" },
+    { type: "move", dir: "down" },
   ],
 }
 
@@ -895,12 +999,56 @@ function applyMove(state: CrateState, dir: MoveDir): CrateState {
   const resolved = resolveMove(state, dir)
   if (!resolved.valid) return state
 
+  const nextRoomMoves = state.roomMoves + 1
+  const nextMovesUsed = state.movesUsed + 1
   const outcome = classify(resolved.nextCrates, state)
+
+  if (outcome.roomCleared) {
+    const earned = roomScore(state.modeId, state.room, state.par, nextRoomMoves)
+    const nextBanked = Math.min(MAX_SCORE, state.bankedPoints + earned)
+
+    if (outcome.wouldWin) {
+      return {
+        ...state,
+        crates: [...resolved.nextCrates],
+        operator: resolved.nextOperator,
+        roomMoves: nextRoomMoves,
+        movesUsed: nextMovesUsed,
+        bankedPoints: nextBanked,
+        phase: "won",
+        lossReason: "none",
+      }
+    }
+
+    const nextRoom = state.room + 1
+    const nextBoard = generateBoard(
+      roomSeed(state.seed, nextRoom),
+      boardModeFor(state.modeId, nextRoom),
+    )
+    return {
+      ...state,
+      room: nextRoom,
+      width: nextBoard.width,
+      height: nextBoard.height,
+      walls: [...nextBoard.walls],
+      goals: [...nextBoard.goals],
+      crates: [...nextBoard.initialCrates],
+      operator: nextBoard.initialOperator,
+      par: nextBoard.par,
+      roomMoves: 0,
+      movesUsed: nextMovesUsed,
+      bankedPoints: nextBanked,
+      phase: "playing",
+      lossReason: "none",
+    }
+  }
+
   return {
     ...state,
     crates: [...resolved.nextCrates],
     operator: resolved.nextOperator,
-    movesUsed: state.movesUsed + 1,
+    roomMoves: nextRoomMoves,
+    movesUsed: nextMovesUsed,
     phase: outcome.phase,
     lossReason: outcome.lossReason,
   }
@@ -908,11 +1056,14 @@ function applyMove(state: CrateState, dir: MoveDir): CrateState {
 
 export const core: GameCore<CrateState, CrateInput> = {
   create(seed, mode: Mode): CrateState {
-    const spec = specFor(mode)
-    const generated = generateBoard(seed, spec.id)
+    const modeId = normalizeModeId(mode)
+    const normalizedSeed = seed >>> 0
+    const generated = generateBoard(roomSeed(normalizedSeed, 1), boardModeFor(modeId, 1))
     return {
-      seed: seed >>> 0,
-      modeId: spec.id,
+      seed: normalizedSeed,
+      modeId,
+      room: 1,
+      totalRooms: totalRoomsFor(modeId),
       width: generated.width,
       height: generated.height,
       walls: [...generated.walls],
@@ -920,8 +1071,9 @@ export const core: GameCore<CrateState, CrateInput> = {
       crates: [...generated.initialCrates],
       operator: generated.initialOperator,
       par: generated.par,
-      moveBudget: generated.moveBudget,
+      roomMoves: 0,
       movesUsed: 0,
+      bankedPoints: 0,
       phase: "playing",
       lossReason: "none",
     }
@@ -951,42 +1103,51 @@ export const core: GameCore<CrateState, CrateInput> = {
   },
 
   score(state, _context: ScoreContext): Score {
-    const overPar = Math.max(0, state.movesUsed - state.par)
-    const base = modeBase(state.modeId)
-    const projected = Math.min(MAX_SCORE, Math.max(WIN_FLOOR, base - overPar * OVER_PAR_PENALTY))
+    const overPar = Math.max(0, state.roomMoves - state.par)
+    const liveRoom =
+      state.phase === "playing"
+        ? roomScore(state.modeId, state.room, state.par, Math.max(state.par, state.roomMoves))
+        : 0
 
     const goalSet = new Set(state.goals)
     const cratesOnGoals = state.crates.filter((cell) => goalSet.has(cell)).length
-    const won = state.phase === "won"
+    const won = state.modeId !== "endless" && state.phase === "won"
+    const value = Math.min(MAX_SCORE, Math.max(0, state.bankedPoints + liveRoom))
+    const ranked =
+      state.modeId === "endless" ? state.phase === "lost" && state.bankedPoints > 0 : won
 
-    const detail = {
-      mode: state.modeId,
-      width: state.width,
-      height: state.height,
-      par: state.par,
-      movesUsed: state.movesUsed,
-      moveBudget: state.moveBudget,
-      overPar,
-      cratesOnGoals,
-      totalCrates: state.goals.length,
-      baseScore: base,
-      lossReason: state.lossReason,
+    return {
+      value,
+      type: "higher",
       won,
+      ranked,
+      detail: {
+        mode: state.modeId,
+        room: state.room,
+        totalRooms: state.totalRooms ?? 0,
+        ...(state.modeId === "endless" ? { level: state.room } : {}),
+        width: state.width,
+        height: state.height,
+        par: state.par,
+        roomMoves: state.roomMoves,
+        movesUsed: state.movesUsed,
+        overPar,
+        cratesOnGoals,
+        totalCrates: state.goals.length,
+        bankedPoints: state.bankedPoints,
+        roomCeiling: roomCeiling(state.modeId, state.room, state.par),
+        lossReason: state.lossReason,
+        won,
+      },
     }
-
-    if (won) {
-      return { value: projected, type: "higher", won: true, ranked: true, detail }
-    }
-    if (state.phase === "lost") {
-      return { value: 0, type: "higher", won: false, ranked: false, detail }
-    }
-    return { value: projected, type: "higher", won: false, ranked: false, detail }
   },
 
   serialize(state) {
     return {
       mode: state.modeId,
       seed: state.seed,
+      room: state.room,
+      totalRooms: state.totalRooms,
       width: state.width,
       height: state.height,
       walls: [...state.walls],
@@ -994,8 +1155,9 @@ export const core: GameCore<CrateState, CrateInput> = {
       crates: [...state.crates],
       operator: state.operator,
       par: state.par,
-      moveBudget: state.moveBudget,
+      roomMoves: state.roomMoves,
       movesUsed: state.movesUsed,
+      bankedPoints: state.bankedPoints,
       phase: state.phase,
       lossReason: state.lossReason,
     }

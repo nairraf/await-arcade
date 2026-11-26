@@ -1,30 +1,38 @@
 import type { GameMeta } from "@await-arcade/contract"
-import { MAX_SCORE } from "./core"
+import { EASY_ROOMS, HARD_ROOMS, MAX_SCORE } from "./core"
 
 export const meta: GameMeta = {
   id: "crates",
   title: "Crate Pusher",
   description:
-    "Push every crate onto a goal pad using orthogonal moves without trapping a crate in a corner or running out of moves.",
+    "Push every crate onto a goal pad across multi-room runs, avoiding non-goal corners and beating each room's Par for maximum score.",
   author: "Await Arcade",
-  version: "1.0.0",
+  version: "1.1.0",
   engines: { arcade: "^0.1.0" },
   kind: "turn",
   modes: [
     {
       id: "easy",
-      title: "Easy (6×6)",
+      title: "Easy (3 rooms · 6×6)",
       description:
-        "6 × 6 grid · 2 crates & goals · Budget par + max(6, ceil(0.75×par)) · Base 2,000 (−50/move over par) · Tiebreak: server time",
+        `${EASY_ROOMS} rooms · 6 × 6 grid · Par-scaled room scores · Tiebreak: server time`,
       difficulty: 1,
       ranked: true,
     },
     {
       id: "hard",
-      title: "Hard (7×7)",
+      title: "Hard (3 rooms · 7×7)",
       description:
-        "7 × 7 grid · 2 crates & goals · Budget par + max(6, ceil(0.75×par)) · Base 4,000 (−50/move over par) · Tiebreak: server time",
+        `${HARD_ROOMS} rooms · 7 × 7 grid · 3 crates & goals · Par-scaled room scores · Tiebreak: server time`,
       difficulty: 2,
+      ranked: true,
+    },
+    {
+      id: "endless",
+      title: "Endless",
+      description:
+        "Unlimited rooms (6×6 2 crates then 7×7 3 crates) · bank room scores until a corner trap · Tiebreak: server time",
+      difficulty: 3,
       ranked: true,
     },
   ],

@@ -3,13 +3,18 @@ import type { Replay } from "@await-arcade/contract"
 import { createRng, playTurn, stateHash, verifyReplay } from "@await-arcade/framework"
 import {
   DIRS,
+  EASY_ROOMS,
   FALLBACK_EASY,
   FALLBACK_HARD,
+  HARD_ROOMS,
   core,
   findStuckCrate,
   generateBoard,
   isCornerCell,
   previewMove,
+  roomCeiling,
+  roomScore,
+  roomSeed,
   specFor,
   traceMove,
   type CrateInput,
@@ -22,6 +27,7 @@ import fixture from "../replay.json"
 
 const easy = meta.modes.find((mode) => mode.id === "easy")!
 const hard = meta.modes.find((mode) => mode.id === "hard")!
+const endless = meta.modes.find((mode) => mode.id === "endless")!
 
 const DX: Record<MoveDir, number> = { up: 0, right: 1, down: 0, left: -1 }
 const DY: Record<MoveDir, number> = { up: -1, right: 0, down: 1, left: 0 }
@@ -74,8 +80,11 @@ function oracleStep(
   return { operator: target, crates }
 }
 
-function oracleKey(state: OracleState): string {
-  return `${state.operator}|${[...state.crates].sort((a, b) => a - b).join(",")}`
+function oracleKey(state: OracleState, total: number): number {
+  const sorted = [...state.crates].sort((a, b) => a - b)
+  let key = state.operator
+  for (const cell of sorted) key = key * total + cell
+  return key
 }
 
 /** Minimum raw moves to all-crates-on-goals, or null (unsolvable / cap hit). */
@@ -85,15 +94,16 @@ function oracleSolve(
   goals: readonly number[],
   width: number,
   height: number,
-  cap = 120_000,
+  cap = 600_000,
 ): number | null {
+  const total = width * height
   const goalSet = new Set(goals)
   const done = (crates: readonly number[]): boolean =>
     crates.every((cell) => goalSet.has(cell))
 
   if (done(start.crates)) return 0
 
-  const seen = new Set<string>([oracleKey(start)])
+  const seen = new Set<number>([oracleKey(start, total)])
   const queue: Array<{ readonly state: OracleState; readonly moves: number }> = [
     { state: start, moves: 0 },
   ]
@@ -105,7 +115,7 @@ function oracleSolve(
     for (const dir of DIRS) {
       const next = oracleStep(current.state, dir, walls, width, height)
       if (next === null) continue
-      const key = oracleKey(next)
+      const key = oracleKey(next, total)
       if (seen.has(key)) continue
       if (done(next.crates)) return current.moves + 1
       seen.add(key)
@@ -141,6 +151,8 @@ function makeState(overrides: Partial<CrateState> = {}): CrateState {
   return {
     seed: 1,
     modeId: "easy",
+    room: 1,
+    totalRooms: EASY_ROOMS,
     width: 6,
     height: 6,
     walls: new Array<boolean>(36).fill(false),
@@ -148,8 +160,9 @@ function makeState(overrides: Partial<CrateState> = {}): CrateState {
     crates: [8, 9],
     operator: 14,
     par: 10,
-    moveBudget: 20,
+    roomMoves: 0,
     movesUsed: 0,
+    bankedPoints: 0,
     phase: "playing",
     lossReason: "none",
     ...overrides,
@@ -160,6 +173,8 @@ function stateFromBoard(board: GeneratedBoard, seed: number): CrateState {
   return {
     seed: seed >>> 0,
     modeId: board.modeId,
+    room: 1,
+    totalRooms: board.modeId === "hard" ? HARD_ROOMS : EASY_ROOMS,
     width: board.width,
     height: board.height,
     walls: [...board.walls],
@@ -167,8 +182,9 @@ function stateFromBoard(board: GeneratedBoard, seed: number): CrateState {
     crates: [...board.initialCrates],
     operator: board.initialOperator,
     par: board.par,
-    moveBudget: board.moveBudget,
+    roomMoves: 0,
     movesUsed: 0,
+    bankedPoints: 0,
     phase: "playing",
     lossReason: "none",
   }
@@ -177,8 +193,8 @@ function stateFromBoard(board: GeneratedBoard, seed: number): CrateState {
 function assertBoardInvariants(board: GeneratedBoard, seed: number, modeId: "easy" | "hard"): void {
   const expected =
     modeId === "hard"
-      ? { width: 7, height: 7, walls: 8, goals: 2, minPar: 12 }
-      : { width: 6, height: 6, walls: 5, goals: 2, minPar: 8 }
+      ? { width: 7, height: 7, walls: 10, goals: 3, minPar: 15 }
+      : { width: 6, height: 6, walls: 6, goals: 2, minPar: 10 }
   const total = board.width * board.height
   expect(board.modeId).toBe(modeId)
   expect(board.width).toBe(expected.width)
@@ -210,13 +226,10 @@ function assertBoardInvariants(board: GeneratedBoard, seed: number, modeId: "eas
   // Pinned literals, deliberately not derived from core constants.
   expect(board.par).toBeGreaterThanOrEqual(expected.minPar)
   expect(board.par).toBeLessThanOrEqual(board.canonicalSolution.length)
-  expect(board.moveBudget).toBe(board.par + Math.max(6, Math.ceil(board.par * 0.75)))
-  expect(board.moveBudget).toBeGreaterThanOrEqual(Math.ceil(1.6 * board.par))
   expect(board.optimalSolution).toHaveLength(board.par)
 
   const state = core.create(seed, modeId === "hard" ? hard : easy)
   expect(state.par).toBe(board.par)
-  expect(state.moveBudget).toBe(board.moveBudget)
   expect(DIRS.some((dir) => previewMove(state, dir)?.valid)).toBe(true)
 }
 
@@ -237,8 +250,8 @@ describe("crates generation", () => {
     const fallbackHard = generateBoard(1, "hard", { maxAttempts: 0 })
     expect(fallbackEasy).toEqual(FALLBACK_EASY)
     expect(fallbackHard).toEqual(FALLBACK_HARD)
-    expect([fallbackEasy.par, fallbackEasy.moveBudget]).toEqual([13, 23])
-    expect([fallbackHard.par, fallbackHard.moveBudget]).toEqual([12, 21])
+    expect(fallbackEasy.par).toBe(17)
+    expect(fallbackHard.par).toBe(32)
 
     for (const [board, modeId] of [
       [fallbackEasy, "easy"],
@@ -246,13 +259,13 @@ describe("crates generation", () => {
     ] as const) {
       assertBoardInvariants(board, 1, modeId)
 
-      // Build the state from the returned fallback, not a fresh generate().
-      const state = stateFromBoard(board, 1)
-      expect(core.serialize(state)).toEqual(
+      // Build a single-room state from the returned fallback, not a fresh generate().
+      const singleRoom = { ...stateFromBoard(board, 1), totalRooms: 1 }
+      expect(core.serialize(stateFromBoard(board, 1))).toEqual(
         core.serialize(core.create(1, modeId === "hard" ? hard : easy)),
       )
 
-      const solved = run(state, board.optimalSolution)
+      const solved = run(singleRoom, board.optimalSolution)
       expect(solved.phase).toBe("won")
       expect(solved.movesUsed).toBe(board.par)
 
@@ -275,40 +288,81 @@ describe("crates generation", () => {
 })
 
 describe("crates optimal par and solvability", () => {
-  it("wins in exactly par moves and agrees with an independent raw BFS", () => {
+  it("wins multi-room runs in total par moves and agrees with an independent raw BFS", () => {
     for (const modeId of ["easy", "hard"] as const) {
-      const base = modeId === "hard" ? 4_000 : 2_000
+      const mode = modeId === "hard" ? hard : easy
+      const roomsCount = modeId === "hard" ? HARD_ROOMS : EASY_ROOMS
       for (const seed of SEEDS) {
-        const board = generateBoard(seed, modeId)
-        const state = core.create(seed, modeId === "hard" ? hard : easy)
-        const solved = run(state, board.optimalSolution)
-        expect(solved.phase).toBe("won")
-        expect(solved.movesUsed).toBe(board.par)
-        expect(core.score(solved, { elapsedMs: 0, ticks: board.par }).value).toBe(base)
+        let state = core.create(seed, mode)
+        let expectedParTotal = 0
+        let expectedScore = 0
+        for (let room = 1; room <= roomsCount; room += 1) {
+          const board = generateBoard(roomSeed(seed, room), modeId)
+          expectedParTotal += board.par
+          expectedScore += roomCeiling(modeId, room, board.par)
+          state = run(state, board.optimalSolution)
+          if (room < roomsCount) {
+            expect(state.phase).toBe("playing")
+            expect(state.room).toBe(room + 1)
+          }
 
-        const optimum = oracleSolve(
-          { operator: board.initialOperator, crates: board.initialCrates },
-          board.walls,
-          board.goals,
-          board.width,
-          board.height,
-        )
-        expect(optimum).toBe(board.par)
+          const optimum = oracleSolve(
+            { operator: board.initialOperator, crates: board.initialCrates },
+            board.walls,
+            board.goals,
+            board.width,
+            board.height,
+          )
+          expect(optimum).toBe(board.par)
 
-        // The reverse-pull canonical solution is a raw-rule witness too.
-        let raw = { operator: board.initialOperator, crates: board.initialCrates }
-        let canonicalMoves = 0
-        for (const input of board.canonicalSolution) {
-          const next = oracleStep(raw, input.dir, board.walls, board.width, board.height)
-          expect(next).not.toBeNull()
-          raw = next!
-          canonicalMoves += 1
-          if (raw.crates.every((cell) => board.goals.includes(cell))) break
+          // The reverse-pull canonical solution is a raw-rule witness too.
+          let raw = { operator: board.initialOperator, crates: board.initialCrates }
+          let canonicalMoves = 0
+          for (const input of board.canonicalSolution) {
+            const next = oracleStep(raw, input.dir, board.walls, board.width, board.height)
+            expect(next).not.toBeNull()
+            raw = next!
+            canonicalMoves += 1
+            if (raw.crates.every((cell) => board.goals.includes(cell))) break
+          }
+          expect(canonicalMoves).toBe(board.canonicalSolution.length)
+          expect(raw.crates.every((cell) => board.goals.includes(cell))).toBe(true)
         }
-        expect(canonicalMoves).toBe(board.canonicalSolution.length)
-        expect(raw.crates.every((cell) => board.goals.includes(cell))).toBe(true)
+        expect(state.phase).toBe("won")
+        expect(state.movesUsed).toBe(expectedParTotal)
+        expect(core.score(state, { elapsedMs: 0, ticks: expectedParTotal }).value).toBe(
+          expectedScore,
+        )
       }
     }
+  }, 15_000)
+
+  it("advances endless from 6x6 rooms to 7x7 rooms and ranks banked score on loss", () => {
+    let state = core.create(42, endless)
+    expect(state.totalRooms).toBeNull()
+    expect([state.width, state.height]).toEqual([6, 6])
+
+    for (let room = 1; room <= 3; room += 1) {
+      const boardMode = room >= 3 ? "hard" : "easy"
+      const board = generateBoard(roomSeed(42, room), boardMode)
+      expect([state.width, state.height]).toEqual(room >= 3 ? [7, 7] : [6, 6])
+      state = run(state, board.optimalSolution)
+      expect(state.phase).toBe("playing")
+      expect(state.room).toBe(room + 1)
+    }
+    expect([state.width, state.height]).toEqual([7, 7])
+    expect(state.bankedPoints).toBeGreaterThan(0)
+
+    const trapped = {
+      ...state,
+      phase: "lost" as const,
+      lossReason: "stuck" as const,
+    }
+    const lostScore = core.score(trapped, { elapsedMs: 0, ticks: trapped.movesUsed })
+    expect(lostScore.value).toBe(trapped.bankedPoints)
+    expect(lostScore.won).toBe(false)
+    expect(lostScore.ranked).toBe(true)
+    expect(lostScore.detail).toMatchObject({ level: 4, room: 4 })
   })
 })
 
@@ -589,32 +643,57 @@ describe("crates input hardening and terminal ordering", () => {
   })
 
   it("ignores every input after a win or a loss", () => {
-    const won = run(core.create(1, easy), generateBoard(1, "easy").optimalSolution)
+    let won = core.create(1, easy)
+    for (let room = 1; room <= EASY_ROOMS; room += 1) {
+      won = run(won, generateBoard(roomSeed(1, room), "easy").optimalSolution)
+    }
     expect(won.phase).toBe("won")
     expect(core.step(won, [move("left")], 0)).toBe(won)
 
-    const lost = makeState({ goals: [20], crates: [9], operator: 10, moveBudget: 1 })
-    const budgetLost = core.step(lost, [move("right")], 0)
-    expect(budgetLost.phase).toBe("lost")
-    expect(budgetLost.lossReason).toBe("budget")
-    expect(core.step(budgetLost, [move("left")], 0)).toBe(budgetLost)
+    const walls = new Array<boolean>(36).fill(false)
+    walls[0] = true
+    const stuckBase = makeState({
+      walls,
+      goals: [20, 21],
+      crates: [12, 30],
+      operator: 18,
+    })
+    const stuckLost = core.step(stuckBase, [move("up")], 0)
+    expect(stuckLost.phase).toBe("lost")
+    expect(stuckLost.lossReason).toBe("stuck")
+    expect(core.step(stuckLost, [move("left")], 0)).toBe(stuckLost)
   })
 
-  it("wins on the final budgeted move instead of losing on budget", () => {
-    const state = makeState({
+  it("allows solving past par without a move cap and scales score by room efficiency", () => {
+    const base = makeState({
+      room: 3,
+      totalRooms: 3,
       goals: [1],
       crates: [2],
       operator: 3,
       par: 1,
-      moveBudget: 1,
+      roomMoves: 10,
+      movesUsed: 30,
+      bankedPoints: 2_000,
     })
-    const won = core.step(state, [move("left")], 0)
-    expect(won.movesUsed).toBe(1)
+    const walked = core.step(base, [move("down")], 0)
+    expect(walked.phase).toBe("playing")
+    expect(walked.lossReason).toBe("none")
+    expect(walked.roomMoves).toBe(11)
+    expect(walked.movesUsed).toBe(31)
+
+    const returned = core.step(walked, [move("up")], 0)
+    expect(returned.phase).toBe("playing")
+    const won = core.step(returned, [move("left")], 0)
     expect(won.phase).toBe("won")
-    expect(won.lossReason).toBe("none")
+    expect(won.roomMoves).toBe(13)
+    expect(won.movesUsed).toBe(33)
+    expect(core.score(won, { elapsedMs: 0, ticks: 33 }).value).toBe(
+      2_000 + roomScore("easy", 3, 1, 13),
+    )
   })
 
-  it("checks stuck before budget when the same move both corners and spends the last move", () => {
+  it("loses with zero ranked value when a crate is trapped in a corner", () => {
     const walls = new Array<boolean>(36).fill(false)
     walls[0] = true
     const state = makeState({
@@ -622,26 +701,17 @@ describe("crates input hardening and terminal ordering", () => {
       goals: [20, 21],
       crates: [12, 30],
       operator: 18,
-      moveBudget: 1,
     })
     const lost = core.step(state, [move("up")], 0)
     expect(lost.crates[0]).toBe(6)
     expect(lost.movesUsed).toBe(1)
     expect(lost.phase).toBe("lost")
     expect(lost.lossReason).toBe("stuck")
-    expect(core.score(lost, { elapsedMs: 0, ticks: 1 }).value).toBe(0)
-  })
-
-  it("loses on budget with zero ranked value", () => {
-    const state = makeState({ goals: [20], crates: [9], operator: 10, par: 1, moveBudget: 1 })
-    const lost = core.step(state, [move("right")], 0)
-    expect(lost.phase).toBe("lost")
-    expect(lost.lossReason).toBe("budget")
     const score = core.score(lost, { elapsedMs: 0, ticks: 1 })
     expect(score.value).toBe(0)
     expect(score.won).toBe(false)
     expect(score.ranked).toBe(false)
-    expect(score.detail?.lossReason).toBe("budget")
+    expect(score.detail?.lossReason).toBe("stuck")
   })
 })
 
@@ -659,16 +729,19 @@ describe("crates preview and trace", () => {
         continue
       }
       expect(next.movesUsed).toBe(state.movesUsed + 1)
-      expect(next.operator).toBe(state.operator + DX[dir] * 1 + DY[dir] * width)
-      if (preview.pushedTo === null) {
-        expect(next.crates).toEqual(state.crates)
-        expect(traceMove(state, dir)?.pushedTo).toBeNull()
-      } else {
-        expect(next.crates).toContain(preview.pushedTo.y * width + preview.pushedTo.x)
-        expect(next.crates).not.toContain(preview.pushedFrom!.y * width + preview.pushedFrom!.x)
-        expect(preview.landsOnGoal).toBe(
-          state.goals.includes(preview.pushedTo.y * width + preview.pushedTo.x),
-        )
+      const boardChanged = next.room > state.room
+      if (!boardChanged) {
+        expect(next.operator).toBe(state.operator + DX[dir] * 1 + DY[dir] * width)
+        if (preview.pushedTo === null) {
+          expect(next.crates).toEqual(state.crates)
+          expect(traceMove(state, dir)?.pushedTo).toBeNull()
+        } else {
+          expect(next.crates).toContain(preview.pushedTo.y * width + preview.pushedTo.x)
+          expect(next.crates).not.toContain(preview.pushedFrom!.y * width + preview.pushedFrom!.x)
+          expect(preview.landsOnGoal).toBe(
+            state.goals.includes(preview.pushedTo.y * width + preview.pushedTo.x),
+          )
+        }
       }
       expect(preview.wouldWin).toBe(next.phase === "won")
       expect(preview.wouldStick).toBe(next.phase === "lost" && next.lossReason === "stuck")
@@ -678,10 +751,12 @@ describe("crates preview and trace", () => {
         x: state.operator % width,
         y: Math.floor(state.operator / width),
       })
-      expect(trace.toOp).toEqual({
-        x: next.operator % width,
-        y: Math.floor(next.operator / width),
-      })
+      if (!boardChanged) {
+        expect(trace.toOp).toEqual({
+          x: next.operator % width,
+          y: Math.floor(next.operator / width),
+        })
+      }
       expect(trace.pushedFrom).toEqual(preview.pushedFrom)
       expect(trace.pushedTo).toEqual(preview.pushedTo)
       expect(trace.landedOnGoal).toBe(preview.landsOnGoal)
@@ -739,7 +814,11 @@ describe("crates preview and trace", () => {
   })
 
   it("returns null for terminal states and invalid directions", () => {
-    const won = run(core.create(1, easy), generateBoard(1, "easy").optimalSolution)
+    let won = core.create(1, easy)
+    for (let room = 1; room <= EASY_ROOMS; room += 1) {
+      won = run(won, generateBoard(roomSeed(1, room), "easy").optimalSolution)
+    }
+    expect(won.phase).toBe("won")
     expect(previewMove(won, "up")).toBeNull()
     expect(traceMove(won, "up")).toBeNull()
 
@@ -753,68 +832,78 @@ describe("crates preview and trace", () => {
 })
 
 describe("crates scoring and serialization", () => {
-  it("projects the live score while playing and floors it at 100", () => {
+  it("scales room ceiling by par, projects live score, and separates extra moves", () => {
     const par = 14
-    const walked = core.step(makeState({ par, moveBudget: 20 }), [move("left")], 0)
-    expect(walked.phase).toBe("playing")
-    expect(walked.movesUsed).toBe(1)
+    const ceiling = roomCeiling("easy", 1, par)
+    expect(ceiling).toBe(500 + 14 * 50)
+    expect(roomCeiling("easy", 1, 20)).toBeGreaterThan(ceiling)
 
-    const state = makeState({ movesUsed: par + 2, par })
+    const walked = core.step(makeState({ par }), [move("left")], 0)
+    expect(walked.phase).toBe("playing")
+    expect(walked.roomMoves).toBe(1)
+
+    const state = makeState({ roomMoves: par + 2, movesUsed: par + 2, par })
     const score = core.score(state, { elapsedMs: 123_456, ticks: state.movesUsed })
-    expect(score.value).toBe(1_900)
-    expect(score.detail).toMatchObject({ overPar: 2, baseScore: 2_000 })
+    expect(score.value).toBe(roomScore("easy", 1, par, par + 2))
+    expect(score.value).toBeLessThan(ceiling)
+    expect(score.value).toBeGreaterThan(100)
+    expect(score.detail).toMatchObject({ overPar: 2, roomCeiling: ceiling })
+    expect(score.detail).not.toHaveProperty("level")
     expect(score.won).toBe(false)
     expect(score.ranked).toBe(false)
 
-    const farOver = makeState({ movesUsed: par + 100, par })
+    const farOver = makeState({ roomMoves: par + 200, movesUsed: par + 200, par })
     expect(core.score(farOver, { elapsedMs: 0, ticks: 0 }).value).toBe(100)
 
-    const atPar = makeState({ movesUsed: par, par })
-    expect(core.score(atPar, { elapsedMs: 0, ticks: 0 }).value).toBe(2_000)
+    const atPar = makeState({ roomMoves: par, movesUsed: par, par })
+    expect(core.score(atPar, { elapsedMs: 0, ticks: 0 }).value).toBe(ceiling)
   })
 
-  it("pins the score literals for both modes", () => {
-    expect(core.score(makeState({ movesUsed: 14, par: 14 }), { elapsedMs: 0, ticks: 0 }).value).toBe(
-      2_000,
-    )
-    expect(core.score(makeState({ movesUsed: 16, par: 14 }), { elapsedMs: 0, ticks: 0 }).value).toBe(
-      1_900,
-    )
-    expect(
-      core.score(makeState({ modeId: "hard", movesUsed: 12, par: 12 }), {
-        elapsedMs: 0,
-        ticks: 0,
-      }).value,
-    ).toBe(4_000)
-    expect(
-      core.score(makeState({ movesUsed: 14 + 100, par: 14 }), { elapsedMs: 0, ticks: 0 }).value,
-    ).toBe(100)
+  it("pins the score literals for both modes and efficiency curve", () => {
+    expect(roomCeiling("easy", 1, 14)).toBe(1_200)
+    expect(roomScore("easy", 1, 14, 14)).toBe(1_200)
+    expect(roomScore("easy", 1, 14, 15)).toBe(1_082)
+    expect(roomScore("easy", 1, 14, 16)).toBe(982)
+    expect(roomCeiling("hard", 1, 15)).toBe(2_100)
+    expect(roomScore("hard", 1, 15, 15)).toBe(2_100)
+    expect(roomScore("easy", 1, 14, 200)).toBe(100)
   })
 
-  it("reports won and ranked with the base score at par", () => {
-    const board = generateBoard(3, "hard")
-    const state = run(core.create(3, hard), board.optimalSolution)
+  it("reports won and ranked with the sum of par-scaled room scores", () => {
+    let state = core.create(3, hard)
+    let expected = 0
+    let totalPar = 0
+    for (let room = 1; room <= HARD_ROOMS; room += 1) {
+      const board = generateBoard(roomSeed(3, room), "hard")
+      expected += roomCeiling("hard", room, board.par)
+      totalPar += board.par
+      state = run(state, board.optimalSolution)
+    }
     expect(state.phase).toBe("won")
     const score = core.score(state, { elapsedMs: 0, ticks: state.movesUsed })
-    expect(score.value).toBe(4_000)
+    expect(score.value).toBe(expected)
     expect(score.won).toBe(true)
     expect(score.ranked).toBe(true)
     expect(score.detail).toMatchObject({
       mode: "hard",
-      par: board.par,
-      movesUsed: board.par,
-      moveBudget: board.moveBudget,
+      room: HARD_ROOMS,
+      totalRooms: HARD_ROOMS,
+      movesUsed: totalPar,
       overPar: 0,
-      cratesOnGoals: 2,
-      totalCrates: 2,
-      baseScore: 4_000,
+      cratesOnGoals: 3,
+      totalCrates: 3,
+      bankedPoints: expected,
       lossReason: "none",
       won: true,
     })
+    expect(score.detail).not.toHaveProperty("level")
   })
 
   it("ignores wall-clock time and normalises signed seeds", () => {
-    const state = run(core.create(1, easy), generateBoard(1, "easy").optimalSolution)
+    let state = core.create(1, easy)
+    for (let room = 1; room <= EASY_ROOMS; room += 1) {
+      state = run(state, generateBoard(roomSeed(1, room), "easy").optimalSolution)
+    }
     expect(core.score(state, { elapsedMs: 1_000, ticks: 9 })).toEqual(
       core.score(state, { elapsedMs: 1_800_000, ticks: 9 }),
     )
@@ -836,17 +925,20 @@ describe("crates scoring and serialization", () => {
     expect(serialized).not.toContain("canonicalSolution")
     expect(serialized).not.toContain("reverseSteps")
     expect(Object.keys(core.serialize(left) as object).sort()).toEqual([
+      "bankedPoints",
       "crates",
       "goals",
       "height",
       "lossReason",
       "mode",
-      "moveBudget",
       "movesUsed",
       "operator",
       "par",
       "phase",
+      "room",
+      "roomMoves",
       "seed",
+      "totalRooms",
       "walls",
       "width",
     ])
@@ -854,13 +946,22 @@ describe("crates scoring and serialization", () => {
 })
 
 describe("crates replay fixture", () => {
-  it("verifies the pinned easy 20260421 win at 1900 points", () => {
+  it("verifies the pinned 3-room easy 20260421 win", () => {
+    const r1 = generateBoard(roomSeed(20260421, 1), "easy")
+    const r2 = generateBoard(roomSeed(20260421, 2), "easy")
+    const r3 = generateBoard(roomSeed(20260421, 3), "easy")
+    const expectedMoves = r1.par + 2 + r2.par + r3.par
+    const expectedScore =
+      roomScore("easy", 1, r1.par, r1.par + 2) +
+      roomScore("easy", 2, r2.par, r2.par) +
+      roomScore("easy", 3, r3.par, r3.par)
+
     const replay = fixture as Replay<CrateInput>
     expect(replay.gameId).toBe("crates")
-    expect(replay.gameVersion).toBe("1.0.0")
+    expect(replay.gameVersion).toBe("1.1.0")
     expect(replay.modeId).toBe("easy")
     expect(replay.seed).toBe(20260421)
-    expect(replay.inputs).toHaveLength(16)
+    expect(replay.inputs).toHaveLength(expectedMoves)
     expect(replay.inputs.slice(0, 2).map((event) => event.input)).toEqual([
       move("up"),
       move("down"),
@@ -869,32 +970,43 @@ describe("crates replay fixture", () => {
     const verified = verifyReplay(core, meta, replay)
     expect(verified.ok).toBe(true)
     const state = verified.state as {
-      par: number
-      moveBudget: number
+      room: number
       movesUsed: number
       phase: string
     }
-    expect(state.par).toBe(14)
-    expect(state.moveBudget).toBe(25)
-    expect(state.movesUsed).toBe(16)
+    expect(state.room).toBe(3)
+    expect(state.movesUsed).toBe(expectedMoves)
     expect(state.phase).toBe("won")
-    expect(verified.score?.value).toBe(1900)
+    expect(verified.score?.value).toBe(expectedScore)
     expect(verified.score?.ranked).toBe(true)
   })
 
-  it("builds the fixture shape from the generated board", () => {
-    const board = generateBoard(20260421, "easy")
-    expect(board.par).toBe(14)
-    expect(board.moveBudget).toBe(25)
-    expect(board.canonicalSolution).toHaveLength(22)
+  it("builds the fixture shape from the generated boards", () => {
+    const r1 = generateBoard(roomSeed(20260421, 1), "easy")
+    const r2 = generateBoard(roomSeed(20260421, 2), "easy")
+    const r3 = generateBoard(roomSeed(20260421, 3), "easy")
+    expect(r1.par).toBe(21)
+    expect(r1.canonicalSolution).toHaveLength(37)
+    const inputs = [
+      move("up"),
+      move("down"),
+      ...r1.optimalSolution,
+      ...r2.optimalSolution,
+      ...r3.optimalSolution,
+    ]
     const played = playTurn(core, meta, {
       seed: 20260421,
       mode: easy,
-      inputs: [move("up"), move("down"), ...board.optimalSolution],
+      inputs,
       durationMs: 30_000,
     })
     expect(played.verified.ok).toBe(true)
-    expect(played.state.movesUsed).toBe(16)
-    expect(played.score.value).toBe(1900)
+    expect(played.state.room).toBe(3)
+    expect(played.state.movesUsed).toBe(inputs.length)
+    expect(played.score.value).toBe(
+      roomScore("easy", 1, r1.par, r1.par + 2) +
+        roomScore("easy", 2, r2.par, r2.par) +
+        roomScore("easy", 3, r3.par, r3.par),
+    )
   })
 })

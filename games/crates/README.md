@@ -6,15 +6,11 @@ good, and every board comes with a true-optimal `par` found by exhaustive BFS.
 
 ## Modes
 
-- **Easy (6×6)** — 5 walls, 2 crates and 2 goals, 7 reverse pulls. Base score
-  2,000.
-- **Hard (7×7)** — 8 walls, 2 crates and 2 goals, 9 reverse pulls. Base score
-  4,000.
+- **Easy (3 rooms · 6×6)** — 3 rooms of 6×6 (6 walls, 2 crates/goals, 9 reverse pulls, min Par 10). Room ceiling `500 + par × 50`.
+- **Hard (3 rooms · 7×7)** — 3 rooms of 7×7 (10 walls, 3 crates/goals, 12 reverse pulls, min Par 15). Room ceiling `900 + par × 80`.
+- **Endless** — unlimited rooms (6×6 2 crates for rooms 1–2, 7×7 3 crates for room 3+), adding `+150 × (room - 1)` to each room's ceiling until a corner trap ends the run. Any run that clears at least one room ranks on the Endless board.
 
-Both modes use the same move budget: `par + max(6, ceil(0.75 × par))`. Finishing
-at or under par earns the full base score; each move over par costs 50 points,
-with a floor of 100. Ranked play has no undo, and the server tiebreak is score,
-then elapsed server time.
+All modes have no move limit: solving a room at or under Par earns its full ceiling, and extra moves reduce that room's payout along `ceiling × (par / moves)^1.5` (floor 100 per room). Ranked play has no undo, and the server tiebreak is score, then elapsed server time.
 
 ## Rules
 
@@ -34,14 +30,16 @@ then elapsed server time.
   reaches the mode minimum. A pinned fallback bank guarantees `create()`.
 - **Stuck rule** — a crate is stuck only when it sits off a goal and is blocked
   along both axes by static walls or borders. Other crates never count as
-  corner blockers, so the rule has no false positives. The view shows a warning
-  outline and status sentence before the push.
+  corner blockers, so the rule has no false positives. Easy previews corner traps
+  with a dashed red outline and status sentence before the push; Hard and Endless
+  omit the warning.
 - **Inputs** — the only replay input is `{ type: "move", dir }`. Unknown types,
   diagonals, numbers, `NaN`, and any input after the run ends are no-ops.
-- **Score** — no wall-clock time. While playing, `score()` returns the live
-  projected value so the shell HUD and pause overlay match `Est.`; a loss is
-  worth 0 and unranked; a win is ranked with the server's elapsed time only in
-  `rankKey`.
+- **Score** — no wall-clock time. While playing, `score()` returns banked room
+  points plus the live room projection so the shell HUD matches `Est.`; a
+  corner-trap loss keeps banked points (`unranked` in Easy/Hard; `ranked` in
+  Endless if at least one room was cleared); an Easy/Hard win is ranked with
+  the server's elapsed time only in `rankKey`.
 
 ## Files
 
@@ -50,12 +48,14 @@ then elapsed server time.
   par BFS, stuck rule, preview/trace, and score.
 - `src/view.ts` — DOM grid, goal strip, always-available guide, push previews,
   bounded per-turn playback, keyboard/click input, and screen-reader labels.
+- `src/view.test.ts` — unit tests for `previewCell` push, blocked-push, goal,
+  trap, and plain-walk states.
 - `src/core.test.ts` — generation invariants, optimal par, stuck soundness with
-  a raw BFS oracle, refused pushes, budget/win ordering, scoring, determinism,
+  a raw BFS oracle, refused pushes, terminal ordering, scoring, determinism,
   zero-leak serialization, preview/trace agreement, and the replay fixture.
-- `replay.json` — verified easy `20260421` win: 16 moves, par 14, score 1,900.
+- `replay.json` — verified 3-room easy `20260421` win (room 1 with a 2-move detour + rooms 2–3 at Par).
 - `measure.ts` — F10 harness: 250 seeds per mode, random and `bfs2k` policies,
-  optimality and budget gates, non-zero exit on failure.
+  optimality and random-solve gates, non-zero exit on failure.
 - `arcade.config.ts` — tells `aa sync` where the three parts live.
 - `README.md` — this file.
 
@@ -78,9 +78,9 @@ npx tsx games/crates/measure.ts
 ```
 
 250 seeds per mode. Gates: `optimalSolution` wins in exactly `par` on 100% of
-seeds, `moveBudget >= ceil(1.6 × par)` on 100%, and the uniform-random solve
-rate stays below 5%. The bounded-lookahead `bfs2k` rate is reported but not
-gated, and Ian's playtest is the human acceptance.
+seeds, and the uniform-random solve rate stays below 5%. The bounded-lookahead
+`bfs2k` rate is reported but not gated, and Ian's playtest is the human
+acceptance.
 
 ## Commands
 
