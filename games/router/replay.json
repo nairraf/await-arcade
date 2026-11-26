@@ -1,7 +1,7 @@
 {
   "version": 1,
   "gameId": "router",
-  "gameVersion": "1.1.0",
+  "gameVersion": "1.2.0",
   "frameworkVersion": "0.1.0",
   "modeId": "easy",
   "seed": 20260420,
@@ -198,5 +198,5 @@
       }
     }
   ],
-  "stateHash": "da74a59f"
+  "stateHash": "16181c24"
 }

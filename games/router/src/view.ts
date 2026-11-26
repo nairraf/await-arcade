@@ -7,7 +7,7 @@ import {
   SOUTH,
   WEST,
   analyzeCircuit,
-  modeBase,
+  parCeiling,
   previewRotate,
   projectedScore,
   traceRotate,
@@ -189,19 +189,34 @@ const css = `
 
 .cr-cell.is-cursor {
   border-color: color-mix(in srgb, var(--game-accent, #22d3ee) 70%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--game-accent, #22d3ee) 55%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--game-accent, #22d3ee) 45%, transparent);
+}
+
+.cr-cell:focus-visible {
+  outline: 2px solid var(--game-accent, #22d3ee);
+  outline-offset: 1px;
 }
 
 .cr-cell.is-ghost {
   border-color: var(--game-accent, #22d3ee);
 }
 
-.cr-cell.is-would-power {
-  box-shadow: inset 0 0 0 2px var(--game-accent, #22d3ee);
+.cr-cell.is-would-power::after,
+.cr-cell.is-would-unpower::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 1;
 }
 
-.cr-cell.is-would-unpower {
-  box-shadow: inset 0 0 0 2px var(--game-accent-2, #f59e0b);
+.cr-cell.is-would-power::after {
+  border: 1.5px dashed color-mix(in srgb, var(--game-accent, #22d3ee) 85%, transparent);
+}
+
+.cr-cell.is-would-unpower::after {
+  border: 1.5px dashed color-mix(in srgb, var(--game-accent-2, #f59e0b) 90%, transparent);
 }
 
 .cr-cell.is-depowered {
@@ -223,6 +238,7 @@ const css = `
   border-radius: 2px;
   background: currentColor;
   pointer-events: none;
+  z-index: 2;
 }
 
 .cr-arm[hidden] {
@@ -243,18 +259,33 @@ const css = `
 }
 
 .cr-ghost {
-  color: var(--game-accent, #22d3ee);
-  opacity: 0.55;
-  background: repeating-linear-gradient(
-    135deg,
-    var(--game-accent, #22d3ee) 0 3px,
-    transparent 3px 6px
-  );
+  position: absolute;
+  display: block;
+  box-sizing: border-box;
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--game-accent, #22d3ee) 88%, transparent);
+  background: color-mix(in srgb, var(--game-accent, #22d3ee) 14%, transparent);
+  pointer-events: none;
+  z-index: 1;
 }
 
-.cr-arm.cr-ghost[hidden] {
+.cr-ghost[hidden] {
   display: none;
 }
+
+.cr-ghost.is-shared {
+  background: transparent;
+}
+
+.cr-ghost-n { left: 36%; top: 0; width: 28%; height: 18%; border-width: 0 2px 2px 2px; border-radius: 0 0 4px 4px; }
+.cr-ghost-e { top: 36%; right: 0; width: 18%; height: 28%; border-width: 2px 0 2px 2px; border-radius: 4px 0 0 4px; }
+.cr-ghost-s { left: 36%; bottom: 0; width: 28%; height: 18%; border-width: 2px 2px 0 2px; border-radius: 4px 4px 0 0; }
+.cr-ghost-w { top: 36%; left: 0; width: 18%; height: 28%; border-width: 2px 2px 2px 0; border-radius: 0 4px 4px 0; }
+
+.cr-ghost-n.is-shared { border-bottom-width: 0; }
+.cr-ghost-e.is-shared { border-left-width: 0; }
+.cr-ghost-s.is-shared { border-top-width: 0; }
+.cr-ghost-w.is-shared { border-right-width: 0; }
 
 .cr-hub {
   position: absolute;
@@ -265,6 +296,7 @@ const css = `
   border-radius: 50%;
   background: currentColor;
   pointer-events: none;
+  z-index: 2;
 }
 
 .cr-cell.is-endpoint .cr-hub {
@@ -285,6 +317,7 @@ const css = `
   border: 2px solid var(--game-accent-2, #f59e0b);
   border-radius: 50%;
   pointer-events: none;
+  z-index: 3;
 }
 
 .cr-source::after {
@@ -513,7 +546,7 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
   wrap.setAttribute("aria-roledescription", "circuit routing board")
   wrap.setAttribute(
     "aria-label",
-    "Circuit Router. Arrow keys or W A S D move the cursor. Space, Enter, or click rotates the selected tile clockwise. Q, X, or right-click rotates it counter-clockwise. H shows or hides the guide. Power every tile from the centre source with zero open ends within the turn budget.",
+    "Circuit Router. Arrow keys or W A S D move the cursor. Space, Enter, or click rotates the selected tile clockwise. Q, X, or right-click rotates it counter-clockwise. H shows or hides the guide. Power every tile from the centre source with zero open ends in as few turns as possible.",
   )
 
   const bar = el("div", "cr-bar")
@@ -569,7 +602,7 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
   helpList.append(
     helpPoint(
       "Controls & win",
-      "Select any tile with Arrows/WASD or pointer, rotate CW (Space/Enter/Click) or CCW (Q/X/Right-click), and power every tile from the center source with zero open ends within the turn budget.",
+      "Select any tile with Arrows/WASD or pointer, rotate CW (Space/Enter/Click) or CCW (Q/X/Right-click), and power every tile from the center source with zero open ends.",
     ),
     helpPoint(
       "Worked example",
@@ -582,15 +615,7 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
     ),
     helpPoint(
       "Par & symmetric tiles",
-      "4-way crosses are already aligned in every direction (rotating them does nothing and costs no turn); staying at or under par keeps your full base score, while each extra turn costs 50 points.",
-    ),
-    helpPoint(
-      "What this game is NOT (pacing)",
-      "It is not a falling-pieces or real-time reaction game — nothing drops or ticks while you think, and pausing costs zero points.",
-    ),
-    helpPoint(
-      "What this game is NOT (strategy)",
-      "It is not a brute-force trial-and-error puzzle — start from grid borders, corner tiles, and degree-1 endpoints using the live preview before turning.",
+      "4-way crosses are already aligned in every direction (rotating them does nothing and costs no turn); your score scales by par / turns against the board's par target, so fewer turns earn a higher score.",
     ),
   )
   help.append(helpTitle, helpList)
@@ -614,6 +639,7 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
   let builtHeight = 0
   let cursorX = 0
   let cursorY = 0
+  let buttonPreviewDir: 1 | -1 | null = null
   let prevState: RouterState | null = null
   let pendingRotate: { readonly x: number; readonly y: number; readonly dir: 1 | -1 } | null = null
   let lastOutcome = ""
@@ -674,9 +700,9 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
         for (const dir of DIRECTIONS) {
           const suffix = dir === NORTH ? "n" : dir === EAST ? "e" : dir === SOUTH ? "s" : "w"
           const arm = el("span", `cr-arm cr-arm-${suffix}`)
-          const ghost = el("span", `cr-arm cr-ghost cr-arm-${suffix}`)
+          const ghost = el("span", `cr-ghost cr-ghost-${suffix}`)
           ghost.hidden = true
-          button.append(arm, ghost)
+          button.append(ghost, arm)
           arms.push(arm)
           ghosts.push(ghost)
         }
@@ -685,12 +711,15 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
 
         button.addEventListener("pointerenter", () => {
           if (ctx.state().phase !== "playing") return
+          if (x === cursorX && y === cursorY && buttonPreviewDir === null) return
           cursorX = x
           cursorY = y
+          buttonPreviewDir = null
           lastBlocked = ""
           paint(ctx.state())
         })
         button.addEventListener("focus", () => {
+          if (x === cursorX && y === cursorY) return
           cursorX = x
           cursorY = y
           paint(ctx.state())
@@ -718,7 +747,10 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
     const analysis = analyzeCircuit(state.masks, state.width, state.height, state.source)
     const sourceIndex = state.source.y * state.width + state.source.x
     const playing = state.phase === "playing"
-    const preview = playing ? previewRotate(state, cursorX, cursorY, 1) : null
+    const preview =
+      playing && buttonPreviewDir !== null
+        ? previewRotate(state, cursorX, cursorY, buttonPreviewDir)
+        : null
     const wouldPower = new Set((preview?.newlyPowered ?? []).map(keyOf))
     const wouldUnpower = new Set((preview?.lostPower ?? []).map(keyOf))
     const showGhost = preview?.valid === true
@@ -756,7 +788,9 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
         const ghost = node.ghosts[at]!
         arm.hidden = (mask & dir) === 0
         arm.classList.toggle("is-leak", leaks.includes(dir))
-        ghost.hidden = !(isCursor && showGhost && preview !== null && (preview.nextMask & dir) !== 0)
+        const ghostVisible = isCursor && showGhost && preview !== null && (preview.nextMask & dir) !== 0
+        ghost.hidden = !ghostVisible
+        ghost.classList.toggle("is-shared", ghostVisible && (mask & dir) !== 0)
       }
 
       const shape = SHAPE_NAMES[mask] ?? `${popcount(mask)}-way junction`
@@ -769,9 +803,9 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
       if (leaks.length > 0) parts.push(`${plural(leaks.length, "open end")}`)
       if (index === sourceIndex) parts.push("power source")
       if (isCursor) parts.push("selected")
-      if (isCursor && preview?.valid === true) {
+      if (isCursor && showGhost && preview?.valid === true) {
         parts.push(
-          `next clockwise: ${previewDelta(preview)} powered and ${plural(
+          `next ${buttonPreviewDir === -1 ? "counter-clockwise" : "clockwise"}: ${previewDelta(preview)} powered and ${plural(
             preview.danglingCount,
             "open end",
           )}`,
@@ -828,14 +862,15 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
   }
 
   const previewSentence = (state: RouterState): string => {
-    if (state.phase !== "playing") return ""
+    if (state.phase !== "playing" || buttonPreviewDir === null) return ""
     const index = cursorY * state.width + cursorX
     if (state.masks[index] === 15) {
       return `4-way cross at (${cursorX},${cursorY}): symmetric, no turn cost.`
     }
-    const preview = previewRotate(state, cursorX, cursorY, 1)
+    const preview = previewRotate(state, cursorX, cursorY, buttonPreviewDir)
     if (!preview || !preview.valid) return ""
-    return `Next CW at (${cursorX},${cursorY}): ${previewDelta(preview)} powered (${preview.poweredCount}/${
+    const dirLabel = buttonPreviewDir === -1 ? "CCW" : "CW"
+    return `Next ${dirLabel} at (${cursorX},${cursorY}): ${previewDelta(preview)} powered (${preview.poweredCount}/${
       state.width * state.height
     }), ${plural(preview.danglingCount, "open end")}.`
   }
@@ -847,12 +882,6 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
       return `Circuit complete! All ${totalCells} tiles powered in ${state.rotationsUsed} turns (Par ${
         state.par
       }) for ${formatNumber(projectedScore(state))} pts.`
-    }
-    if (state.phase === "lost") {
-      const analysis = analyzeCircuit(state.masks, state.width, state.height, state.source)
-      return `Out of turns — powered ${analysis.poweredCount}/${totalCells} tiles in ${
-        state.rotationBudget
-      } turns (${analysis.danglingCount} open ends remain).`
     }
     if (state.rotationsUsed === 0 && !lastOutcome) {
       return `Circuit offline — rotate tiles from the center source to power all ${totalCells} tiles with no open ends. ${previewSentence(
@@ -868,7 +897,6 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
   const paint = (state: RouterState): void => {
     const totalCells = state.width * state.height
     const analysis = analyzeCircuit(state.masks, state.width, state.height, state.source)
-    const turnsLeft = Math.max(0, state.rotationBudget - state.rotationsUsed)
     const overPar = Math.max(0, state.rotationsUsed - state.par)
 
     const previous = prevState
@@ -906,9 +934,9 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
     if (justRotated && !helpDismissed) setHelp(false, true)
 
     modeStat.textContent = `${state.modeId === "hard" ? "Hard" : "Easy"} · ${state.width}×${state.height}`
-    baseStat.textContent = `Base ${formatNumber(modeBase(state.modeId))}`
-    turnsStat.textContent = `Turns ${state.rotationsUsed}/${state.rotationBudget} (Par ${state.par})`
-    turnsStat.classList.toggle("is-warn", overPar > 0 || turnsLeft <= Math.max(4, Math.ceil(state.rotationBudget * 0.2)))
+    baseStat.textContent = `Target ${formatNumber(parCeiling(state.modeId, state.par))}`
+    turnsStat.textContent = `Turns ${state.rotationsUsed} (Par ${state.par})`
+    turnsStat.classList.toggle("is-warn", overPar > 0)
     estimateStat.textContent = `Est. ${formatNumber(projectedScore(state))}`
 
     const fill =
@@ -921,11 +949,6 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
 
     if (state.phase === "won") {
       goalTarget.textContent = `Circuit complete: ${totalCells}/${totalCells} powered · 0 open ends`
-    } else if (state.phase === "lost") {
-      goalTarget.textContent = `Out of turns: ${analysis.poweredCount}/${totalCells} powered · ${plural(
-        analysis.danglingCount,
-        "open end",
-      )}`
     } else if (analysis.poweredCount === totalCells && analysis.danglingCount > 0) {
       goalTarget.textContent = `All ${totalCells}/${totalCells} lit — close ${plural(
         analysis.danglingCount,
@@ -937,12 +960,12 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
         "open end",
       )}`
     }
-    goalLeft.textContent = `${plural(turnsLeft, "turn")} left · Par ${state.par}`
+    goalLeft.textContent = `${plural(state.rotationsUsed, "turn")} · Par ${state.par}`
 
     const warn =
       state.phase === "playing" &&
-      (turnsLeft <= Math.max(4, Math.ceil(state.rotationBudget * 0.2)) ||
-        (analysis.poweredCount === totalCells && analysis.danglingCount > 0))
+      analysis.poweredCount === totalCells &&
+      analysis.danglingCount > 0
     goalBox.classList.toggle("is-warn", warn)
     goalBox.classList.toggle("is-met", state.phase === "won")
 
@@ -952,11 +975,6 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
       if (previous === null || previous.phase !== "won") {
         live.textContent = `Circuit complete. All ${totalCells} tiles powered in ${state.rotationsUsed} turns.`
         ctx.host.audio.play("win")
-      }
-    } else if (state.phase === "lost") {
-      if (previous === null || previous.phase !== "lost") {
-        live.textContent = `Out of turns. ${analysis.poweredCount} of ${totalCells} tiles powered.`
-        ctx.host.audio.play("lose")
       }
     } else if (justRotated) {
       live.textContent = lastOutcome
@@ -985,6 +1003,7 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
     if (state.masks[index] === 15) {
       lastBlocked = "4-way cross is already connected in all directions — no turn used."
       lastOutcome = ""
+      buttonPreviewDir = null
       cancelAnim()
       paint(state)
       live.textContent = lastBlocked
@@ -996,6 +1015,7 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
     lastBlocked = ""
     cursorX = x
     cursorY = y
+    buttonPreviewDir = null
     dirForTrace = dir
     pendingRotate = { x, y, dir }
     ctx.dispatch({ type: "rotate", x, y, dir })
@@ -1008,10 +1028,30 @@ export function view(ctx: ViewContext<RouterState, RouterInput>): GameView<Route
     lastBlocked = ""
     cursorX = (cursorX + dx + state.width) % state.width
     cursorY = (cursorY + dy + state.height) % state.height
+    buttonPreviewDir = null
     paint(state)
     const index = cursorY * state.width + cursorX
     cells[index]?.button.focus()
   }
+
+  const bindRotatePreview = (button: HTMLButtonElement, dir: 1 | -1): void => {
+    const show = (): void => {
+      if (ctx.state().phase !== "playing") return
+      buttonPreviewDir = dir
+      paint(ctx.state())
+    }
+    const clear = (): void => {
+      if (buttonPreviewDir === null) return
+      buttonPreviewDir = null
+      paint(ctx.state())
+    }
+    button.addEventListener("pointerenter", show)
+    button.addEventListener("focus", show)
+    button.addEventListener("pointerleave", clear)
+    button.addEventListener("blur", clear)
+  }
+  bindRotatePreview(cwBtn, 1)
+  bindRotatePreview(ccwBtn, -1)
 
   cwBtn.addEventListener("click", () => rotateAt(cursorX, cursorY, 1))
   ccwBtn.addEventListener("click", () => rotateAt(cursorX, cursorY, -1))

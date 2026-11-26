@@ -94,7 +94,6 @@ export interface GeneratedBoard {
   readonly solvedMasks: readonly number[]
   readonly initialMasks: readonly number[]
   readonly par: number
-  readonly rotationBudget: number
 }
 
 export interface RouterState {
@@ -105,7 +104,6 @@ export interface RouterState {
   readonly source: Point
   readonly masks: readonly number[]
   readonly par: number
-  readonly rotationBudget: number
   readonly rotationsUsed: number
   readonly phase: Phase
 }
@@ -297,12 +295,6 @@ export function generateBoard(seed: number, mode: Pick<Mode, "id"> | string): Ge
     initial = { masks, par }
   }
 
-  const slack =
-    spec.id === "easy"
-      ? Math.max(8, Math.ceil(initial.par * 0.6))
-      : Math.max(12, Math.ceil(initial.par * 1.0))
-  const rotationBudget = initial.par + slack
-
   return {
     width,
     height,
@@ -311,7 +303,6 @@ export function generateBoard(seed: number, mode: Pick<Mode, "id"> | string): Ge
     solvedMasks,
     initialMasks: initial.masks,
     par: initial.par,
-    rotationBudget,
   }
 }
 
@@ -469,18 +460,37 @@ export function traceRotate(
 /** Hard score ceiling, mirrored by `meta.score.max`. */
 export const MAX_SCORE = 10_000
 export const WIN_FLOOR = 100
-export const OVER_PAR_PENALTY = 50
 
-/** Base score for a completed circuit. */
+/** Base score for a mode before scaling by board par. */
 export function modeBase(modeId: string): number {
-  return modeId === "hard" ? 5_000 : 2_500
+  return modeId === "hard" ? 3_000 : 1_500
 }
 
-/** The live `Est.` number: base minus 50 per turn over par, 0 after a loss. */
+/** Points added per par turn to reward harder boards. */
+export function parStep(modeId: string): number {
+  return modeId === "hard" ? 125 : 100
+}
+
+/** Par target score for a generated board before move efficiency scaling. */
+export function parCeiling(modeId: string, par: number): number {
+  return modeBase(modeId) + par * parStep(modeId)
+}
+
+/**
+ * Live `Est.` and final score: `parCeiling * (par / turns)`, floored at 100
+ * and capped at `MAX_SCORE`. While playing, turns under par hold at `par` so
+ * the live estimate stays grounded until the puzzle is actually solved.
+ */
 export function projectedScore(state: RouterState): number {
   if (state.phase === "lost") return 0
-  const overPar = Math.max(0, state.rotationsUsed - state.par)
-  return Math.min(MAX_SCORE, Math.max(WIN_FLOOR, modeBase(state.modeId) - overPar * OVER_PAR_PENALTY))
+  const ceiling = parCeiling(state.modeId, state.par)
+  if (state.par <= 0) return Math.min(MAX_SCORE, Math.max(WIN_FLOOR, ceiling))
+  const turns =
+    state.phase === "won"
+      ? Math.max(1, state.rotationsUsed)
+      : Math.max(state.par, state.rotationsUsed)
+  const scaled = Math.round(ceiling * (state.par / turns))
+  return Math.min(MAX_SCORE, Math.max(WIN_FLOOR, scaled))
 }
 
 export const core: GameCore<RouterState, RouterInput> = {
@@ -494,7 +504,6 @@ export const core: GameCore<RouterState, RouterInput> = {
       source: { ...generated.source },
       masks: [...generated.initialMasks],
       par: generated.par,
-      rotationBudget: generated.rotationBudget,
       rotationsUsed: 0,
       phase: "playing",
     }
@@ -531,11 +540,7 @@ export const core: GameCore<RouterState, RouterInput> = {
       masks[index] = rotated
       const rotationsUsed = next.rotationsUsed + 1
       const analysis = analyzeCircuit(masks, next.width, next.height, next.source)
-      const phase: Phase = analysis.solved
-        ? "won"
-        : rotationsUsed >= next.rotationBudget
-          ? "lost"
-          : "playing"
+      const phase: Phase = analysis.solved ? "won" : "playing"
 
       next = { ...next, masks, rotationsUsed, phase }
     }
@@ -563,11 +568,10 @@ export const core: GameCore<RouterState, RouterInput> = {
         height: state.height,
         par: state.par,
         rotationsUsed: state.rotationsUsed,
-        rotationBudget: state.rotationBudget,
         overPar,
         poweredCount: analysis.poweredCount,
         totalCells: state.width * state.height,
-        baseScore: modeBase(state.modeId),
+        baseScore: parCeiling(state.modeId, state.par),
         won,
       },
     }
@@ -582,7 +586,6 @@ export const core: GameCore<RouterState, RouterInput> = {
       source: { x: state.source.x, y: state.source.y },
       masks: [...state.masks],
       par: state.par,
-      rotationBudget: state.rotationBudget,
       rotationsUsed: state.rotationsUsed,
       phase: state.phase,
     }

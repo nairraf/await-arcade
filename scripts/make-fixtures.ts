@@ -285,11 +285,11 @@ if (
   routerScript.length !== 21 ||
   router.state.rotationsUsed !== 21 ||
   router.state.phase !== "won" ||
-  router.score.value !== 2400 ||
+  router.score.value !== 3076 ||
   router.replay.gameVersion !== routerMeta.version
 ) {
   throw new Error(
-    `router fixture shape drifted: expected par=19 inputs=21 rotations=21 score=2400 version=${routerMeta.version}; got par=${routerGenerated.par} statePar=${router.state.par} inputs=${routerScript.length} rotations=${router.state.rotationsUsed} phase=${router.state.phase} score=${router.score.value} version=${router.replay.gameVersion}`,
+    `router fixture shape drifted: expected par=19 inputs=21 rotations=21 score=3076 version=${routerMeta.version}; got par=${routerGenerated.par} statePar=${router.state.par} inputs=${routerScript.length} rotations=${router.state.rotationsUsed} phase=${router.state.phase} score=${router.score.value} version=${router.replay.gameVersion}`,
   )
 }
 
