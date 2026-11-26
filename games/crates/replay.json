@@ -1,7 +1,7 @@
 {
   "version": 1,
   "gameId": "crates",
-  "gameVersion": "1.0.0",
+  "gameVersion": "1.1.0",
   "frameworkVersion": "0.1.0",
   "modeId": "easy",
   "seed": 20260421,
@@ -26,28 +26,28 @@
       "tick": 2,
       "input": {
         "type": "move",
-        "dir": "right"
+        "dir": "up"
       }
     },
     {
       "tick": 3,
       "input": {
         "type": "move",
-        "dir": "right"
+        "dir": "left"
       }
     },
     {
       "tick": 4,
       "input": {
         "type": "move",
-        "dir": "right"
+        "dir": "up"
       }
     },
     {
       "tick": 5,
       "input": {
         "type": "move",
-        "dir": "down"
+        "dir": "up"
       }
     },
     {
@@ -61,56 +61,56 @@
       "tick": 7,
       "input": {
         "type": "move",
-        "dir": "up"
+        "dir": "right"
       }
     },
     {
       "tick": 8,
       "input": {
         "type": "move",
-        "dir": "up"
+        "dir": "right"
       }
     },
     {
       "tick": 9,
       "input": {
         "type": "move",
-        "dir": "left"
+        "dir": "down"
       }
     },
     {
       "tick": 10,
       "input": {
         "type": "move",
-        "dir": "left"
+        "dir": "down"
       }
     },
     {
       "tick": 11,
       "input": {
         "type": "move",
-        "dir": "up"
+        "dir": "right"
       }
     },
     {
       "tick": 12,
       "input": {
         "type": "move",
-        "dir": "left"
+        "dir": "down"
       }
     },
     {
       "tick": 13,
       "input": {
         "type": "move",
-        "dir": "up"
+        "dir": "left"
       }
     },
     {
       "tick": 14,
       "input": {
         "type": "move",
-        "dir": "right"
+        "dir": "left"
       }
     },
     {
@@ -119,7 +119,322 @@
         "type": "move",
         "dir": "right"
       }
+    },
+    {
+      "tick": 16,
+      "input": {
+        "type": "move",
+        "dir": "up"
+      }
+    },
+    {
+      "tick": 17,
+      "input": {
+        "type": "move",
+        "dir": "up"
+      }
+    },
+    {
+      "tick": 18,
+      "input": {
+        "type": "move",
+        "dir": "left"
+      }
+    },
+    {
+      "tick": 19,
+      "input": {
+        "type": "move",
+        "dir": "left"
+      }
+    },
+    {
+      "tick": 20,
+      "input": {
+        "type": "move",
+        "dir": "up"
+      }
+    },
+    {
+      "tick": 21,
+      "input": {
+        "type": "move",
+        "dir": "left"
+      }
+    },
+    {
+      "tick": 22,
+      "input": {
+        "type": "move",
+        "dir": "down"
+      }
+    },
+    {
+      "tick": 23,
+      "input": {
+        "type": "move",
+        "dir": "down"
+      }
+    },
+    {
+      "tick": 24,
+      "input": {
+        "type": "move",
+        "dir": "down"
+      }
+    },
+    {
+      "tick": 25,
+      "input": {
+        "type": "move",
+        "dir": "left"
+      }
+    },
+    {
+      "tick": 26,
+      "input": {
+        "type": "move",
+        "dir": "down"
+      }
+    },
+    {
+      "tick": 27,
+      "input": {
+        "type": "move",
+        "dir": "right"
+      }
+    },
+    {
+      "tick": 28,
+      "input": {
+        "type": "move",
+        "dir": "up"
+      }
+    },
+    {
+      "tick": 29,
+      "input": {
+        "type": "move",
+        "dir": "up"
+      }
+    },
+    {
+      "tick": 30,
+      "input": {
+        "type": "move",
+        "dir": "up"
+      }
+    },
+    {
+      "tick": 31,
+      "input": {
+        "type": "move",
+        "dir": "left"
+      }
+    },
+    {
+      "tick": 32,
+      "input": {
+        "type": "move",
+        "dir": "left"
+      }
+    },
+    {
+      "tick": 33,
+      "input": {
+        "type": "move",
+        "dir": "down"
+      }
+    },
+    {
+      "tick": 34,
+      "input": {
+        "type": "move",
+        "dir": "left"
+      }
+    },
+    {
+      "tick": 35,
+      "input": {
+        "type": "move",
+        "dir": "up"
+      }
+    },
+    {
+      "tick": 36,
+      "input": {
+        "type": "move",
+        "dir": "up"
+      }
+    },
+    {
+      "tick": 37,
+      "input": {
+        "type": "move",
+        "dir": "right"
+      }
+    },
+    {
+      "tick": 38,
+      "input": {
+        "type": "move",
+        "dir": "right"
+      }
+    },
+    {
+      "tick": 39,
+      "input": {
+        "type": "move",
+        "dir": "right"
+      }
+    },
+    {
+      "tick": 40,
+      "input": {
+        "type": "move",
+        "dir": "right"
+      }
+    },
+    {
+      "tick": 41,
+      "input": {
+        "type": "move",
+        "dir": "down"
+      }
+    },
+    {
+      "tick": 42,
+      "input": {
+        "type": "move",
+        "dir": "down"
+      }
+    },
+    {
+      "tick": 43,
+      "input": {
+        "type": "move",
+        "dir": "up"
+      }
+    },
+    {
+      "tick": 44,
+      "input": {
+        "type": "move",
+        "dir": "up"
+      }
+    },
+    {
+      "tick": 45,
+      "input": {
+        "type": "move",
+        "dir": "left"
+      }
+    },
+    {
+      "tick": 46,
+      "input": {
+        "type": "move",
+        "dir": "left"
+      }
+    },
+    {
+      "tick": 47,
+      "input": {
+        "type": "move",
+        "dir": "left"
+      }
+    },
+    {
+      "tick": 48,
+      "input": {
+        "type": "move",
+        "dir": "down"
+      }
+    },
+    {
+      "tick": 49,
+      "input": {
+        "type": "move",
+        "dir": "down"
+      }
+    },
+    {
+      "tick": 50,
+      "input": {
+        "type": "move",
+        "dir": "down"
+      }
+    },
+    {
+      "tick": 51,
+      "input": {
+        "type": "move",
+        "dir": "left"
+      }
+    },
+    {
+      "tick": 52,
+      "input": {
+        "type": "move",
+        "dir": "down"
+      }
+    },
+    {
+      "tick": 53,
+      "input": {
+        "type": "move",
+        "dir": "down"
+      }
+    },
+    {
+      "tick": 54,
+      "input": {
+        "type": "move",
+        "dir": "right"
+      }
+    },
+    {
+      "tick": 55,
+      "input": {
+        "type": "move",
+        "dir": "right"
+      }
+    },
+    {
+      "tick": 56,
+      "input": {
+        "type": "move",
+        "dir": "up"
+      }
+    },
+    {
+      "tick": 57,
+      "input": {
+        "type": "move",
+        "dir": "left"
+      }
+    },
+    {
+      "tick": 58,
+      "input": {
+        "type": "move",
+        "dir": "down"
+      }
+    },
+    {
+      "tick": 59,
+      "input": {
+        "type": "move",
+        "dir": "left"
+      }
+    },
+    {
+      "tick": 60,
+      "input": {
+        "type": "move",
+        "dir": "up"
+      }
     }
   ],
-  "stateHash": "e3ed65ed"
+  "stateHash": "65fadb4d"
 }

@@ -6,6 +6,8 @@ function makeState(overrides: Partial<CrateState> = {}): CrateState {
   return {
     seed: 1,
     modeId: "easy",
+    room: 1,
+    totalRooms: 3,
     width: 6,
     height: 6,
     walls: new Array<boolean>(36).fill(false),
@@ -13,8 +15,9 @@ function makeState(overrides: Partial<CrateState> = {}): CrateState {
     crates: [20, 25],
     operator: 2,
     par: 10,
-    moveBudget: 20,
+    roomMoves: 0,
     movesUsed: 0,
+    bankedPoints: 0,
     phase: "playing",
     lossReason: "none",
     ...overrides,
@@ -101,6 +104,16 @@ describe("crates previewCell", () => {
     expect(destination.classes).toContain("is-would-stick")
     expect(destination.classes).not.toContain("is-would-goal")
     expect(destination.aria).toContain("would receive a crate pushed up")
+
+    const hardState = makeState({
+      modeId: "hard",
+      walls: [true, ...new Array<boolean>(35).fill(false)],
+      crates: [12, 22],
+      operator: 18,
+    })
+    expect(previewCell(hardState, 12).aria).not.toContain("trap")
+    expect(previewCell(hardState, 6).classes).toContain("is-push-target")
+    expect(previewCell(hardState, 6).classes).not.toContain("is-would-stick")
   })
 
   it("marks a plain walk without any push affordance", () => {

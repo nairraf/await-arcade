@@ -3,11 +3,10 @@ import { el, ensureStyle } from "@await-arcade/framework"
 import {
   DIRS,
   MAX_SCORE,
-  OVER_PAR_PENALTY,
-  WIN_FLOOR,
   findStuckCrate,
-  modeBase,
   previewMove,
+  roomCeiling,
+  roomScore,
   toPoint,
   traceMove,
   type CrateInput,
@@ -20,6 +19,8 @@ import {
 
 const css = `
 .cp-wrap {
+  --cp-op: #34d399;
+  --cp-ghost: color-mix(in oklab, #6d92b8 68%, var(--arcade-muted, #8f9bac));
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -30,6 +31,18 @@ const css = `
   outline: none;
   user-select: none;
   touch-action: manipulation;
+}
+
+.arcade[data-theme="light"] .cp-wrap {
+  --cp-op: #15803d;
+  --cp-ghost: color-mix(in oklab, #4e6e8e 68%, var(--arcade-muted, #5d6570));
+}
+
+@media (prefers-color-scheme: light) {
+  .arcade[data-theme="auto"] .cp-wrap {
+    --cp-op: #15803d;
+    --cp-ghost: color-mix(in oklab, #4e6e8e 68%, var(--arcade-muted, #5d6570));
+  }
 }
 
 .cp-wrap:focus-visible {
@@ -193,37 +206,104 @@ const css = `
 }
 
 .cp-cell.is-crate {
-  border-color: color-mix(in srgb, var(--game-accent-2, #38bdf8) 60%, transparent);
-  background: color-mix(in srgb, var(--game-accent-2, #38bdf8) 16%, transparent);
+  border-color: color-mix(in srgb, var(--game-accent-2, #38bdf8) 70%, transparent);
+  background: color-mix(in srgb, var(--game-accent-2, #38bdf8) 18%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--game-accent-2, #38bdf8) 28%, transparent);
   color: var(--game-accent-2, #38bdf8);
 }
 
+.cp-cell.is-crate .cp-glyph {
+  font-size: clamp(16px, 4.6vw, 22px);
+}
+
 .cp-cell.is-crate.is-on-goal {
-  border-color: color-mix(in srgb, var(--game-accent, #f59e0b) 80%, transparent);
-  background: color-mix(in srgb, var(--game-accent, #f59e0b) 20%, transparent);
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--game-accent, #f59e0b) 46%, transparent);
+  border-color: color-mix(in srgb, var(--game-accent, #f59e0b) 85%, transparent);
+  background: color-mix(in srgb, var(--game-accent, #f59e0b) 22%, transparent);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--game-accent, #f59e0b) 48%, transparent);
   color: var(--game-accent, #f59e0b);
 }
 
 .cp-cell.is-operator {
-  border-color: color-mix(in srgb, var(--arcade-fg, #e6edf3) 40%, transparent);
-  background: color-mix(in srgb, var(--arcade-fg, #e6edf3) 12%, transparent);
+  border-color: color-mix(in srgb, var(--cp-op) 65%, transparent);
+  background: color-mix(in srgb, var(--cp-op) 12%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--cp-op) 20%, transparent);
+}
+
+.cp-cell.is-operator .cp-glyph {
+  display: grid;
+  place-items: center;
+  width: 74%;
+  height: 74%;
+  border-radius: 50%;
+  border: 2px solid var(--cp-op);
+  background: color-mix(in srgb, var(--cp-op) 20%, transparent);
+  color: var(--cp-op);
+  font-size: clamp(13px, 3.6vw, 16px);
+  line-height: 1;
 }
 
 .cp-cell.is-operator.is-goal {
-  border-color: color-mix(in srgb, var(--game-accent, #f59e0b) 64%, transparent);
+  border-color: color-mix(in srgb, var(--game-accent, #f59e0b) 80%, transparent);
+  background: color-mix(in srgb, var(--game-accent, #f59e0b) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--game-accent, #f59e0b) 45%, transparent);
 }
 
 .cp-cell.is-push-target {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--game-accent-2, #38bdf8) 45%, transparent);
+  border-style: dashed;
+  border-width: 1.5px;
+  border-color: color-mix(in oklab, var(--cp-ghost) 62%, transparent);
+  background: color-mix(in oklab, var(--cp-ghost) 7%, transparent);
+}
+
+.cp-cell.is-push-target.is-push-ghost .cp-glyph {
+  color: var(--cp-ghost);
+  font-size: clamp(16px, 4.6vw, 22px);
+  opacity: 0.56;
+}
+
+.cp-cell.is-push-target.is-push-active {
+  border-color: color-mix(in oklab, var(--cp-ghost) 90%, transparent);
+  background: color-mix(in oklab, var(--cp-ghost) 14%, transparent);
+}
+
+.cp-cell.is-push-target.is-push-active.is-push-ghost .cp-glyph {
+  opacity: 0.8;
 }
 
 .cp-cell.is-would-goal {
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--game-accent, #f59e0b) 78%, transparent);
+  border-color: color-mix(in srgb, var(--game-accent, #f59e0b) 82%, transparent);
+  background: color-mix(in srgb, var(--game-accent, #f59e0b) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--game-accent, #f59e0b) 50%, transparent);
 }
 
 .cp-cell.is-would-stick {
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, #ef4444 75%, transparent);
+  border-color: color-mix(in srgb, #ef4444 82%, transparent);
+  background: color-mix(in srgb, #ef4444 10%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #ef4444 50%, transparent);
+}
+
+.cp-cell.is-would-stick.is-push-ghost .cp-glyph {
+  color: #ef4444;
+}
+
+.cp-cell[data-push-arrow]::after {
+  content: attr(data-push-arrow);
+  position: absolute;
+  left: 3px;
+  top: 1px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--cp-ghost);
+  opacity: 0.85;
+}
+
+.cp-cell.is-would-goal[data-push-arrow]::after {
+  color: var(--game-accent, #f59e0b);
+}
+
+.cp-cell.is-would-stick[data-push-arrow]::after {
+  color: #ef4444;
 }
 
 .cp-cell.is-blocked-push {
@@ -256,6 +336,58 @@ const css = `
 .cp-glyph {
   pointer-events: none;
   line-height: 1;
+}
+
+.cp-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 12px;
+  font-size: 10.5px;
+  color: var(--arcade-muted, #8b98a9);
+}
+
+.cp-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cp-legend-mark {
+  font-weight: 700;
+  color: var(--arcade-fg, #e6edf3);
+}
+
+.cp-legend-mark.is-operator {
+  display: inline-grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1.5px solid var(--cp-op);
+  background: color-mix(in srgb, var(--cp-op) 18%, transparent);
+  color: var(--cp-op);
+  font-size: 9.5px;
+  line-height: 1;
+}
+
+.cp-legend-mark.is-crate {
+  color: var(--game-accent-2, #38bdf8);
+}
+
+.cp-legend-mark.is-goal {
+  color: var(--game-accent, #f59e0b);
+}
+
+.cp-legend-mark.is-ghost {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border: 1px dashed color-mix(in oklab, var(--cp-ghost) 75%, transparent);
+  border-radius: 3px;
+  font-size: 9px;
+  color: var(--cp-ghost);
 }
 
 .cp-controls {
@@ -348,18 +480,19 @@ const css = `
 
 .cp-help-swatch::before {
   content: "";
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
   border-radius: 3px;
-  box-shadow: inset 0 0 0 2px var(--game-accent-2, #38bdf8);
+  border: 1.5px dashed var(--cp-ghost);
+  box-sizing: border-box;
 }
 
 .cp-help-swatch.is-goal::before {
-  box-shadow: inset 0 0 0 2px var(--game-accent, #f59e0b);
+  border-color: var(--game-accent, #f59e0b);
 }
 
 .cp-help-swatch.is-trap::before {
-  box-shadow: inset 0 0 0 2px #ef4444;
+  border-color: #ef4444;
 }
 
 .cp-help ul {
@@ -470,11 +603,11 @@ function moveInput(dir: MoveDir): CrateInput {
 }
 
 function projectedScore(state: CrateState): number {
-  const overPar = Math.max(0, state.movesUsed - state.par)
-  return Math.min(
-    MAX_SCORE,
-    Math.max(WIN_FLOOR, modeBase(state.modeId) - overPar * OVER_PAR_PENALTY),
-  )
+  const liveRoom =
+    state.phase === "playing"
+      ? roomScore(state.modeId, state.room, state.par, Math.max(state.par, state.roomMoves))
+      : 0
+  return Math.min(MAX_SCORE, Math.max(0, state.bankedPoints + liveRoom))
 }
 
 function cratesOnGoals(state: CrateState): number {
@@ -509,6 +642,13 @@ const KEY_DIRS: Readonly<Record<string, MoveDir>> = {
   S: "down",
   a: "left",
   A: "left",
+}
+
+const DIR_ARROWS: Readonly<Record<MoveDir, string>> = {
+  up: "↑",
+  right: "→",
+  down: "↓",
+  left: "←",
 }
 
 interface AdjacentPush {
@@ -563,6 +703,7 @@ function previewCellWithPushes(
   if (operator) parts.push("operator")
   if (!crate && !goal && !operator) parts.push("empty floor")
 
+  const showTrapHint = state.modeId === "easy"
   const push = pushes.find(
     (entry) =>
       entry.preview.pushedFrom !== null &&
@@ -572,7 +713,7 @@ function previewCellWithPushes(
     if (!push.preview.valid) {
       classes.push("is-blocked-push")
       parts.push(`push ${push.dir} blocked`)
-    } else if (push.preview.wouldStick) {
+    } else if (showTrapHint && push.preview.wouldStick) {
       parts.push(`push ${push.dir} would trap the crate`)
     } else if (push.preview.landsOnGoal) {
       parts.push(`push ${push.dir} would land on goal`)
@@ -590,7 +731,7 @@ function previewCellWithPushes(
   if (receives) {
     classes.push("is-push-target")
     if (receives.preview.landsOnGoal) classes.push("is-would-goal")
-    if (receives.preview.wouldStick) classes.push("is-would-stick")
+    if (showTrapHint && receives.preview.wouldStick) classes.push("is-would-stick")
     parts.push(`would receive a crate pushed ${receives.dir}`)
   }
 
@@ -629,7 +770,7 @@ export function view(
   wrap.setAttribute("aria-roledescription", "crate pusher board")
   wrap.setAttribute(
     "aria-label",
-    "Crate Pusher. Move the operator one cell at a time with the arrow keys or W A S D, or click an adjacent tile, to push every crate onto a goal pad without trapping a crate in a corner or running out of moves. H opens or hides the guide.",
+    "Crate Pusher. Move the operator one cell at a time with the arrow keys or W A S D, or click an adjacent tile, to push every crate onto a goal pad without trapping a crate in a corner. H opens or hides the guide.",
   )
 
   const bar = el("div", "cp-bar")
@@ -652,6 +793,20 @@ export function view(
   const board = el("div", "cp-board")
   board.setAttribute("role", "grid")
   board.setAttribute("aria-label", "Crate grid")
+
+  const legend = el("div", "cp-legend")
+  legend.setAttribute("aria-hidden", "true")
+  const makeLegendItem = (mark: string, markClass: string, label: string): HTMLElement => {
+    const item = el("span", "cp-legend-item")
+    item.append(el("span", `cp-legend-mark ${markClass}`, mark), el("span", "", label))
+    return item
+  }
+  legend.append(
+    makeLegendItem("@", "is-operator", "You"),
+    makeLegendItem("▣", "is-crate", "Crate"),
+    makeLegendItem("○", "is-goal", "Goal"),
+    makeLegendItem("↓", "is-ghost", "Push target"),
+  )
 
   const cells: CellView[] = []
 
@@ -678,9 +833,9 @@ export function view(
   const helpHead = el("div", "cp-help-head")
   const helpLegend = el("div", "cp-help-legend")
   helpLegend.append(
-    el("span", "cp-help-swatch", "Push"),
-    el("span", "cp-help-swatch is-goal", "Goal"),
-    el("span", "cp-help-swatch is-trap", "Trap"),
+    el("span", "cp-help-swatch", "Will push"),
+    el("span", "cp-help-swatch is-goal", "On goal"),
+    el("span", "cp-help-swatch is-trap", "Corner trap"),
   )
   helpHead.append(el("h3", "", "How to play"), helpLegend)
 
@@ -693,28 +848,24 @@ export function view(
   const helpList = el("ul", "")
   helpList.append(
     helpRule(
-      "Controls & win",
-      "Move the operator orthogonally with Arrows/WASD or click/tap an adjacent tile to push every crate onto a goal pad within the move budget.",
+      "Goal & controls",
+      "Move the operator orthogonally with Arrows / WASD (or click/tap an adjacent tile) to push every crate onto a goal pad.",
     ),
     helpRule(
-      "Worked example",
-      "Example: if the operator stands left of a crate and an empty floor square sits to the crate's right, pressing Right steps onto the crate's square and pushes the crate one cell right — if a wall or second crate sits behind it, the push is refused and costs no move.",
+      "Pushing crates",
+      "Step into a crate to push it one cell forward onto open floor or a goal pad. If a wall, border, or second crate sits behind it, the push is refused and costs no move. Only one crate can be pushed forward at a time (no pulling).",
     ),
     helpRule(
       "Corner trap",
-      "Pushing a crate into any non-goal corner (two perpendicular walls or board borders) permanently traps it and immediately ends the run as a loss.",
+      "Any non-goal corner (two perpendicular walls or board borders) is a dead end. Easy previews trap corners in dashed red; Hard and Endless omit the warning, and pushing a crate into one ends the run.",
     ),
     helpRule(
       "Par & scoring",
-      "Finishing at or under Par earns the full base score (2,000 Easy / 4,000 Hard); each move over Par costs 50 points (floor 100), and ranked play has no undo.",
+      "Easy runs 3 rooms (6×6, 2 crates); Hard runs 3 rooms (7×7, 3 crates); Endless continues until a corner trap (6×6 then 7×7 with 3 crates). Each room's ceiling scales with Par, and extra moves reduce that room's payout along a curve.",
     ),
     helpRule(
-      "Not a real-time game",
-      "It is not a real-time or enemy-telegraph tactics game — nothing chases you or ticks while you think, and pausing costs zero points.",
-    ),
-    helpRule(
-      "Push only",
-      "You can only push one crate at a time forward, never pull crates or push two crates at once — check the push preview before moving near walls.",
+      "Turn-based",
+      "Think at your own pace — nothing moves between turns, and pausing does not affect your score.",
     ),
   )
   help.append(helpHead, helpList)
@@ -727,8 +878,12 @@ export function view(
   const guideKey = "crates.guideSeen"
   let helpDismissed = ctx.host.storage.get<boolean>(guideKey) === true
   let prevState: CrateState | null = null
+  let lastRoom = 1
+  let lastBankedPoints = 0
   let lastMovesUsed = 0
   let lastPhase = "playing"
+  let gridWidth = 0
+  let gridHeight = 0
   let lastOutcome = ""
   let pendingRefusal = ""
   let refusalShown = false
@@ -771,6 +926,7 @@ export function view(
     const list = narrowed.length > 0 ? narrowed : pushes
     if (list.length === 0) return ""
 
+    const showTrapHint = state.modeId === "easy"
     const describe = (push: AdjacentPush, verbose: boolean): string => {
       const cap = capitalize(push.dir)
       if (!push.preview.valid) {
@@ -779,7 +935,7 @@ export function view(
           : `${cap} blocked`
       }
       const target = push.preview.pushedTo!
-      if (push.preview.wouldStick) {
+      if (showTrapHint && push.preview.wouldStick) {
         return verbose
           ? `Caution: ${cap} pushes crate into corner at ${pointText(target)}!`
           : `${cap} -> corner at ${pointText(target)}!`
@@ -811,27 +967,20 @@ export function view(
   const outcomeCopy = (state: CrateState, trace: MoveTrace): string => {
     const total = state.goals.length
     const onGoals = cratesOnGoals(state)
-    const movesLeft = Math.max(0, state.moveBudget - state.movesUsed)
     const dir = trace.dir
 
     if (trace.pushedFrom === null) {
-      return `Moved ${dir} (${movesLeft} move${movesLeft === 1 ? "" : "s"} left).`
+      return `Moved ${dir} (room move ${state.roomMoves}).`
     }
     if (trace.landedOnGoal) {
-      return `Crate placed on goal! (${onGoals}/${total} · ${movesLeft} move${
-        movesLeft === 1 ? "" : "s"
-      } left).`
+      return `Crate placed on goal! (${onGoals}/${total} · room move ${state.roomMoves}).`
     }
     const fromCell = trace.pushedFrom.y * state.width + trace.pushedFrom.x
     const wasOnGoal = prevState !== null && prevState.goals.includes(fromCell)
     if (wasOnGoal) {
-      return `Moved crate off goal (${onGoals}/${total} · ${movesLeft} move${
-        movesLeft === 1 ? "" : "s"
-      } left).`
+      return `Moved crate off goal (${onGoals}/${total} · room move ${state.roomMoves}).`
     }
-    return `Pushed crate ${dir} (${onGoals}/${total} on goals · ${movesLeft} move${
-      movesLeft === 1 ? "" : "s"
-    } left).`
+    return `Pushed crate ${dir} (${onGoals}/${total} on goals · room move ${state.roomMoves}).`
   }
 
   const renderCells = (state: CrateState, pushes: readonly AdjacentPush[]): void => {
@@ -843,6 +992,16 @@ export function view(
         ? narrowed.preview.target.y * state.width + narrowed.preview.target.x
         : null
 
+    const receiveByCell = new Map<number, MoveDir>()
+    for (const push of pushes) {
+      if (push.preview.valid && push.preview.pushedTo !== null) {
+        receiveByCell.set(
+          push.preview.pushedTo.y * state.width + push.preview.pushedTo.x,
+          push.dir,
+        )
+      }
+    }
+
     for (let cell = 0; cell < state.width * state.height; cell += 1) {
       const item = cells[cell]
       if (!item) continue
@@ -852,11 +1011,19 @@ export function view(
       const crate = state.crates.includes(cell)
       const operator = state.operator === cell
       const cellView = previewCellWithPushes(state, cell, pushes)
+      const pushDir = receiveByCell.get(cell)
 
       button.className = "cp-cell"
       button.disabled = false
 
       if (cellView.classes.length > 0) button.classList.add(...cellView.classes)
+      if (pushDir !== undefined) {
+        button.setAttribute("data-push-arrow", DIR_ARROWS[pushDir])
+        if (!goal && !crate && !operator) button.classList.add("is-push-ghost")
+        if (hoverDir === pushDir) button.classList.add("is-push-active")
+      } else {
+        button.removeAttribute("data-push-arrow")
+      }
       if (previewStep === cell) button.classList.add("is-preview-step")
 
       if (anim !== null) {
@@ -876,7 +1043,9 @@ export function view(
             ? "▣"
             : goal
               ? "○"
-              : "·"
+              : pushDir !== undefined
+                ? "▣"
+                : "·"
 
       button.setAttribute("aria-label", cellView.aria)
     }
@@ -901,33 +1070,42 @@ export function view(
   }
 
   const paint = (state: CrateState): void => {
-    const base = modeBase(state.modeId)
+    if (state.room !== lastRoom) {
+      hoverDir = null
+    }
+    if (state.width !== gridWidth || state.height !== gridHeight) {
+      buildGrid(state.width, state.height)
+    }
+
+    const ceiling = roomCeiling(state.modeId, state.room, state.par)
     const total = state.goals.length
     const onGoals = cratesOnGoals(state)
-    const movesLeft = Math.max(0, state.moveBudget - state.movesUsed)
+    const overPar = Math.max(0, state.roomMoves - state.par)
     const projected = projectedScore(state)
-    const modeTitle = state.modeId === "hard" ? "Hard" : "Easy"
+    const modeTitle =
+      state.modeId === "endless" ? "Endless" : state.modeId === "hard" ? "Hard" : "Easy"
+    const roomLabel =
+      state.totalRooms !== null ? `Room ${state.room}/${state.totalRooms}` : `Room ${state.room}`
 
-    modeStat.textContent = `${modeTitle} · ${state.width}×${state.height}`
-    baseStat.textContent = `Base ${numberText(base)}`
-    movesStat.textContent = `Moves ${state.movesUsed}/${state.moveBudget} (Par ${state.par})`
-    estStat.textContent = `Est. ${state.phase === "lost" ? 0 : numberText(projected)}`
+    modeStat.textContent = `${modeTitle} · ${roomLabel} · ${state.width}×${state.height}`
+    baseStat.textContent = `Room ${numberText(ceiling)}`
+    movesStat.textContent = `Room ${state.roomMoves} (Par ${state.par})`
+    estStat.textContent =
+      state.phase === "playing" ? `Est. ${numberText(projected)}` : `Score ${numberText(projected)}`
 
     if (state.phase === "won") {
-      goalTarget.textContent = `All ${total}/${total} crates on goals`
-    } else if (state.phase === "lost" && state.lossReason === "stuck") {
-      goalTarget.textContent = `Crate stuck in corner · ${onGoals}/${total} on goals`
-    } else if (state.phase === "lost" && state.lossReason === "budget") {
-      goalTarget.textContent = `Out of moves · ${onGoals}/${total} on goals`
+      goalTarget.textContent = `All ${state.totalRooms}/${state.totalRooms} rooms solved`
+    } else if (state.phase === "lost") {
+      goalTarget.textContent = `${roomLabel} · Crate stuck in corner (${onGoals}/${total} on goals)`
     } else {
-      goalTarget.textContent = `Crates on goals: ${onGoals}/${total}`
+      goalTarget.textContent = `${roomLabel} · Crates on goals: ${onGoals}/${total}`
     }
-    goalLeft.textContent = `${movesLeft} move${movesLeft === 1 ? "" : "s"} left · Par ${state.par}`
+    goalLeft.textContent =
+      overPar > 0
+        ? `Room ${state.roomMoves} (+${overPar} over Par ${state.par})`
+        : `Room ${state.roomMoves} · Par ${state.par}`
     goalFill.style.width = `${state.phase === "won" ? 100 : Math.round((onGoals / total) * 100)}%`
-    goalBox.classList.toggle(
-      "is-warn",
-      state.phase === "playing" && movesLeft <= Math.max(4, Math.ceil(state.moveBudget * 0.2)),
-    )
+    goalBox.classList.toggle("is-warn", state.phase === "playing" && overPar > 0)
     goalBox.classList.toggle("is-met", state.phase === "won")
 
     for (const button of dpadButtons) button.button.disabled = state.phase !== "playing"
@@ -939,14 +1117,20 @@ export function view(
       const trace = pendingTrace
       pendingTrace = null
       postGameNotice = ""
-      lastOutcome = outcomeCopy(state, trace)
 
-      if (state.phase === "won") ctx.host.audio.play("win")
-      else if (state.phase === "lost") ctx.host.audio.play("lose")
-      else if (trace.landedOnGoal && !trace.solved) ctx.host.audio.play("reveal")
-      else ctx.host.audio.play("turn")
-
-      startAnim(trace)
+      if (state.room > lastRoom) {
+        const earned = state.bankedPoints - lastBankedPoints
+        lastOutcome = `Room ${lastRoom} cleared (+${numberText(earned)} pts) → Room ${state.room}.`
+        ctx.host.audio.play("reveal")
+        cancelAnim()
+      } else {
+        lastOutcome = outcomeCopy(state, trace)
+        if (state.phase === "won") ctx.host.audio.play("win")
+        else if (state.phase === "lost") ctx.host.audio.play("lose")
+        else if (trace.landedOnGoal && !trace.solved) ctx.host.audio.play("reveal")
+        else ctx.host.audio.play("turn")
+        startAnim(trace)
+      }
     }
 
     const pushes = adjacentPushes(state)
@@ -958,38 +1142,37 @@ export function view(
     if (postGameNotice !== "") {
       hint.textContent = postGameNotice
     } else if (state.phase === "won") {
-      const score = projectedScore(state)
-      hint.textContent = `Solved! All ${total} crates placed in ${state.movesUsed} moves (Par ${state.par}) for ${numberText(score)} pts.`
-    } else if (state.phase === "lost" && state.lossReason === "stuck") {
+      hint.textContent = `Solved all ${state.totalRooms} rooms in ${state.movesUsed} total moves for ${numberText(state.bankedPoints)} pts.`
+    } else if (state.phase === "lost") {
       const stuck = findStuckCrate(state.crates, state.goals, state.walls, state.width, state.height)
       const at = stuck >= 0 ? pointText(toPoint(state.crates[stuck]!, state.width)) : "(unknown)"
-      hint.textContent = `Crate trapped in a non-goal corner at ${at} — run lost (${onGoals}/${total} on goals).`
-    } else if (state.phase === "lost") {
-      hint.textContent = `Out of moves — placed ${onGoals}/${total} crates in ${state.moveBudget} moves.`
+      const bankedSuffix =
+        state.bankedPoints > 0 ? ` · ${numberText(state.bankedPoints)} pts banked` : ""
+      hint.textContent = `Crate trapped in a non-goal corner at ${at} — run ended on Room ${state.room}${bankedSuffix}.`
     } else if (refusal !== "") {
       hint.textContent = sentence === "" ? refusal : `${refusal} ${sentence}`
     } else if (lastOutcome !== "") {
       hint.textContent = sentence === "" ? lastOutcome : `${lastOutcome} ${sentence}`
-    } else if (state.movesUsed === 0) {
-      hint.textContent = `Push all ${total} crates onto goal pads in ${state.moveBudget} moves (Par ${state.par}).${
+    } else if (state.roomMoves === 0) {
+      hint.textContent = `Push all ${total} crates onto goal pads (Par ${state.par}).${
         sentence === "" ? "" : ` ${sentence}`
       }`
     } else if (sentence !== "") {
       hint.textContent = sentence
     } else {
-      hint.textContent = `Push all ${total} crates onto goal pads in ${state.moveBudget} moves (Par ${state.par}).`
+      hint.textContent = `Push all ${total} crates onto goal pads (Par ${state.par}).`
     }
 
     if (state.movesUsed > 0 && !helpDismissed) setHelp(false, true)
 
     if (committed || state.phase !== lastPhase) {
       if (state.phase === "won") {
-        live.textContent = `Solved in ${state.movesUsed} moves for ${numberText(projectedScore(state))} points.`
+        live.textContent = `Solved all ${state.totalRooms} rooms in ${state.movesUsed} moves for ${numberText(state.bankedPoints)} points.`
       } else if (state.phase === "lost") {
         live.textContent =
-          state.lossReason === "stuck"
-            ? "Crate trapped in a corner. Run lost."
-            : "Out of moves. Run lost."
+          state.bankedPoints > 0
+            ? `Crate trapped in a corner on Room ${state.room}. Run ended with ${numberText(state.bankedPoints)} points.`
+            : "Crate trapped in a corner. Run lost."
       } else {
         live.textContent = lastOutcome
       }
@@ -998,6 +1181,8 @@ export function view(
     renderCells(state, pushes)
 
     prevState = state
+    lastRoom = state.room
+    lastBankedPoints = state.bankedPoints
     lastMovesUsed = state.movesUsed
     lastPhase = state.phase
   }
@@ -1011,56 +1196,63 @@ export function view(
     paint(state)
   }
 
-  // Build the grid once; width is fixed for a run.
-  const initial = ctx.state()
-  board.style.setProperty("--cp-cols", String(initial.width))
-  board.setAttribute("aria-label", `${initial.width} by ${initial.height} crate grid`)
-  for (let y = 0; y < initial.height; y += 1) {
-    for (let x = 0; x < initial.width; x += 1) {
-      const cell = y * initial.width + x
-      const button = el("button", "cp-cell")
-      button.type = "button"
-      button.tabIndex = -1
-      button.setAttribute("role", "gridcell")
-      const glyph = el("span", "cp-glyph")
-      button.append(glyph)
+  const buildGrid = (width: number, height: number): void => {
+    gridWidth = width
+    gridHeight = height
+    cells.length = 0
+    board.replaceChildren()
+    board.style.setProperty("--cp-cols", String(width))
+    board.setAttribute("aria-label", `${width} by ${height} crate grid`)
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const cell = y * width + x
+        const button = el("button", "cp-cell")
+        button.type = "button"
+        button.tabIndex = -1
+        button.setAttribute("role", "gridcell")
+        const glyph = el("span", "cp-glyph")
+        button.append(glyph)
 
-      button.addEventListener("pointerenter", () => {
-        const state = ctx.state()
-        if (state.phase !== "playing") return
-        const dir = isAdjacentDir(state, cell)
-        hoverDir = dir
-        paint(state)
-      })
-      button.addEventListener("focus", () => {
-        const state = ctx.state()
-        if (state.phase !== "playing") return
-        hoverDir = isAdjacentDir(state, cell)
-        paint(state)
-      })
-      button.addEventListener("pointerleave", clearHover)
-      button.addEventListener("blur", clearHover)
-      button.addEventListener("click", () => {
-        const state = ctx.state()
-        if (state.phase !== "playing") {
-          postGameNotice = "Puzzle finished — start a new run to play again."
-          live.textContent = postGameNotice
+        button.addEventListener("pointerenter", () => {
+          const state = ctx.state()
+          if (state.phase !== "playing") return
+          const dir = isAdjacentDir(state, cell)
+          hoverDir = dir
           paint(state)
-          return
-        }
-        const dir = isAdjacentDir(state, cell)
-        if (dir === null) {
-          pendingRefusal = "Click a cell next to the operator (or use Arrows / WASD) to move."
-          live.textContent = pendingRefusal
+        })
+        button.addEventListener("focus", () => {
+          const state = ctx.state()
+          if (state.phase !== "playing") return
+          hoverDir = isAdjacentDir(state, cell)
           paint(state)
-          return
-        }
-        attempt(dir)
-      })
-      board.append(button)
-      cells.push({ button, glyph })
+        })
+        button.addEventListener("pointerleave", clearHover)
+        button.addEventListener("blur", clearHover)
+        button.addEventListener("click", () => {
+          const state = ctx.state()
+          if (state.phase !== "playing") {
+            postGameNotice = "Puzzle finished — start a new run to play again."
+            live.textContent = postGameNotice
+            paint(state)
+            return
+          }
+          const dir = isAdjacentDir(state, cell)
+          if (dir === null) {
+            pendingRefusal = "Click a cell next to the operator (or use Arrows / WASD) to move."
+            live.textContent = pendingRefusal
+            paint(state)
+            return
+          }
+          attempt(dir)
+        })
+        board.append(button)
+        cells.push({ button, glyph })
+      }
     }
   }
+
+  const initial = ctx.state()
+  buildGrid(initial.width, initial.height)
 
   const attempt = (dir: MoveDir): void => {
     const state = ctx.state()
@@ -1106,7 +1298,6 @@ export function view(
 
   helpBtn.addEventListener("click", () => {
     const open = help.hasAttribute("hidden")
-    if (!open) helpDismissed = true
     setHelp(open, true)
   })
 
@@ -1120,15 +1311,12 @@ export function view(
     const dir = KEY_DIRS[key]
     const isHelp = key === "h" || key === "H"
     if (dir === undefined && !isHelp) return
-    // Enter is left untouched so focused buttons keep their own activation.
-    if (key === "Enter" && isControl(event.target)) return
 
     event.preventDefault()
     if (event.repeat) return
 
     if (isHelp) {
       const open = help.hasAttribute("hidden")
-      if (!open) helpDismissed = true
       setHelp(open, true)
       return
     }
@@ -1142,7 +1330,7 @@ export function view(
   })
   ctx.container.addEventListener("keydown", onKeyDown)
 
-  wrap.append(bar, goalBox, board, controls, help, hint, live)
+  wrap.append(bar, goalBox, board, legend, controls, help, hint, live)
   ctx.container.append(wrap)
 
   return {

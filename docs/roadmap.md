@@ -60,12 +60,13 @@ talking to the backend.
 **In scope**
 
 - **Auto-pause on agent attention (done on `development`):** user-togglable `Auto-pause: On / Off` setting in the shell, backed by native `running -> idle` / `permission.asked` listeners in OpenCode and a `Stop` lifecycle hook + long-poll bridge in Antigravity.
-- **Five new turn-based cartridges:**
-  1. **Telegraphed Micro-Tactics** — 5×5 / 6×6 grid survival with telegraphed enemy attacks and tactical moves/pushes/abilities.
-  2. **Nonogram / Picross** — deterministic, solvable logic-grid puzzles with row/column clues.
-  3. **Tile Chain Drop** — Drop7-style numbered column drops triggering deterministic chain cascades.
-  4. **Circuit / Signal Router** — tile-rotation power routing puzzle (`Netwalk`-style).
-  5. **Symbolic Codebreaker** — compact 4/5-symbol deduction (`Mastermind`-style, zero dictionary bloat).
+- **Turn-based cartridges:**
+  1. **Telegraphed Micro-Tactics (`lockstep`, done on `development`)** — 5×5 / 6×6 grid survival with telegraphed enemy attacks and tactical moves/pushes/abilities.
+  2. **Nonogram / Picross (`nonogram`, done on `development`)** — deterministic, solvable logic-grid puzzles with row/column clues.
+  3. **Tile Chain Drop (`tilechain`, done on `development`)** — Drop7-style numbered column drops triggering deterministic chain cascades.
+  4. **Circuit / Signal Router (`router`, done on `development`)** — tile-rotation power routing puzzle (`Netwalk`-style) with unlimited turns and par-scaled scoring.
+  5. **Symbolic Codebreaker (`codebreaker`, done on `development`)** — compact symbol deduction (`Mastermind`-style, zero dictionary bloat).
+  6. **Crate Pusher (`crates`)** — Sokoban-style multi-room push puzzle (`Easy` 3 rooms 6×6, `Hard` 3 rooms 7×7, `Endless` rising rooms) with reverse-pull generation and BFS-optimal `par`.
 
 ## Later
 

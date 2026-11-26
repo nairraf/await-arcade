@@ -32,7 +32,7 @@ import {
 } from "../games/router/src/core"
 import type { RouterInput } from "../games/router/src/core"
 import { meta as routerMeta } from "../games/router/src/meta"
-import { core as crateCore, generateBoard } from "../games/crates/src/core"
+import { core as crateCore, generateBoard, roomScore, roomSeed } from "../games/crates/src/core"
 import { meta as crateMeta } from "../games/crates/src/meta"
 import type { CrateInput } from "../games/crates/src/core"
 
@@ -249,18 +249,28 @@ const router = playTurn(routerCore, routerMeta, {
 })
 
 /**
- * Crate Pusher fixture: one deliberate walk detour (up then down) followed by
- * the true-optimal 14-move solution for seed 20260421 on easy. Sixteen committed
- * moves against par 14 score 2000 - 2 × 50 = 1900.
+ * Crate Pusher fixture: 3-room easy run for seed 20260421 with one deliberate
+ * walk detour (up then down) in room 1 followed by optimal play across all
+ * three rooms.
  */
 const CRATES_MODE = crateMeta.modes.find((mode) => mode.id === "easy")!
 const CRATES_SEED = 20260421
-const cratesBoard = generateBoard(CRATES_SEED, "easy")
+const cratesRoom1 = generateBoard(roomSeed(CRATES_SEED, 1), "easy")
+const cratesRoom2 = generateBoard(roomSeed(CRATES_SEED, 2), "easy")
+const cratesRoom3 = generateBoard(roomSeed(CRATES_SEED, 3), "easy")
 const cratesScript: CrateInput[] = [
   { type: "move", dir: "up" },
   { type: "move", dir: "down" },
-  ...cratesBoard.optimalSolution,
+  ...cratesRoom1.optimalSolution,
+  ...cratesRoom2.optimalSolution,
+  ...cratesRoom3.optimalSolution,
 ]
+const cratesExpectedScore =
+  roomScore("easy", 1, cratesRoom1.par, cratesRoom1.par + 2) +
+  roomScore("easy", 2, cratesRoom2.par, cratesRoom2.par) +
+  roomScore("easy", 3, cratesRoom3.par, cratesRoom3.par)
+const cratesExpectedMoves =
+  cratesRoom1.par + 2 + cratesRoom2.par + cratesRoom3.par
 const crates = playTurn(crateCore, crateMeta, {
   seed: CRATES_SEED,
   mode: CRATES_MODE,
@@ -317,15 +327,16 @@ if (
   )
 }
 if (
-  cratesScript.length !== 16 ||
-  crates.replay.gameVersion !== "1.0.0" ||
-  cratesBoard.par !== 14 ||
+  cratesScript.length !== cratesExpectedMoves ||
+  crates.replay.gameVersion !== "1.1.0" ||
+  cratesRoom1.par !== 21 ||
   crates.state.phase !== "won" ||
-  crates.state.movesUsed !== 16 ||
-  crates.score.value !== 1900
+  crates.state.room !== 3 ||
+  crates.state.movesUsed !== cratesExpectedMoves ||
+  crates.score.value !== cratesExpectedScore
 ) {
   throw new Error(
-    `crates fixture shape drifted: inputs=${cratesScript.length} version=${crates.replay.gameVersion} par=${cratesBoard.par} phase=${crates.state.phase} moves=${crates.state.movesUsed} score=${crates.score.value}`,
+    `crates fixture shape drifted: inputs=${cratesScript.length} expected=${cratesExpectedMoves} version=${crates.replay.gameVersion} par=${cratesRoom1.par} phase=${crates.state.phase} room=${crates.state.room} moves=${crates.state.movesUsed} score=${crates.score.value} expectedScore=${cratesExpectedScore}`,
   )
 }
 

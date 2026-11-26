@@ -11,7 +11,12 @@ import type { RouterInput } from "../../../games/router/src/core"
 import { COLS, core as tilechainCore } from "../../../games/tilechain/src/core"
 import type { TilechainInput } from "../../../games/tilechain/src/core"
 import { meta as tilechainMeta } from "../../../games/tilechain/src/meta"
-import { generateBoard as generateCratesBoard } from "../../../games/crates/src/core"
+import {
+  EASY_ROOMS,
+  generateBoard as generateCratesBoard,
+  roomCeiling as cratesRoomCeiling,
+  roomSeed as cratesRoomSeed,
+} from "../../../games/crates/src/core"
 import { createArcadeServer, type ArcadeServer } from "./index"
 import { MemoryStore } from "./store"
 import { verifiers } from "./registry.generated"
@@ -1247,19 +1252,26 @@ describe("daily challenge", () => {
 
       const entry = verifiers["crates"]!
       const mode = entry.meta.modes.find((candidate) => candidate.id === "easy")!
-      const board = generateCratesBoard(info.seed, "easy")
+      const rooms = Array.from({ length: EASY_ROOMS }, (_, idx) =>
+        generateCratesBoard(cratesRoomSeed(info.seed, idx + 1), "easy"),
+      )
+      const totalPar = rooms.reduce((sum, room) => sum + room.par, 0)
       const played = playTurn(entry.core, entry.meta, {
         seed: info.seed,
         mode,
-        inputs: board.optimalSolution,
+        inputs: rooms.flatMap((room) => room.optimalSolution),
         durationMs: 0,
       })
 
       expect(played.state.phase).toBe("won")
-      expect(played.state.movesUsed).toBe(board.par)
+      expect(played.state.movesUsed).toBe(totalPar)
       expect(played.score.won).toBe(true)
       expect(played.score.ranked).toBe(true)
-      expect(played.score.value).toBe(2_000)
+      const expectedScore = rooms.reduce(
+        (sum, room, idx) => sum + cratesRoomCeiling("easy", idx + 1, room.par),
+        0,
+      )
+      expect(played.score.value).toBe(expectedScore)
 
       const fast = (await dailyStart(root, info.challengeId, "crates-fast").then((res) =>
         res.json(),

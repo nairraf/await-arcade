@@ -7,18 +7,21 @@
  *  - `random`  — uniform choice over currently valid moves (gated < 5%)
  *  - `bfs2k`   — bounded-lookahead BFS, 2,000 popped nodes (reported only)
  * plus construction gates: every generated board's `optimalSolution` wins in
- * exactly `par` moves, and `moveBudget >= ceil(1.6 * par)`.
+ * exactly `par` moves.
  *
  * Exits non-zero if any gate fails.
  */
 import { createRng } from "../../packages/framework/src/rng"
 import {
   DIRS,
+  EASY_ROOMS,
   FALLBACK_EASY,
   FALLBACK_HARD,
+  HARD_ROOMS,
   core,
   generateBoard,
   previewMove,
+  roomSeed,
   type CrateInput,
   type CrateState,
   type MoveDir,
@@ -38,23 +41,25 @@ function move(dir: MoveDir): CrateInput {
 }
 
 function appliesOptimal(seed: number, modeId: ModeId): { ok: boolean; movesUsed: number; par: number } {
-  const board = generateBoard(seed, modeId)
   const mode = meta.modes.find((candidate) => candidate.id === modeId)!
+  const rooms = modeId === "hard" ? HARD_ROOMS : EASY_ROOMS
   let state = core.create(seed, mode)
   let used = 0
-  for (const input of board.optimalSolution) {
-    const next = core.step(state, [input], 0)
-    if (next.movesUsed !== state.movesUsed) used += 1
-    state = next
-    if (state.phase !== "playing") break
+  let totalPar = 0
+  for (let room = 1; room <= rooms; room += 1) {
+    const board = generateBoard(roomSeed(seed, room), modeId)
+    totalPar += board.par
+    for (const input of board.optimalSolution) {
+      const next = core.step(state, [input], 0)
+      if (next.movesUsed !== state.movesUsed) used += 1
+      state = next
+      if (state.phase !== "playing") break
+    }
   }
   return {
-    ok:
-      state.phase === "won" &&
-      used === board.par &&
-      board.optimalSolution.length === board.par,
+    ok: state.phase === "won" && used === totalPar,
     movesUsed: used,
-    par: board.par,
+    par: totalPar,
   }
 }
 
@@ -75,19 +80,15 @@ function randomWon(seed: number, modeId: ModeId): boolean {
   return state.phase === "won"
 }
 
-function stateKey(state: CrateState): number {
-  const total = state.width * state.height
-  const first = state.crates[0]!
-  const second = state.crates[1]!
-  const min = first < second ? first : second
-  const max = first < second ? second : first
-  return (state.operator * total + min) * total + max
+function stateKey(state: CrateState): string {
+  const sorted = [...state.crates].sort((a, b) => a - b)
+  return `${state.room}:${state.operator}:${sorted.join(",")}`
 }
 
 function bfs2kWon(seed: number, modeId: ModeId): boolean {
   const mode = meta.modes.find((candidate) => candidate.id === modeId)!
   const start = core.create(seed, mode)
-  const visited = new Set<number>([stateKey(start)])
+  const visited = new Set<string>([stateKey(start)])
   const queue: Array<{ readonly state: CrateState; readonly moves: number }> = [
     { state: start, moves: 0 },
   ]
@@ -98,7 +99,6 @@ function bfs2kWon(seed: number, modeId: ModeId): boolean {
     const current = queue[head]!
     head += 1
     popped += 1
-    if (current.moves >= current.state.moveBudget) continue
 
     for (const dir of DIRS) {
       const next = core.step(current.state, [move(dir)], 0)
@@ -129,7 +129,6 @@ interface ModeReport {
   readonly p90Par: number
   readonly maxPar: number
   readonly optimalRate: number
-  readonly budgetRatioOk: number
   readonly randomRate: number
   readonly bfs2kRate: number
 }
@@ -139,26 +138,26 @@ function measureMode(modeId: ModeId): ModeReport {
   let failures = 0
   let fallbackUses = 0
   let optimalPass = 0
-  let budgetPass = 0
   let randomWins = 0
   let bfsWins = 0
 
+  const rooms = modeId === "hard" ? HARD_ROOMS : EASY_ROOMS
+
   for (let offset = 0; offset < SEED_COUNT; offset += 1) {
     const seed = SEED_START + offset
-    const board = generateBoard(seed, modeId)
-    pars.push(board.par)
+    for (let room = 1; room <= rooms; room += 1) {
+      const board = generateBoard(roomSeed(seed, room), modeId)
+      pars.push(board.par)
 
-    // A fallback board means the generator exhausted its attempts for this seed.
-    if (board === FALLBACK_EASY || board === FALLBACK_HARD) {
-      fallbackUses += 1
-      failures += 1
+      // A fallback board means the generator exhausted its attempts for this room.
+      if (board === FALLBACK_EASY || board === FALLBACK_HARD) {
+        fallbackUses += 1
+        failures += 1
+      }
     }
 
     const optimum = appliesOptimal(seed, modeId)
     if (optimum.ok) optimalPass += 1
-    else failures += 1
-
-    if (board.moveBudget >= Math.ceil(1.6 * board.par)) budgetPass += 1
     else failures += 1
 
     if (randomWon(seed, modeId)) randomWins += 1
@@ -176,7 +175,6 @@ function measureMode(modeId: ModeId): ModeReport {
     p90Par: percentile(pars, 0.9),
     maxPar: pars[pars.length - 1] ?? 0,
     optimalRate: optimalPass / SEED_COUNT,
-    budgetRatioOk: budgetPass / SEED_COUNT,
     randomRate: randomWins / SEED_COUNT,
     bfs2kRate: bfsWins / SEED_COUNT,
   }
@@ -200,7 +198,6 @@ for (const report of reports) {
     `  par min/median/p90/max ${report.minPar} / ${report.medianPar} / ${report.p90Par} / ${report.maxPar}`,
   )
   console.log(`  optimalSolution @ par  ${percent(report.optimalRate)}`)
-  console.log(`  budget >= 1.6 × par    ${percent(report.budgetRatioOk)}`)
   console.log(`  random solve rate      ${percent(report.randomRate)} (gate < 5%)`)
   console.log(`  bfs2k solve rate       ${percent(report.bfs2kRate)} (reported)`)
   console.log("")
@@ -213,9 +210,6 @@ for (const report of reports) {
   }
   if (report.optimalRate !== 1) {
     gateFailures.push(`${report.modeId}: optimalSolution solved ${percent(report.optimalRate)} of seeds`)
-  }
-  if (report.budgetRatioOk !== 1) {
-    gateFailures.push(`${report.modeId}: budget ratio held on ${percent(report.budgetRatioOk)} of seeds`)
   }
   if (!(report.randomRate < RANDOM_GATE)) {
     gateFailures.push(`${report.modeId}: random solve rate ${percent(report.randomRate)} is not below 5%`)
