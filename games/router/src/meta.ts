@@ -7,7 +7,7 @@ export const meta: GameMeta = {
   description:
     "Rotate the circuit tiles to link every terminal to the power source with zero open ends.",
   author: "Await Arcade",
-  version: "1.1.0",
+  version: "1.2.0",
   engines: { arcade: "^0.1.0" },
   kind: "turn",
   modes: [
@@ -15,7 +15,7 @@ export const meta: GameMeta = {
       id: "easy",
       title: "Easy (5×5)",
       description:
-        "5 × 5 grid · Budget par + max(8, 0.6×par) · Base 2,500 (−50/turn over par) · Tiebreak: server time",
+        "5 × 5 grid · Unlimited turns · Efficiency score (par-scaled) · Tiebreak: server time",
       difficulty: 1,
       ranked: true,
     },
@@ -23,7 +23,7 @@ export const meta: GameMeta = {
       id: "hard",
       title: "Hard (6×6)",
       description:
-        "6 × 6 grid · Budget par + max(12, 1.0×par) · Base 5,000 (−50/turn over par) · Tiebreak: server time",
+        "6 × 6 grid · Unlimited turns · Efficiency score (par-scaled) · Tiebreak: server time",
       difficulty: 2,
       ranked: true,
     },

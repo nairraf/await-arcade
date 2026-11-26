@@ -2,14 +2,20 @@ import { describe, expect, it } from "vitest"
 import { playTurn } from "@await-arcade/framework"
 import {
   EAST,
+  MAX_SCORE,
   NORTH,
   SOUTH,
   WEST,
+  WIN_FLOOR,
   analyzeCircuit,
   core,
   generateBoard,
+  modeBase,
+  parCeiling,
+  parStep,
   periodOf,
   previewRotate,
+  projectedScore,
   rotateCCW,
   rotateCW,
   rotateMask,
@@ -58,7 +64,6 @@ function stateAt(
     source,
     masks: [...masks],
     par: 0,
-    rotationBudget: 999,
     rotationsUsed: 0,
     phase: "playing",
     ...overrides,
@@ -131,7 +136,6 @@ describe("generation invariants", () => {
         expect(generated.initialMasks, label).toHaveLength(cells)
         expect(generated.solvedMasks, label).toHaveLength(cells)
         expect(generated.par, label).toBeGreaterThanOrEqual(spec.minPar)
-        expect(generated.rotationBudget, label).toBeGreaterThan(generated.par)
 
         for (const mask of [...generated.solvedMasks, ...generated.initialMasks]) {
           expect(mask, label).toBeGreaterThanOrEqual(1)
@@ -183,7 +187,7 @@ describe("generation invariants", () => {
 })
 
 describe("mode specs", () => {
-  it("pins the revision-2 boards and per-mode budget slack", () => {
+  it("pins the 5×5 easy and 6×6 hard boards with unlimited turns", () => {
     expect(specFor("easy")).toMatchObject({
       id: "easy",
       width: 5,
@@ -199,25 +203,23 @@ describe("mode specs", () => {
       minPar: 18,
     })
 
-    for (const mode of [easy, hard]) {
-      for (let seed = 1; seed <= 20; seed += 1) {
-        const state = core.create(seed, mode)
-        const slack =
-          mode.id === "easy"
-            ? Math.max(8, Math.ceil(state.par * 0.6))
-            : Math.max(12, Math.ceil(state.par * 1.0))
-        expect(state.rotationBudget, `${mode.id} seed ${seed}`).toBe(state.par + slack)
-      }
-    }
+    expect(modeBase("easy")).toBe(1500)
+    expect(modeBase("hard")).toBe(3000)
+    expect(parStep("easy")).toBe(100)
+    expect(parStep("hard")).toBe(125)
+    expect(parCeiling("easy", 19)).toBe(3400)
+    expect(parCeiling("hard", 30)).toBe(6750)
   })
 
-  it("advertises the 6×6 hard mode and its budget", () => {
+  it("advertises the 6×6 hard mode and par-scaled scoring", () => {
+    const easyMode = meta.modes.find((mode) => mode.id === "easy")!
     const hardMode = meta.modes.find((mode) => mode.id === "hard")!
-    expect(meta.version).toBe("1.1.0")
+    expect(meta.version).toBe("1.2.0")
     expect(meta.display).toMatchObject({ width: 6, height: 6 })
+    expect(easyMode.description).toContain("Unlimited turns")
     expect(hardMode.title).toContain("6×6")
     expect(hardMode.description).toContain("6 × 6")
-    expect(hardMode.description).toContain("par + max(12, 1.0×par)")
+    expect(hardMode.description).toContain("Unlimited turns")
   })
 })
 
@@ -318,7 +320,7 @@ describe("determinism", () => {
   })
 })
 
-describe("input hardening and the loss path", () => {
+describe("input hardening and unlimited turns", () => {
   it("ignores malformed inputs without spending a turn", () => {
     const state = core.create(9, easy)
     const malformed: unknown[] = [
@@ -359,19 +361,20 @@ describe("input hardening and the loss path", () => {
     expect(traceRotate(state, 0, 0, 1)).toBeNull()
   })
 
-  it("loses when the rotation budget is exhausted and scores zero", () => {
+  it("allows unlimited turns while playing until the circuit is solved", () => {
     let state = core.create(9, easy)
     const index = state.masks.findIndex((mask) => periodOf(mask) > 1)
     const x = index % state.width
     const y = Math.floor(index / state.width)
-    let guard = 0
-    while (state.phase === "playing" && guard < state.rotationBudget + 10) {
+    const period = periodOf(state.masks[index]!)
+    // Spin one tile through many full cycles past par; phase remains playing.
+    const extraTurns = state.par * 3 + period * 4
+    for (let step = 0; step < extraTurns; step += 1) {
       state = core.step(state, [{ type: "rotate", x, y, dir: 1 }], 0)
-      guard += 1
     }
 
-    expect(state.phase).toBe("lost")
-    expect(state.rotationsUsed).toBe(state.rotationBudget)
+    expect(state.phase).toBe("playing")
+    expect(state.rotationsUsed).toBe(extraTurns)
     const score = core.score(state, { elapsedMs: 10_000, ticks: state.rotationsUsed })
     expect(score.value).toBe(0)
     expect(score.won).toBe(false)
@@ -412,7 +415,6 @@ describe("serialize round-trip and zero leak", () => {
           "source",
           "masks",
           "par",
-          "rotationBudget",
           "rotationsUsed",
           "phase",
         ].sort(),
@@ -424,7 +426,6 @@ describe("serialize round-trip and zero leak", () => {
       expect(serialized.source).toEqual(sample.source)
       expect(serialized.masks).toEqual(sample.masks)
       expect(serialized.par).toBe(sample.par)
-      expect(serialized.rotationBudget).toBe(sample.rotationBudget)
       expect(serialized.rotationsUsed).toBe(sample.rotationsUsed)
       expect(serialized.phase).toBe(sample.phase)
 
@@ -453,10 +454,10 @@ describe("score invariance", () => {
     expect(fast.won).toBe(slow.won)
     expect(fast.ranked).toBe(slow.ranked)
     expect(fast.detail).toEqual(slow.detail)
-    expect(fast.value).toBe(2500)
+    expect(fast.value).toBe(3400)
   })
 
-  it("scores concrete base, over-par, and floor values", () => {
+  it("scales par targets by mode and par, rewards under-par solves, and clamps bounds", () => {
     const easyBoard = generateBoard(20260420, specFor("easy"))
     const hardBoard = generateBoard(20260420, specFor("hard"))
     const easyScore = (rotationsUsed: number): number =>
@@ -482,12 +483,30 @@ describe("score invariance", () => {
         { elapsedMs: 0, ticks: 0 },
       ).value
 
-    expect(easyScore(easyBoard.par)).toBe(2500)
-    expect(easyScore(easyBoard.par - 1)).toBe(2500)
-    expect(hardScore(hardBoard.par)).toBe(5000)
-    expect(hardScore(hardBoard.par - 1)).toBe(5000)
-    expect(easyScore(easyBoard.par + 12)).toBe(1900)
-    expect(easyScore(easyBoard.par + 60)).toBe(100)
+    // Easy seed 20260420 has par=19 -> parCeiling = 1500 + 19*100 = 3400.
+    expect(easyScore(19)).toBe(3400)
+    expect(easyScore(17)).toBe(3800)
+    expect(easyScore(21)).toBe(3076)
+    expect(easyScore(38)).toBe(1700)
+    expect(easyScore(10_000)).toBe(WIN_FLOOR)
+    expect(easyScore(1)).toBe(MAX_SCORE)
+
+    // Strictly higher score for fewer moves on the same board.
+    for (let turns = 15; turns <= 45; turns += 1) {
+      expect(easyScore(turns)).toBeGreaterThan(easyScore(turns + 1))
+    }
+
+    // Hard board scales higher and preserves move efficiency ordering.
+    const hardCeiling = parCeiling("hard", hardBoard.par)
+    expect(hardScore(hardBoard.par)).toBe(hardCeiling)
+    expect(hardScore(hardBoard.par - 2)).toBeGreaterThan(hardCeiling)
+    expect(hardScore(hardBoard.par * 2)).toBe(Math.round(hardCeiling / 2))
+
+    // Mid-game projectedScore holds at parCeiling until rotationsUsed exceeds par.
+    const playingUnder = core.create(20260420, easy)
+    expect(projectedScore(playingUnder)).toBe(3400)
+    expect(projectedScore({ ...playingUnder, rotationsUsed: 10 })).toBe(3400)
+    expect(projectedScore({ ...playingUnder, rotationsUsed: 21 })).toBe(3076)
   })
 })
 
@@ -656,7 +675,7 @@ describe("replay fixture", () => {
     expect(inputs.length).toBe(21)
     expect(played.state.rotationsUsed).toBe(21)
     expect(played.state.phase).toBe("won")
-    expect(played.score.value).toBe(2400)
+    expect(played.score.value).toBe(3076)
     expect(played.verified.ok).toBe(true)
     expect(fixture.gameId).toBe("router")
     expect(fixture.gameVersion).toBe(meta.version)

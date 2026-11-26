@@ -5,16 +5,12 @@ the whole grid is powered from the centre source with zero open ends.
 
 ## Modes
 
-| Mode | Grid | Source | Turn budget | Base |
+| Mode | Grid | Source | Turn limit | Par target |
 | --- | --- | --- | --- | --- |
-| Easy | 5 × 5 | (2, 2) | `par + max(8, ceil(par × 0.6))` | 2,500 |
-| Hard | 6 × 6 | (3, 3) | `par + max(12, ceil(par × 1.0))` | 5,000 |
+| Easy | 5 × 5 | (2, 2) | Unlimited | `1,500 + 100 × par` |
+| Hard | 6 × 6 | (3, 3) | Unlimited | `3,000 + 125 × par` |
 
-Each turn over par costs 50 points. Both boards are deterministic from the run
-seed. The generator builds a random spanning tree with Prim's algorithm, then
-scrambles each tile by a random rotation. `par` is the shortest quarter-turn
-restoration distance to that reference tree; alternate valid circuits can finish
-under par.
+Score scales smoothly by move efficiency (`round(parTarget × par / turns)`, clamped to `100..10,000`), so harder boards and under-par solutions score higher while extra turns lower the score. Both boards are deterministic from the run seed. The generator builds a random spanning tree with Prim's algorithm, then scrambles each tile by a random rotation. `par` is the shortest quarter-turn restoration distance to that reference tree; alternate valid circuits can finish under par.
 
 ## Rules
 
@@ -23,13 +19,17 @@ under par.
 - A win needs every tile powered **and** every pipe arm matched: an arm into the
   grid border or a neighbour's blank wall is an open end and blocks victory.
 - 4-way crosses are symmetric, so rotating one is a free no-op.
-- Score is replay-derived: base minus 50 per turn over par, floored at 100. The
-  server uses elapsed time only as a board tiebreak.
+- Most boards have a unique solution, though roughly 5% admit an alternate
+  valid spanning tree (which can occasionally finish under `par`).
+- Score is replay-derived: `round(parTarget × par / turns)`, clamped to
+  `100..10,000`. The server uses elapsed time only as a board tiebreak.
 
 ## Controls
 
-Arrows/WASD move the cursor, Space/Enter/click rotate clockwise, Q/X/right-click
-rotate counter-clockwise, and H toggles the guide.
+Arrows/WASD/hover move the cursor, Space/Enter/click rotate clockwise,
+Q/X/right-click rotate counter-clockwise, hovering or focusing the `Rotate CW`
+/ `Rotate CCW` buttons previews the next turn on the selected tile, and H
+toggles the guide.
 
 ## Checks
 

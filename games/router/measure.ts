@@ -96,7 +96,7 @@ function randomPolicy(modeId: ModeId, seed: number): RunOutcome {
   }
 
   let guard = 0
-  while (state.phase === "playing" && guard < state.rotationBudget + 4) {
+  while (state.phase === "playing" && guard < 5_000) {
     const index = movable[policyRng.int(0, movable.length - 1)]!
     const dir: 1 | -1 = policyRng.int(0, 1) === 0 ? 1 : -1
     state = rotate(state, index, dir)
