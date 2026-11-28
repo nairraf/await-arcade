@@ -72,6 +72,9 @@ export const meta: GameMeta = {
   ],
   score: { type: "lower", min: 0, max: 100_000, unit: "moves" },
   leaderboard: "replay",
+  ranking: { value: "moves", tiebreak: "serverTime", tiebreakScope: "daily" },
+  clock: "elapsed",
+  dailyAnchor: "centerReveal",
   status: "stable",
   controls: [
     { keys: "Click", action: "Reveal" },

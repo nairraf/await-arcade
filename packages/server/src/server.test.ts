@@ -478,6 +478,67 @@ describe("daily challenge", () => {
     expect(mineBest.entry).toBeUndefined()
   })
 
+  it("keeps all-time Mineflag on moves with no server-time rank key", async () => {
+    const run = await startRun("mineflag", "beginner", "mineflag-all-time")
+    const entry = verifiers["mineflag"]!
+    const mode = entry.meta.modes.find((candidate) => candidate.id === "beginner")!
+
+    const first = { type: "reveal" as const, x: 0, y: 0 }
+    let probe = entry.core.step(entry.core.create(run.seed, mode), [first], 0) as {
+      width: number
+      height: number
+      cells: Array<{ mine: boolean; revealed: boolean }>
+    }
+    const inputs: Array<{ type: "reveal"; x: number; y: number }> = [first]
+    for (let index = 0; index < probe.width * probe.height; index += 1) {
+      if (entry.core.phase(probe) !== "playing") break
+      const cell = probe.cells[index]
+      if (!cell || cell.mine || cell.revealed) continue
+      const input: { type: "reveal"; x: number; y: number } = {
+        type: "reveal",
+        x: index % probe.width,
+        y: Math.floor(index / probe.width),
+      }
+      inputs.push(input)
+      probe = entry.core.step(probe, [input], 0) as typeof probe
+    }
+
+    const played = playTurn(entry.core, entry.meta, { seed: run.seed, mode, inputs })
+    expect(played.state.phase).toBe("won")
+
+    const submitted = await submitReplay(base, run.runId, played.replay)
+    expect(submitted.status).toBe(200)
+    const body = (await submitted.json()) as {
+      ok: boolean
+      score: {
+        value: number
+        type: string
+        won: boolean
+        ranked: boolean
+        detail?: Record<string, number | string | boolean>
+      }
+    }
+    expect(body.ok).toBe(true)
+    expect(body.score.won).toBe(true)
+    expect(body.score.ranked).toBe(true)
+    expect(body.score.type).toBe("lower")
+    expect(body.score.value).toBe(played.replay.inputs.length)
+
+    const detail = body.score.detail ?? {}
+    expect(detail.moves).toBe(played.replay.inputs.length)
+    expect(detail.rankKey).toBeUndefined()
+    expect(detail.elapsedMs).toBeUndefined()
+
+    const board = (await fetch(`${base}/v1/boards/mineflag/beginner`).then((response) =>
+      response.json(),
+    )) as {
+      entries: Array<{ playerId: string; score: { value: number }; rankKey?: string }>
+    }
+    const row = board.entries.find((item) => item.playerId === "mineflag-all-time")
+    expect(row?.score.value).toBe(played.replay.inputs.length)
+    expect(row?.rankKey).toBeUndefined()
+  })
+
   it("rejects a daily submission after the UTC date rolls over", async () => {
     let now = FIXED_NOW
     const local = createArcadeServer({

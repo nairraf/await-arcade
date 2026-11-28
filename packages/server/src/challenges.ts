@@ -65,7 +65,7 @@ function seedFor(config: DailyConfig, gameId: string, date: string): number {
 }
 
 function anchorFor(entry: VerifierEntry, mode: Mode, seed: number): RunAnchor | undefined {
-  if (entry.meta.id !== "mineflag") return undefined
+  if (entry.meta.dailyAnchor !== "centerReveal") return undefined
 
   // Reuse the core's own preset so the anchor follows the board dimensions.
   const state = entry.core.create(seed, mode) as { width?: unknown; height?: unknown }

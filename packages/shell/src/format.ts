@@ -1,4 +1,5 @@
 import type { GameMeta, Score } from "@await-arcade/contract"
+import { showsServerTime } from "./ranking"
 
 export function formatDuration(ms: number): string {
   if (!Number.isFinite(ms) || ms < 0) return "—"
@@ -45,10 +46,7 @@ export function formatBoardScore(score: Score, meta: GameMeta): string {
   if (depth) return `${base} · ${depth}`
   const elapsed = score.detail?.elapsedMs
   if (
-    (meta.id === "nonogram" ||
-      meta.id === "router" ||
-      meta.id === "tilechain" ||
-      meta.id === "crates") &&
+    showsServerTime(meta, false) &&
     typeof elapsed === "number" &&
     Number.isFinite(elapsed) &&
     elapsed >= 0
@@ -58,7 +56,7 @@ export function formatBoardScore(score: Score, meta: GameMeta): string {
   return base
 }
 
-/** Compact daily Mineflag/Nonogram/Tilechain display: headline score, server time, attempt. */
+/** Compact daily display: headline score, server time, attempt. */
 export function formatDailyScore(score: Score, meta: GameMeta): string {
   const moves = score.detail?.moves
   const elapsed = score.detail?.elapsedMs
@@ -68,10 +66,7 @@ export function formatDailyScore(score: Score, meta: GameMeta): string {
     return `${moves} mv · ${formatDuration(elapsed)}${tryLabel}`
   }
   if (
-    (meta.id === "nonogram" ||
-      meta.id === "router" ||
-      meta.id === "tilechain" ||
-      meta.id === "crates") &&
+    showsServerTime(meta, true) &&
     typeof elapsed === "number" &&
     Number.isFinite(elapsed) &&
     elapsed >= 0

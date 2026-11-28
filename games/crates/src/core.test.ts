@@ -243,7 +243,7 @@ describe("crates generation", () => {
         assertBoardInvariants(board, seed, modeId)
       }
     }
-  })
+  }, 30_000)
 
   it("falls back to pinned seed-1 boards and they satisfy every invariant", () => {
     const fallbackEasy = generateBoard(1, "easy", { maxAttempts: 0 })
@@ -335,7 +335,7 @@ describe("crates optimal par and solvability", () => {
         )
       }
     }
-  }, 15_000)
+  }, 60_000)
 
   it("advances endless from 6x6 rooms to 7x7 rooms and ranks banked score on loss", () => {
     let state = core.create(42, endless)

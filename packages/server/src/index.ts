@@ -12,6 +12,7 @@ import {
   type DailyConfig,
 } from "./challenges"
 import { githubClientFromEnv, type GitHubClient } from "./github"
+import { rankKeyFor, rankingPolicy } from "./ranking"
 import { verifiers } from "./registry.generated"
 import { gameXp, levelFor, medalsFor, totalXp, xpForRun } from "./xp"
 import {
@@ -64,16 +65,6 @@ function winner(a: Score, b: Score): boolean {
 
 function boardKey(gameId: string, modeId: string): string {
   return `${gameId}:${modeId}:all`
-}
-
-function usesRankKey(gameId: string, challengeId?: string): boolean {
-  return (
-    gameId === "nonogram" ||
-    gameId === "router" ||
-    gameId === "tilechain" ||
-    gameId === "crates" ||
-    (gameId === "mineflag" && Boolean(challengeId))
-  )
 }
 
 function json(
@@ -748,57 +739,37 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
         }
 
         const score = verified.score
+        const policy = rankingPolicy(entry.meta, run.challengeId)
         let boardScore = score
         let boardRankKey: string | undefined
-        if (run.gameId === "mineflag" && run.challengeId) {
-          const moves = verified.ticks ?? score.value
-          const elapsedMs = Math.max(0, Date.now() - run.createdAt)
-          const attempt = run.attempt ?? 1
-          boardRankKey = [
-            String(moves).padStart(6, "0"),
-            String(elapsedMs).padStart(10, "0"),
-          ].join("|")
-          boardScore = {
-            ...score,
-            value: moves,
-            type: "lower",
-            detail: {
-              ...(score.detail ?? {}),
-              moves,
-              elapsedMs,
-              attempt,
-              rankKey: boardRankKey,
-            },
-          }
-        } else if (
-          run.gameId === "nonogram" ||
-          run.gameId === "router" ||
-          run.gameId === "tilechain" ||
-          run.gameId === "crates"
-        ) {
+        if (policy.value === "moves" || policy.timed) {
           // The ranked value is the verifier's own: pure, replay-derived, and
-          // identical whenever the same replay is checked. Elapsed time is a
-          // tiebreak in the rank key only, mirroring mineflag's daily board, so
-          // an interrupted or paused run keeps its score.
+          // identical whenever the same replay is checked. Server elapsed time
+          // is a tiebreak in the rank key only, so an interrupted or paused run
+          // keeps its score.
           const elapsedMs = Math.min(9_999_999_999, Math.max(0, Date.now() - run.createdAt))
-          const value = Math.max(0, Math.min(entry.meta.score.max, Math.round(score.value)))
-          const penalty = Math.max(0, entry.meta.score.max - value)
-          boardRankKey = [
-            String(penalty).padStart(6, "0"),
-            String(elapsedMs).padStart(10, "0"),
-          ].join("|")
+          const value =
+            policy.value === "moves"
+              ? (verified.ticks ?? score.value)
+              : Math.max(0, Math.min(entry.meta.score.max, Math.round(score.value)))
+          const type = policy.value === "moves" ? "lower" : score.type
+          boardRankKey = policy.timed
+            ? rankKeyFor(type, entry.meta.score.max, value, elapsedMs)
+            : undefined
           boardScore = {
             ...score,
             value,
+            type,
             detail: {
               ...(score.detail ?? {}),
-              elapsedMs,
-              // Rules version the value was produced under. A board row whose
-              // gameVersion the shipped verifier no longer accepts is stale and
-              // must be purged rather than ranked.
+              ...(policy.value === "moves" ? { moves: value } : {}),
+              ...(policy.timed ? { elapsedMs } : {}),
+              // Rules version the value was produced under. Stored so a board
+              // read can drop rows the shipped verifier no longer accepts;
+              // nothing consumes it yet.
               gameVersion: entry.meta.version,
               ...(run.challengeId ? { attempt: run.attempt ?? 1 } : {}),
-              rankKey: boardRankKey,
+              ...(boardRankKey ? { rankKey: boardRankKey } : {}),
             },
           }
         }
@@ -881,7 +852,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           run.playerId,
           entry.meta.score.type,
           undefined,
-          usesRankKey(run.gameId, run.challengeId) ? "rankKey" : "score",
+          policy.timed ? "rankKey" : "score",
         )
 
         json(res, 200, {
@@ -945,7 +916,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
           challenge.challengeId,
           50,
           entry.meta.score.type,
-          usesRankKey(challenge.gameId, challenge.challengeId) ? "rankKey" : "score",
+          rankingPolicy(entry.meta, challenge.challengeId).timed ? "rankKey" : "score",
         ))
         json(res, 200, { ...challenge, period: "daily", entries }, true, BOARD_CACHE_CONTROL)
         return
@@ -1016,7 +987,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
               pid,
               entry.meta.score.type,
               enriched,
-              usesRankKey(gameId) ? "rankKey" : "score",
+              rankingPolicy(entry.meta).timed ? "rankKey" : "score",
             )
           : undefined
 
@@ -1060,7 +1031,7 @@ export function createArcadeServer(options: ArcadeServerOptions = {}): ArcadeSer
             boardKey(gameId, modeId),
             50,
             entry.meta.score.type,
-            usesRankKey(gameId) ? "rankKey" : "score",
+            rankingPolicy(entry.meta).timed ? "rankKey" : "score",
           ),
         )
         json(res, 200, { gameId, modeId, period: "all", entries }, true, BOARD_CACHE_CONTROL)

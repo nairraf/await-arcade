@@ -19,6 +19,7 @@ import { openAuthModal } from "./auth-modal"
 import { type BoardsState, renderBoardsView } from "./boards-view"
 import { formatDailyScore, formatDuration, formatScore, isBetter, scoreLabel } from "./format"
 import { LocalHost } from "./host"
+import { hasTurnClock, rankingHint, ranksByMoves, showsClock, showsServerTime } from "./ranking"
 import { styles } from "./styles"
 import {
   autoPauseLabel,
@@ -55,12 +56,6 @@ interface ActiveGame {
   runner: GameRunner<any, any>
   cleanup: () => void
 }
-
-const isTimedTurn = (meta: GameMeta): boolean =>
-  meta.id === "mineflag" || meta.id === "nonogram"
-
-const showsElapsedTimer = (meta: GameMeta): boolean =>
-  meta.kind === "realtime" || isTimedTurn(meta)
 
 export function createArcade(options: ArcadeOptions): Arcade {
   if (options.injectStyles !== false) ensureStyle("arcade-shell-styles", styles)
@@ -324,20 +319,8 @@ export function createArcade(options: ArcadeOptions): Arcade {
         `${mode.title} · one fixed seed for everyone · best of three`,
       ),
     )
-    if (entry.meta.id === "mineflag") {
-      body.append(
-        el("div", "arcade-mode-hint", "Daily rank: moves, then server time. Attempts are shown only."),
-      )
-    } else if (
-      entry.meta.id === "nonogram" ||
-      entry.meta.id === "router" ||
-      entry.meta.id === "tilechain" ||
-      entry.meta.id === "crates"
-    ) {
-      body.append(
-        el("div", "arcade-mode-hint", "Daily rank: score, then server time. Attempts are shown only."),
-      )
-    }
+    const hint = rankingHint(entry.meta, true)
+    if (hint) body.append(el("div", "arcade-mode-hint", hint))
 
     const remaining = Math.max(0, challenge.attemptsLeft)
     const meta = el("div", "arcade-daily-meta")
@@ -824,8 +807,8 @@ export function createArcade(options: ArcadeOptions): Arcade {
     )
     const bestCell = hudCell(bestLabel, best ? formatScore(best, entry.meta) : "—")
     const time = hudCell(
-      showsElapsedTimer(entry.meta) ? "Elapsed" : "Status",
-      showsElapsedTimer(entry.meta) ? "0.0s" : "Playing",
+      showsClock(entry.meta) ? "Elapsed" : "Status",
+      showsClock(entry.meta) ? "0.0s" : "Playing",
     )
     const hud = el("div", "arcade-hud")
     hud.append(score.root, bestCell.root, time.root)
@@ -1074,6 +1057,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
       if (submit.rank !== undefined) detailParts.push(`Rank #${submit.rank}`)
       if (submit.xp !== undefined && submit.xp > 0) detailParts.push(`+${submit.xp} XP`)
+      const serverTimed = showsServerTime(entry.meta, Boolean(daily))
       if (daily && submit.score) {
         const detail = submit.score.detail ?? {}
         const elapsed = typeof detail.elapsedMs === "number" ? detail.elapsedMs : undefined
@@ -1083,26 +1067,14 @@ export function createArcade(options: ArcadeOptions): Arcade {
           detailParts.push(
             `Attempt ${attempt} · server ${formatDuration(elapsed)} · ${moves} moves.`,
           )
-        } else if (
-          elapsed !== undefined &&
-          (entry.meta.id === "nonogram" ||
-            entry.meta.id === "router" ||
-            entry.meta.id === "tilechain" ||
-            entry.meta.id === "crates")
-        ) {
+        } else if (elapsed !== undefined && serverTimed) {
           detailParts.push(
             `Attempt ${attempt} · server ${formatDuration(elapsed)}.`,
           )
         }
-      } else if (!daily && entry.meta.id === "mineflag") {
+      } else if (!daily && ranksByMoves(entry.meta)) {
         detailParts.push(`Time ${formatDuration(result.replay.durationMs)}.`)
-      } else if (
-        !daily &&
-        (entry.meta.id === "nonogram" ||
-          entry.meta.id === "router" ||
-          entry.meta.id === "tilechain" ||
-          entry.meta.id === "crates")
-      ) {
+      } else if (!daily && serverTimed) {
         const serverElapsed = submit.score?.detail?.elapsedMs
         detailParts.push(
           typeof serverElapsed === "number"
@@ -1196,7 +1168,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
         lastTicks = ticks
         const preview = entry.core.score(state, { elapsedMs, ticks })
         score.value.textContent = formatScore(preview, entry.meta)
-        if (showsElapsedTimer(entry.meta)) {
+        if (showsClock(entry.meta)) {
           time.value.textContent = formatDuration(elapsedMs)
         } else {
           time.value.textContent = entry.core.phase(state) === "playing" ? "Playing" : "Finished"
@@ -1210,7 +1182,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
           clearInterval(elapsedTimer)
           elapsedTimer = undefined
         }
-        if (isTimedTurn(entry.meta)) {
+        if (hasTurnClock(entry.meta)) {
           time.value.textContent = formatDuration(result.replay.durationMs)
         } else if (entry.meta.kind === "turn") {
           time.value.textContent = result.score.won ? "Won" : "Lost"
@@ -1377,7 +1349,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
       }
     }
 
-    if (isTimedTurn(entry.meta)) {
+    if (hasTurnClock(entry.meta)) {
       elapsedTimer = setInterval(() => {
         if (runner && !runner.paused() && entry.core.phase(runner.state()) === "playing") {
           time.value.textContent = formatDuration(runner.elapsedMs())

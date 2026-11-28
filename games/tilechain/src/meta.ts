@@ -28,6 +28,7 @@ export const meta: GameMeta = {
   ],
   score: { type: "higher", min: 0, max: MAX_SCORE, unit: "points" },
   leaderboard: "replay",
+  ranking: { tiebreak: "serverTime" },
   status: "experimental",
   controls: [
     { keys: "← / → / A / D", action: "Select column" },

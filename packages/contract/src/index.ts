@@ -45,6 +45,19 @@ export interface ControlHint {
   readonly action: string
 }
 
+/**
+ * How a ranked board orders runs. Games declare this once; the server derives
+ * the stored rank key and the shell derives its copy from the same metadata.
+ */
+export interface GameRanking {
+  /** Primary board value. "moves" writes the verified input count. Defaults to "score". */
+  readonly value?: "score" | "moves"
+  /** Ascending server-clock tiebreak for equal primary values. */
+  readonly tiebreak?: "serverTime"
+  /** Limit the tiebreak to daily boards. Defaults to every ranked board. */
+  readonly tiebreakScope?: "always" | "daily"
+}
+
 export interface ScoreDetail {
   readonly [key: string]: number | string | boolean
 }
@@ -113,6 +126,12 @@ export interface GameMeta {
     readonly unit?: "time" | "moves" | "points"
   }
   readonly leaderboard: "replay" | "bounds" | "none"
+  /** How ranked runs are ordered and displayed. Omit for plain score order. */
+  readonly ranking?: GameRanking
+  /** Turn games that show a live elapsed clock. Realtime games always do. */
+  readonly clock?: "elapsed"
+  /** Server-enforced first input for the daily challenge. Omit for none. */
+  readonly dailyAnchor?: "centerReveal"
   readonly status: GamePublicationStatus
   readonly controls: readonly ControlHint[]
   readonly display: Display

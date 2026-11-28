@@ -31,6 +31,31 @@ interface Score {
 - Set `meta.score.unit` (`time`, `moves`, or `points`) so the shell formats the
   value correctly.
 
+## Ranking metadata
+
+Declare ordering in `meta.ranking`; never rely on the server or shell knowing
+your game id.
+
+- `ranking.tiebreak: "serverTime"` adds a server-clock tiebreak when primary
+  values are equal. `tiebreakScope: "daily"` limits it to daily boards; omit for
+  every ranked board.
+- `ranking.value: "moves"` writes the verified input count as a lower-is-better
+  board value. It requires `meta.score.type: "lower"`.
+- `meta.clock: "elapsed"` shows the live elapsed clock on a turn game (realtime
+  games always show one).
+- `meta.dailyAnchor: "centerReveal"` asks the server to require a centre reveal
+  as the daily prelude.
+
+A timed board's `score.max` must stay below 1,000,000: the stored rank key pads
+the primary value to six digits. A `moves` board must be turn-based and keep
+`maxInputs` below the same bound.
+
+The server derives the stored rank key and the shell derives board formatting
+and rank hints from these fields. Run `npm run check`; the generic cartridge
+contract suite rejects incoherent declarations (moves ranking on a realtime or
+higher-score game, a timed board without replay verification, a score range that
+overflows the six-digit rank key, or a daily anchor the core cannot play).
+
 ## Arcade-wide points
 
 Don't sum raw scores across games. Normalize:
