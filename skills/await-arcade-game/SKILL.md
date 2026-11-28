@@ -37,7 +37,12 @@ The server imports `core.ts`, never `view.ts`.
 4. **Implement `view.ts`.** DOM for board games, canvas for action games.
    Dispatch inputs through `ctx.dispatch`; never mutate game state directly.
 5. **Write tests.** At minimum: determinism, win path, loss path, and replay
-   verification. Add a `replay.json` fixture when the game is stable.
+   verification. Add a `replay.json` fixture when the game is stable. The
+   generic cartridge contract suite (`packages/shell/src/contract.test.ts`)
+   automatically covers every registered game's metadata, deterministic
+   creation, live score bounds, fixture verification, and shell/server registry
+   parity — your own tests still own the rules, edge cases, and difficulty
+   measurement.
 6. **Register it.**
    ```sh
    npm run aa -- sync
@@ -51,6 +56,8 @@ The server imports `core.ts`, never `view.ts`.
 ## Definition of done
 
 - `npm run check` passes.
+- The generic cartridge contract suite passes for the new game, and a
+  `replay.json` fixture verifies.
 - `core.ts` has no `Math.random`, `Date.now`, `performance.now`, `window`,
   `document`, `fetch`, `localStorage`, `eval`, or `new Function`.
 - Same seed + same inputs produce the same serialized state on Node and in a
