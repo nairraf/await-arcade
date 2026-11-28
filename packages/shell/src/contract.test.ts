@@ -4,7 +4,9 @@ import { fileURLToPath } from "node:url"
 import { describe, expect, it } from "vitest"
 import type { Replay } from "@await-arcade/contract"
 import { verifyReplay } from "@await-arcade/framework"
+import { rankingPolicy } from "../../server/src/ranking"
 import { games } from "./registry.generated"
+import { ranksByMoves, showsServerTime } from "./ranking"
 import { verifiers } from "../../server/src/registry.generated"
 
 const gamesDir = fileURLToPath(new URL("../../../games", import.meta.url))
@@ -23,7 +25,7 @@ describe("cartridge contract", () => {
   it("declares coherent metadata for every cartridge and mode", () => {
     const ids = new Set<string>()
 
-    for (const { meta } of games) {
+    for (const { meta, core } of games) {
       expect(meta.id, "game id").toMatch(/^[a-z][a-z0-9-]*$/)
       expect(ids.has(meta.id), `duplicate game id: ${meta.id}`).toBe(false)
       ids.add(meta.id)
@@ -66,6 +68,73 @@ describe("cartridge contract", () => {
         expect(variantIds.has(variant.id), `${meta.id} duplicate variant ${variant.id}`).toBe(false)
         variantIds.add(variant.id)
         expect(variant.title.trim(), `${meta.id}/${variant.id} variant title`).not.toBe("")
+      }
+
+      if (meta.ranking?.value === "moves") {
+        expect(meta.score.type, `${meta.id} moves ranking needs a lower score`).toBe("lower")
+        expect(meta.kind, `${meta.id} moves ranking needs a turn game`).toBe("turn")
+      }
+      if (meta.ranking?.tiebreakScope !== undefined) {
+        expect(
+          meta.ranking.tiebreak,
+          `${meta.id} tiebreakScope without a tiebreak`,
+        ).toBe("serverTime")
+      }
+      if (meta.ranking?.tiebreak !== undefined) {
+        expect(meta.leaderboard, `${meta.id} timed ranking needs replay verification`).toBe(
+          "replay",
+        )
+      }
+      if (meta.ranking?.tiebreak === "serverTime") {
+        // The stored rank key pads the primary value to six digits.
+        expect(meta.score.max, `${meta.id} timed score max needs six digits`).toBeLessThan(
+          1_000_000,
+        )
+        if (meta.ranking.value === "moves") {
+          expect(
+            meta.maxInputs ?? 10_000,
+            `${meta.id} timed moves need six digits`,
+          ).toBeLessThan(1_000_000)
+        }
+      }
+      if (meta.clock !== undefined) {
+        expect(meta.kind, `${meta.id} clock on a realtime game`).toBe("turn")
+      }
+      if (meta.dailyAnchor !== undefined) {
+        expect(meta.kind, `${meta.id} daily anchor on a realtime game`).toBe("turn")
+        for (const mode of meta.modes) {
+          const state = core.create(12345, mode) as { width?: unknown; height?: unknown }
+          const width = state.width
+          const height = state.height
+          expect(Number.isInteger(width), `${meta.id}/${mode.id} anchor width`).toBe(true)
+          expect(Number.isInteger(height), `${meta.id}/${mode.id} anchor height`).toBe(true)
+          const anchor = {
+            type: "reveal",
+            x: Math.floor((width as number) / 2),
+            y: Math.floor((height as number) / 2),
+          }
+          const before = core.serialize(state)
+          const next = core.step(state, [anchor], 0)
+          expect(core.phase(next), `${meta.id}/${mode.id} anchor is playable`).toBe("playing")
+          expect(
+            core.serialize(next),
+            `${meta.id}/${mode.id} anchor changes the state`,
+          ).not.toEqual(before)
+        }
+      }
+    }
+  })
+
+  it("keeps the server and shell ranking derivations in agreement", () => {
+    for (const { meta } of games) {
+      expect(rankingPolicy(meta).value === "moves", `${meta.id} primary value`).toBe(
+        ranksByMoves(meta),
+      )
+      for (const daily of [false, true]) {
+        expect(
+          rankingPolicy(meta, daily ? "challenge" : undefined).timed,
+          `${meta.id} timed daily=${daily}`,
+        ).toBe(showsServerTime(meta, daily))
       }
     }
   })

@@ -25,6 +25,8 @@ export const meta: GameMeta = {
   ],
   score: { type: "higher", min: 0, max: 10_000, unit: "points" },
   leaderboard: "replay",
+  ranking: { tiebreak: "serverTime" },
+  clock: "elapsed",
   status: "experimental",
   controls: [
     { keys: "Click / Drag", action: "Fill or paint with the active tool" },

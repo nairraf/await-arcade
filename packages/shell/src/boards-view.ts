@@ -7,6 +7,7 @@ import type {
 } from "@await-arcade/contract"
 import { el } from "@await-arcade/framework"
 import { formatBoardScore, formatDailyScore, scoreLabel } from "./format"
+import { rankingHint } from "./ranking"
 import { applyRank, errorMessage, renderBoardRow, xpSummaryNote } from "./ui"
 
 export interface BoardsState {
@@ -252,17 +253,7 @@ export async function renderBoardsView(options: ShowBoardsOptions): Promise<void
 
   controls.append(play, refresh)
 
-  const scoringHintText =
-    daily && entry.meta.id === "mineflag"
-      ? "Daily rank: moves, then server time. Attempts are shown only."
-      : entry.meta.id === "nonogram" ||
-          entry.meta.id === "router" ||
-          entry.meta.id === "tilechain" ||
-          entry.meta.id === "crates"
-        ? daily
-          ? "Daily rank: score, then server time. Attempts are shown only."
-          : "Rank: score, then server time."
-        : undefined
+  const scoringHintText = rankingHint(entry.meta, Boolean(daily))
   const scoringHint = scoringHintText
     ? el("div", "arcade-mode-hint", scoringHintText)
     : undefined

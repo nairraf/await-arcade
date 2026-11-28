@@ -30,6 +30,7 @@ function makeMeta(
     readonly modes?: GameMeta["modes"]
     readonly variants?: GameMeta["variants"]
     readonly score?: GameMeta["score"]
+    readonly ranking?: GameMeta["ranking"]
   } = {},
 ): GameMeta {
   return {
@@ -44,6 +45,7 @@ function makeMeta(
     ...(overrides.variants ? { variants: overrides.variants } : {}),
     score: overrides.score ?? { type: "higher", min: 0, max: 1000, unit: "points" },
     leaderboard: "replay",
+    ...(overrides.ranking ? { ranking: overrides.ranking } : {}),
     status: "stable",
     controls: [],
     display: { surface: "dom", width: 320, height: 240 },
@@ -227,6 +229,7 @@ describe("shell format and board normalisation helpers", () => {
     const nonogramMeta: GameMeta = {
       ...makeMeta({
         score: { type: "higher", min: 0, max: 1000, unit: "points" },
+        ranking: { tiebreak: "serverTime" },
       }),
       id: "nonogram",
     }
@@ -243,6 +246,7 @@ describe("shell format and board normalisation helpers", () => {
     const tilechainMeta: GameMeta = {
       ...makeMeta({
         score: { type: "higher", min: 0, max: 999_999, unit: "points" },
+        ranking: { tiebreak: "serverTime" },
       }),
       id: "tilechain",
     }
@@ -259,6 +263,7 @@ describe("shell format and board normalisation helpers", () => {
     const cratesMeta: GameMeta = {
       ...makeMeta({
         score: { type: "higher", min: 0, max: 10_000, unit: "points" },
+        ranking: { tiebreak: "serverTime" },
       }),
       id: "crates",
     }
@@ -285,6 +290,7 @@ describe("shell format and board normalisation helpers", () => {
     const routerMeta: GameMeta = {
       ...makeMeta({
         score: { type: "higher", min: 0, max: 10_000, unit: "points" },
+        ranking: { tiebreak: "serverTime" },
       }),
       id: "router",
     }

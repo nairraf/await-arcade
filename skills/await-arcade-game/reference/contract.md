@@ -40,6 +40,16 @@ interface GameMeta {
   variants?: { id: string; title: string; description: string }[]
   score: { type: "higher" | "lower"; min: number; max: number; unit?: "time" | "moves" | "points" }
   leaderboard: "replay" | "bounds" | "none"
+  /** Opt into server-time ordering and the matching display. */
+  ranking?: {
+    value?: "score" | "moves"
+    tiebreak?: "serverTime"
+    tiebreakScope?: "always" | "daily"
+  }
+  /** Turn games only: show a live elapsed clock. Realtime games always do. */
+  clock?: "elapsed"
+  /** Server-enforced first input for the daily challenge. */
+  dailyAnchor?: "centerReveal"
   status: "stable" | "experimental"
   controls: { keys: string; action: string }[]
   display: { surface: "dom" | "canvas"; width: number; height: number; pixelated?: boolean }
