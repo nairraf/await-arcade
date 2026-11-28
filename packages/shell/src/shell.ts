@@ -195,7 +195,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     syncAutoPauseButton()
   })
 
-  const boardsButton = el("button", "arcade-btn arcade-btn-ghost", "Boards")
+  const boardsButton = el("button", "arcade-btn arcade-btn-ghost", "Leaderboards")
   boardsButton.type = "button"
   boardsButton.hidden = host.board === undefined
   boardsButton.title = "All-time leaderboards"
@@ -382,7 +382,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
       })
     }
 
-    const board = el("button", "arcade-btn", "Daily board")
+    const board = el("button", "arcade-btn", "Daily leaderboard")
     board.type = "button"
     board.addEventListener("click", () => {
       void showBoards(entry.meta.id, mode.id, challenge)
@@ -804,9 +804,8 @@ export function createArcade(options: ArcadeOptions): Arcade {
     }
 
     actions.append(pause, restart)
-    let boardButton: HTMLButtonElement | undefined
     if (isRankedMode && (host.board || (isDaily && host.dailyBoard))) {
-      boardButton = el("button", "arcade-btn", "Board")
+      const boardButton = el("button", "arcade-btn", "Leaderboard")
       boardButton.type = "button"
       boardButton.addEventListener("click", () => {
         void showBoard()
@@ -1031,8 +1030,6 @@ export function createArcade(options: ArcadeOptions): Arcade {
       previousBest: Score | undefined,
       practice = false,
     ): void => {
-      if (boardButton) boardButton.disabled = true
-
       const currentKey = submit.score?.detail?.rankKey
       const bestKey = submit.best?.detail?.rankKey
       const previousKey = previousBest?.detail?.rankKey
@@ -1126,12 +1123,20 @@ export function createArcade(options: ArcadeOptions): Arcade {
         again.disabled = true
         again.textContent = "Daily attempts used"
       }
-      const viewBoard = button("View board", false, () => {
-        hideOverlay()
+      const backToGame = button("Back to game", false, () => {
         pause.textContent = "Results"
         pause.disabled = false
+        hideOverlay()
       })
-      const actions = [again, viewBoard, button("Lobby", false, showLauncher)]
+      const actions = [again, backToGame]
+      if (host.board || (daily && host.dailyBoard)) {
+        actions.push(
+          button(daily ? "Daily leaderboard" : "Leaderboard", false, () => {
+            void showBoard()
+          }),
+        )
+      }
+      actions.push(button("Lobby", false, showLauncher))
       if (allowReplayDownload) {
         actions.push(
           button("Download replay", false, () => {
@@ -1145,26 +1150,11 @@ export function createArcade(options: ArcadeOptions): Arcade {
           }),
         )
       }
-      if (practice && host.board) {
-        actions.push(
-          button("Leaderboard", false, () => {
-            void showBoards(entry.meta.id, mode.id)
-          }),
-        )
-      }
-      if (daily && host.board) {
-        actions.push(
-          button("Daily board", false, () => {
-            void showBoards(entry.meta.id, mode.id, daily)
-          }),
-        )
-      }
-
       const displayScore = !practice && submit.ok && submit.score ? submit.score : result.score
       score.value.textContent = formatScore(displayScore, entry.meta)
 
       const openGameOver = (): void => {
-        pause.textContent = "View board"
+        pause.textContent = "Results"
         pause.disabled = false
         showOverlay(() =>
           overlayCard(
@@ -1252,7 +1242,7 @@ export function createArcade(options: ArcadeOptions): Arcade {
     })
 
     const showBoard = async (): Promise<void> => {
-      if (finished || pause.disabled || boardPending) return
+      if (boardPending) return
       const activeDaily = daily
       const fetchBoard = activeDaily && host.dailyBoard
         ? () => host.dailyBoard!(activeDaily.challengeId)
@@ -1260,8 +1250,9 @@ export function createArcade(options: ArcadeOptions): Arcade {
       if (!fetchBoard) return
       boardPending = true
 
-      const wasRunning = !runner.paused()
-      const wasPaused = runner.paused()
+      const wasFinished = finished
+      const wasRunning = !wasFinished && !runner.paused()
+      const wasPaused = !wasFinished && runner.paused()
       if (wasRunning) {
         runner.pause()
         pause.textContent = "Resume"
@@ -1269,7 +1260,10 @@ export function createArcade(options: ArcadeOptions): Arcade {
 
       const close = (): void => {
         boardPending = false
-        if (wasRunning) {
+        if (wasFinished) {
+          if (reopenGameOver) reopenGameOver()
+          else hideOverlay()
+        } else if (wasRunning) {
           hideOverlay()
           runner.resume()
           pause.textContent = "Pause"
@@ -1280,7 +1274,16 @@ export function createArcade(options: ArcadeOptions): Arcade {
         }
       }
 
-      const loadingClose = button("Resume", true, close)
+      const closeToGame = (): void => {
+        boardPending = false
+        hideOverlay()
+        if (wasFinished) {
+          pause.textContent = "Results"
+          pause.disabled = false
+        }
+      }
+
+      const loadingClose = button(wasFinished ? "Results" : "Resume", true, close)
       showOverlay(() => {
         const card = el("div", "arcade-overlay-card")
         card.setAttribute("role", "dialog")
@@ -1341,18 +1344,23 @@ export function createArcade(options: ArcadeOptions): Arcade {
         }
 
         const boardActions = el("div", "arcade-overlay-actions")
-        const closeButton = button(wasRunning ? "Resume" : "Close", true, close)
-        boardActions.append(
-          closeButton,
-          button("Play again", false, restartRun),
+        const closeButton = button(
+          wasFinished ? "Results" : wasRunning || wasPaused ? "Resume" : "Close",
+          true,
+          close,
         )
+        boardActions.append(closeButton)
+        if (wasFinished) {
+          boardActions.append(button("Back to game", false, closeToGame))
+        }
+        boardActions.append(button("Play again", false, restartRun))
         card.append(boardActions)
         showOverlay(() => card)
         closeBoard = close
         closeButton.focus()
       } catch (error) {
         if (generation !== playGeneration || token !== overlayEpoch) return
-        const closeButton = button("Close", true, close)
+        const closeButton = button(wasFinished ? "Results" : "Close", true, close)
         showOverlay(() =>
           overlayCard(
             "LEADERBOARD",
